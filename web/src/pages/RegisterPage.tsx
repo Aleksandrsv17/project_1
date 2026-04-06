@@ -22,7 +22,7 @@ export default function RegisterPage() {
     setError(''); setLoading(true);
     try {
       await register(form);
-      navigate('/dashboard');
+      navigate(form.role === 'owner' ? '/owner' : '/vehicles');
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Registration failed');
     } finally { setLoading(false); }

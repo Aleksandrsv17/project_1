@@ -74,6 +74,36 @@ export class BookingController {
     }
   }
 
+  async ownerBookings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const { value, error } = validate(bookingQuerySchema, req.query);
+      if (error) throw new ValidationError(error);
+
+      const { bookings, total } = await bookingService.findByOwner(
+        authReq.user.sub,
+        value.status,
+        value.page,
+        value.limit
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          bookings,
+          pagination: {
+            total,
+            page: value.page,
+            limit: value.limit,
+            pages: Math.ceil(total / value.limit),
+          },
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async confirm(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;

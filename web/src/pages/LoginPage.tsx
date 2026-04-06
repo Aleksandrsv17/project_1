@@ -11,7 +11,7 @@ export default function LoginPage() {
   const { login } = useAuthStore();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from || '/dashboard';
+  const from = (location.state as any)?.from || '/vehicles';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,8 +19,8 @@ export default function LoginPage() {
     try {
       await login(email, password);
       navigate(from, { replace: true });
-    } catch {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      setError(err?.response?.data?.error?.message || err?.message || 'Login failed');
     } finally { setLoading(false); }
   };
 

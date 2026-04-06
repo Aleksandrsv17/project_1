@@ -267,6 +267,61 @@ export class BookingService {
     return { bookings, total };
   }
 
+  async findByOwner(
+    ownerId: string,
+    status?: BookingStatus,
+    page = 1,
+    limit = 20
+  ): Promise<{ bookings: BookingWithDetails[]; total: number }> {
+    const conditions = ['v.owner_id = $1'];
+    const values: unknown[] = [ownerId];
+    let paramIdx = 2;
+
+    if (status) {
+      conditions.push(`b.status = $${paramIdx++}`);
+      values.push(status);
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const offset = (page - 1) * limit;
+
+    const countResult = await query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM bookings b
+       JOIN vehicles v ON v.id = b.vehicle_id
+       ${whereClause}`,
+      values
+    );
+    const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
+
+    const dataValues = [...values, limit, offset];
+    const result = await query<Booking & {
+      v_make: string; v_model: string; v_year: number; v_license_plate: string;
+      v_color: string | null; v_category: string;
+      u_first_name: string; u_last_name: string; u_email: string; u_phone: string | null;
+    }>(
+      `SELECT b.*,
+        v.make AS v_make, v.model AS v_model, v.year AS v_year,
+        v.license_plate AS v_license_plate, v.color AS v_color, v.category AS v_category,
+        u.first_name AS u_first_name, u.last_name AS u_last_name,
+        u.email AS u_email, u.phone AS u_phone
+       FROM bookings b
+       JOIN vehicles v ON v.id = b.vehicle_id
+       LEFT JOIN users u ON u.id = b.customer_id
+       ${whereClause}
+       ORDER BY b.created_at DESC
+       LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+      dataValues
+    );
+
+    const bookings: BookingWithDetails[] = result.rows.map(row => ({
+      ...row,
+      vehicle: { make: row.v_make, model: row.v_model, year: row.v_year, license_plate: row.v_license_plate, color: row.v_color, category: row.v_category },
+      customer: { first_name: row.u_first_name, last_name: row.u_last_name, email: row.u_email, phone: row.u_phone },
+    }));
+
+    return { bookings, total };
+  }
+
   async confirm(bookingId: string, paymentIntentId: string, userId: string): Promise<Booking> {
     const result = await query<Booking>(
       "SELECT * FROM bookings WHERE id = $1 AND status = 'pending'",
