@@ -53,6 +53,9 @@ export function hashToken(token: string): string {
 
 export function getRefreshTokenExpiresAt(): Date {
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
+  const str = config.jwt.refreshExpiresIn; // e.g. "7d", "14d"
+  const match = str.match(/^(\d+)d$/);
+  const days = match ? parseInt(match[1], 10) : 7;
+  expiresAt.setDate(expiresAt.getDate() + days);
   return expiresAt;
 }

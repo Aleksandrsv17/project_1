@@ -39,6 +39,7 @@ export interface CreateBookingDto {
   mode: BookingMode;
   start_time: Date;
   end_time?: Date;
+  duration_hours?: number;
   pickup_address?: string;
   pickup_lat?: number;
   pickup_lng?: number;

@@ -13,7 +13,7 @@ export default function UsersPage() {
   });
 
   const approveKyc = useMutation({
-    mutationFn: (id: string) => api.patch(`/users/${id}`, { kyc_status: 'approved' }),
+    mutationFn: (id: string) => api.patch(`/users/${id}/kyc`, { kyc_status: 'approved' }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
 

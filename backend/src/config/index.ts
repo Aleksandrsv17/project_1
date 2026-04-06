@@ -46,8 +46,8 @@ export const config = {
   },
 
   jwt: {
-    accessSecret: optional('JWT_ACCESS_SECRET', 'dev-access-secret-change-in-production-32chars'),
-    refreshSecret: optional('JWT_REFRESH_SECRET', 'dev-refresh-secret-change-in-production-32chars'),
+    accessSecret: required('JWT_ACCESS_SECRET'),
+    refreshSecret: required('JWT_REFRESH_SECRET'),
     accessExpiresIn: optional('JWT_ACCESS_EXPIRES_IN', '15m'),
     refreshExpiresIn: optional('JWT_REFRESH_EXPIRES_IN', '7d'),
   },

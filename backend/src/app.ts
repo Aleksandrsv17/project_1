@@ -26,7 +26,7 @@ export function createApp(): Application {
   // ── CORS ────────────────────────────────────────────────────────────────────
   app.use(
     cors({
-      origin: config.cors.origin,
+      origin: config.cors.origin.split(',').map(s => s.trim()),
       credentials: true,
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'stripe-signature'],
@@ -35,7 +35,7 @@ export function createApp(): Application {
 
   // ── Raw body for Stripe webhooks (must come before json parser) ────────────
   app.use(
-    '/api/payments/webhook',
+    '/v1/payments/webhook',
     express.raw({ type: 'application/json' })
   );
 
@@ -44,7 +44,7 @@ export function createApp(): Application {
   app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
   // ── Global rate limiter ─────────────────────────────────────────────────────
-  app.use('/api', apiRateLimiter);
+  app.use('/v1', apiRateLimiter);
 
   // ── Health check ────────────────────────────────────────────────────────────
   app.get('/health', (_req: Request, res: Response) => {
@@ -57,11 +57,11 @@ export function createApp(): Application {
   });
 
   // ── API Routes ──────────────────────────────────────────────────────────────
-  app.use('/api/users', userRoutes);
-  app.use('/api/vehicles', vehicleRoutes);
-  app.use('/api/bookings', bookingRoutes);
-  app.use('/api/payments', paymentRoutes);
-  app.use('/api/chauffeurs', chauffeurRoutes);
+  app.use('/v1/auth', userRoutes);
+  app.use('/v1/vehicles', vehicleRoutes);
+  app.use('/v1/bookings', bookingRoutes);
+  app.use('/v1/payments', paymentRoutes);
+  app.use('/v1/chauffeurs', chauffeurRoutes);
 
   // ── 404 catch-all ───────────────────────────────────────────────────────────
   app.use(notFoundHandler);

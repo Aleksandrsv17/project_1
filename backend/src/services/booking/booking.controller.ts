@@ -5,6 +5,7 @@ import {
   createBookingSchema,
   cancelBookingSchema,
   confirmPaymentSchema,
+  completeBookingSchema,
   bookingQuerySchema,
   validate,
 } from '../../utils/validators';
@@ -75,12 +76,14 @@ export class BookingController {
 
   async confirm(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const authReq = req as AuthenticatedRequest;
       const { value, error } = validate(confirmPaymentSchema, req.body);
       if (error) throw new ValidationError(error);
 
       const booking = await bookingService.confirm(
         value.booking_id,
-        value.payment_intent_id
+        value.payment_intent_id,
+        authReq.user.sub
       );
 
       res.status(200).json({ success: true, data: { booking } });
@@ -102,8 +105,9 @@ export class BookingController {
   async complete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;
-      const extraKm = Number(req.body?.extra_km ?? 0);
-      const booking = await bookingService.complete(req.params.id, authReq.user.sub, extraKm);
+      const { value, error } = validate(completeBookingSchema, req.body ?? {});
+      if (error) throw new ValidationError(error);
+      const booking = await bookingService.complete(req.params.id, authReq.user.sub, value.extra_km);
       res.status(200).json({ success: true, data: { booking } });
     } catch (err) {
       next(err);

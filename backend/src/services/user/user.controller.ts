@@ -106,6 +106,32 @@ export class UserController {
     }
   }
 
+  async listAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const page = parseInt(req.query.page as string ?? '1', 10) || 1;
+      const limit = Math.min(parseInt(req.query.limit as string ?? '20', 10) || 20, 100);
+      const { users, total } = await userService.listAll(page, limit);
+      res.status(200).json({
+        success: true,
+        data: users,
+        pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async updateKyc(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { kyc_status } = req.body as { kyc_status: string };
+      if (!kyc_status) throw new ValidationError('kyc_status is required');
+      const user = await userService.updateKycStatus(req.params.id, kyc_status);
+      res.status(200).json({ success: true, data: { user } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async deleteAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;

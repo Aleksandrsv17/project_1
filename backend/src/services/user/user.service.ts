@@ -199,6 +199,37 @@ export class UserService {
     return toPublicUser(result.rows[0]);
   }
 
+  async listAll(page = 1, limit = 20): Promise<{ users: PublicUser[]; total: number }> {
+    const offset = (page - 1) * limit;
+    const countResult = await query<{ count: string }>('SELECT COUNT(*) as count FROM users WHERE deleted_at IS NULL');
+    const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
+
+    const result = await query<User>(
+      'SELECT * FROM users WHERE deleted_at IS NULL ORDER BY created_at DESC LIMIT $1 OFFSET $2',
+      [limit, offset]
+    );
+
+    return { users: result.rows.map(toPublicUser), total };
+  }
+
+  async updateKycStatus(userId: string, kycStatus: string): Promise<PublicUser> {
+    const validStatuses = ['pending', 'submitted', 'approved', 'rejected'];
+    if (!validStatuses.includes(kycStatus)) {
+      throw new AppError('Invalid KYC status', 400);
+    }
+
+    const result = await query<User>(
+      'UPDATE users SET kyc_status = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL RETURNING *',
+      [kycStatus, userId]
+    );
+
+    if (!result.rows[0]) throw new NotFoundError('User');
+
+    logger.info('KYC status updated', { userId, kycStatus });
+
+    return toPublicUser(result.rows[0]);
+  }
+
   async delete(userId: string): Promise<void> {
     const result = await query(
       'UPDATE users SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL',

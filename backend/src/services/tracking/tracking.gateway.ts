@@ -176,6 +176,10 @@ class TrackingGateway {
       // ── Ride status events ───────────────────────────────────────────────
       socket.on('ride:status', (data: { bookingId: string; status: string }) => {
         const roomName = `booking:${data.bookingId}`;
+        if (!socket.rooms.has(roomName)) {
+          socket.emit('error', { message: 'Not authorized to emit to this booking room' });
+          return;
+        }
         this.io?.to(roomName).emit('ride:status_updated', {
           bookingId: data.bookingId,
           status: data.status,
@@ -187,6 +191,10 @@ class TrackingGateway {
       // ── Chat message (driver ↔ customer) ─────────────────────────────────
       socket.on('chat:message', (data: { bookingId: string; message: string }) => {
         const roomName = `booking:${data.bookingId}`;
+        if (!socket.rooms.has(roomName)) {
+          socket.emit('error', { message: 'Not authorized to emit to this booking room' });
+          return;
+        }
         socket.to(roomName).emit('chat:message', {
           from: authSocket.userId,
           message: data.message,
@@ -197,6 +205,10 @@ class TrackingGateway {
       // ── ETA update ───────────────────────────────────────────────────────
       socket.on('eta:update', (data: { bookingId: string; etaMinutes: number }) => {
         const roomName = `booking:${data.bookingId}`;
+        if (!socket.rooms.has(roomName)) {
+          socket.emit('error', { message: 'Not authorized to emit to this booking room' });
+          return;
+        }
         socket.to(roomName).emit('eta:updated', {
           bookingId: data.bookingId,
           etaMinutes: data.etaMinutes,

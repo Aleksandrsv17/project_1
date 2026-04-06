@@ -50,6 +50,15 @@ export class ChauffeurController {
     }
   }
 
+  async approve(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const chauffeur = await chauffeurService.approve(req.params.id);
+      res.status(200).json({ success: true, data: { chauffeur } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async toggleAvailability(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;

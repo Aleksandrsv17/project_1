@@ -97,8 +97,8 @@ export class VehicleController {
       const authReq = req as AuthenticatedRequest;
       const { url, is_primary } = req.body as { url: string; is_primary?: boolean };
 
-      if (!url || typeof url !== 'string') {
-        throw new ValidationError('url is required and must be a string');
+      if (!url || typeof url !== 'string' || !/^https:\/\/.+/i.test(url)) {
+        throw new ValidationError('url must be a valid HTTPS URL');
       }
 
       await vehicleService.addMedia(req.params.id, authReq.user.sub, url, is_primary ?? false);

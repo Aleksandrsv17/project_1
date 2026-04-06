@@ -86,6 +86,7 @@ export const createBookingSchema = Joi.object({
   mode: Joi.string().valid('self_drive', 'chauffeur').required(),
   start_time: Joi.date().iso().min('now').required(),
   end_time: Joi.date().iso().greater(Joi.ref('start_time')).optional(),
+  duration_hours: Joi.number().positive().optional(),
   pickup_address: Joi.string().max(500).optional(),
   pickup_lat: Joi.number().min(-90).max(90).optional(),
   pickup_lng: Joi.number().min(-180).max(180).optional(),
@@ -93,6 +94,10 @@ export const createBookingSchema = Joi.object({
   dropoff_lat: Joi.number().min(-90).max(90).optional(),
   dropoff_lng: Joi.number().min(-180).max(180).optional(),
   notes: Joi.string().max(1000).optional(),
+});
+
+export const completeBookingSchema = Joi.object({
+  extra_km: Joi.number().integer().min(0).max(10000).default(0),
 });
 
 export const cancelBookingSchema = Joi.object({

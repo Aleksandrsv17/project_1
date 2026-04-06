@@ -46,18 +46,32 @@ export class ChauffeurService {
     }
 
     const result = await query<Chauffeur>(
-      `INSERT INTO chauffeurs (user_id, license_number, license_expiry)
-       VALUES ($1, $2, $3) RETURNING *`,
+      `INSERT INTO chauffeurs (user_id, license_number, license_expiry, is_available)
+       VALUES ($1, $2, $3, false) RETURNING *`,
       [userId, dto.license_number, dto.license_expiry]
     );
 
-    // Update user role to chauffeur
-    await query(
-      "UPDATE users SET role = 'chauffeur', updated_at = NOW() WHERE id = $1",
-      [userId]
+    // Role is NOT updated here — admin must approve via PATCH /chauffeurs/:id/approve
+    logger.info('Chauffeur registration submitted (pending admin approval)', { userId, chauffeurId: result.rows[0].id });
+
+    return result.rows[0];
+  }
+
+  async approve(chauffeurId: string): Promise<Chauffeur> {
+    const result = await query<Chauffeur & { user_id: string }>(
+      "UPDATE chauffeurs SET is_available = true, updated_at = NOW() WHERE id = $1 RETURNING *",
+      [chauffeurId]
     );
 
-    logger.info('Chauffeur registered', { userId, chauffeurId: result.rows[0].id });
+    if (!result.rows[0]) throw new NotFoundError('Chauffeur');
+
+    // Now promote user role to chauffeur
+    await query(
+      "UPDATE users SET role = 'chauffeur', updated_at = NOW() WHERE id = $1",
+      [result.rows[0].user_id]
+    );
+
+    logger.info('Chauffeur approved', { chauffeurId });
 
     return result.rows[0];
   }

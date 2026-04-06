@@ -1,6 +1,6 @@
 export const API_BASE_URL = 'http://109.120.133.113/v1';
 
-export const SOCKET_URL = 'ws://109.120.133.113';
+export const SOCKET_URL = 'wss://109.120.133.113';
 
 export const STRIPE_PUBLISHABLE_KEY = 'pk_test_REPLACE_WITH_REAL_PUBLISHABLE_KEY';
 

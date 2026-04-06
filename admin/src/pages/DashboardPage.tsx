@@ -5,10 +5,12 @@ import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
 import { api } from '../api/client';
 
-// Generate mock chart data (last 30 days)
+// Generate stable chart data (last 30 days) — deterministic based on date string
 const chartData = Array.from({ length: 30 }, (_, i) => {
   const d = new Date(); d.setDate(d.getDate() - (29 - i));
-  return { date: d.toLocaleDateString('en', { month: 'short', day: 'numeric' }), bookings: Math.floor(Math.random() * 20 + 5) };
+  const dateStr = d.toLocaleDateString('en', { month: 'short', day: 'numeric' });
+  const hash = dateStr.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return { date: dateStr, bookings: (hash % 16) + 5 };
 });
 
 export default function DashboardPage() {

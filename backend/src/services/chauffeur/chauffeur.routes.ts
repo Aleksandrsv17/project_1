@@ -15,6 +15,13 @@ router.post(
   chauffeurController.register.bind(chauffeurController)
 );
 
+router.patch(
+  '/:id/approve',
+  authenticate,
+  requireRole('admin'),
+  chauffeurController.approve.bind(chauffeurController)
+);
+
 router.get(
   '/me/profile',
   authenticate,

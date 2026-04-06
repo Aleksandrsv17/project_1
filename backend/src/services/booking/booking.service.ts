@@ -33,20 +33,19 @@ export class BookingService {
     const vehicle = vehicleResult.rows[0];
     if (!vehicle) throw new NotFoundError('Vehicle');
 
-    // 2. Calculate end_time if missing (instant_ride defaults to 1h from now)
+    // 2. Calculate end_time if missing
     const startTime = new Date(dto.start_time);
     let endTime: Date;
 
     if (dto.end_time) {
       endTime = new Date(dto.end_time);
+    } else if (dto.duration_hours) {
+      endTime = new Date(startTime.getTime() + dto.duration_hours * 60 * 60 * 1000);
     } else if (dto.type === 'instant_ride') {
       endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
     } else {
-      throw new AppError('end_time is required for scheduled, hourly_rental, and daily_rental bookings', 400);
+      throw new AppError('end_time or duration_hours is required for non-instant bookings', 400);
     }
-
-    // 3. Check vehicle availability
-    await this.checkAvailability(dto.vehicle_id, startTime, endTime);
 
     // 4. If chauffeur mode, validate chauffeur availability
     let chauffeurId: string | null = dto.chauffeur_id ?? null;
@@ -77,8 +76,20 @@ export class BookingService {
       ...surgeContext,
     });
 
-    // 7. Create booking + payment in transaction
+    // 7. Create booking + payment in transaction (availability check is inside to prevent race conditions)
     const booking = await withTransaction(async (client) => {
+      // Lock the vehicle row and check availability atomically
+      await client.query('SELECT id FROM vehicles WHERE id = $1 FOR UPDATE', [dto.vehicle_id]);
+      const overlapping = await client.query(
+        `SELECT id FROM bookings
+         WHERE vehicle_id = $1 AND status NOT IN ('cancelled','completed')
+         AND ($2 < end_time AND $3 > start_time)`,
+        [dto.vehicle_id, startTime, endTime]
+      );
+      if (overlapping.rowCount && overlapping.rowCount > 0) {
+        throw new ConflictError('Vehicle is not available for the selected time period');
+      }
+
       const bookingResult = await client.query<Booking>(
         `INSERT INTO bookings
           (customer_id, vehicle_id, chauffeur_id, type, mode, status,
@@ -228,25 +239,45 @@ export class BookingService {
     const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
 
     const dataValues = [...values, limit, offset];
-    const result = await query<Booking>(
-      `SELECT b.* FROM bookings b ${whereClause}
+    const result = await query<Booking & {
+      v_make: string; v_model: string; v_year: number; v_license_plate: string;
+      v_color: string | null; v_category: string;
+      u_first_name: string; u_last_name: string; u_email: string; u_phone: string | null;
+    }>(
+      `SELECT b.*,
+        v.make AS v_make, v.model AS v_model, v.year AS v_year,
+        v.license_plate AS v_license_plate, v.color AS v_color, v.category AS v_category,
+        u.first_name AS u_first_name, u.last_name AS u_last_name,
+        u.email AS u_email, u.phone AS u_phone
+       FROM bookings b
+       LEFT JOIN vehicles v ON v.id = b.vehicle_id
+       LEFT JOIN users u ON u.id = b.customer_id
+       ${whereClause}
        ORDER BY b.created_at DESC
        LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
       dataValues
     );
 
-    const bookings = await Promise.all(result.rows.map((b) => this.enrichBooking(b)));
+    const bookings: BookingWithDetails[] = result.rows.map(row => ({
+      ...row,
+      vehicle: { make: row.v_make, model: row.v_model, year: row.v_year, license_plate: row.v_license_plate, color: row.v_color, category: row.v_category },
+      customer: { first_name: row.u_first_name, last_name: row.u_last_name, email: row.u_email, phone: row.u_phone },
+    }));
 
     return { bookings, total };
   }
 
-  async confirm(bookingId: string, paymentIntentId: string): Promise<Booking> {
+  async confirm(bookingId: string, paymentIntentId: string, userId: string): Promise<Booking> {
     const result = await query<Booking>(
       "SELECT * FROM bookings WHERE id = $1 AND status = 'pending'",
       [bookingId]
     );
 
     if (!result.rows[0]) throw new NotFoundError('Pending booking');
+
+    if (result.rows[0].customer_id !== userId) {
+      throw new ForbiddenError('You do not own this booking');
+    }
 
     // Verify payment intent is succeeded
     if (config.stripe.secretKey && config.stripe.secretKey !== '') {
@@ -373,12 +404,27 @@ export class BookingService {
         [bookingId]
       );
 
+      // Apply cancellation refund policy
+      const hoursUntilStart = (new Date(booking.start_time).getTime() - Date.now()) / (1000 * 3600);
+
       for (const payment of payments.rows) {
         if (payment.stripe_payment_intent_id) {
+          // <24h before start: no refund
+          if (hoursUntilStart < 24) {
+            logger.info('No refund issued — cancellation within 24h of trip', { bookingId });
+            continue;
+          }
+
           try {
-            await stripe.refunds.create({
+            const refundParams: Stripe.RefundCreateParams = {
               payment_intent: payment.stripe_payment_intent_id,
-            });
+            };
+            // 24-48h before start: 50% refund
+            if (hoursUntilStart < 48) {
+              refundParams.amount = Math.round(payment.amount * 100 * 0.5);
+            }
+            // 48h+: full refund (no amount = full)
+            await stripe.refunds.create(refundParams);
 
             await query(
               "UPDATE payments SET status = 'refunded', updated_at = NOW() WHERE stripe_payment_intent_id = $1",

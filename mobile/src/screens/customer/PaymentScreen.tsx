@@ -155,9 +155,11 @@ export function PaymentScreen({ navigation, route }: PaymentScreenProps) {
             />
           </View>
 
-          <Text style={styles.testCardHint}>
-            Test card: 4242 4242 4242 4242 · Any future date · Any CVC
-          </Text>
+          {__DEV__ && (
+            <Text style={styles.testCardHint}>
+              Test card: 4242 4242 4242 4242 · Any future date · Any CVC
+            </Text>
+          )}
         </View>
 
         {/* Accepted Cards */}
