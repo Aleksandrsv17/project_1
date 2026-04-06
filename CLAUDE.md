@@ -1,7 +1,7 @@
 # VIP Mobility Platform — CLAUDE.md
 
 > Project intelligence file. Updated every 3 requests per CTO rule.  
-> Last updated: 2026-04-06 | Session: Initial build
+> Last updated: 2026-04-06 | Session: Server deployment
 
 ---
 
@@ -201,17 +201,65 @@ WSS  /                   (Socket.io tracking)
 - [x] Mobile: 41 TypeScript files — all screens, navigation, stores, API layer
 - [x] Tests: 4 test files, 955 lines (pricing, user, vehicle, booking)
 - [x] Docker Compose: PostgreSQL + Redis + Backend + health checks
+- [x] Server deployed: 109.120.133.113 — PostgreSQL 16 + Redis + Nginx + PM2
+- [x] HTTPS enabled (self-signed cert, port 443)
+- [x] Admin dashboard: React + Vite + Tailwind (admin/ — 16 files)
+- [x] CI/CD: GitHub Actions (.github/workflows/deploy.yml + test.yml)
+- [x] Mobile EAS: eas.json configured for dev/preview/production builds
+- [x] Auto-deploy script: deploy.sh (--full / --restart / --logs / --status)
 
 ### In Progress / Pending
 - [ ] Node.js not installed on this machine — install to run tests + start server
-- [ ] Admin web dashboard (Frontend Developer agent)
-- [ ] CI/CD pipeline (DevOps agent)
+- [ ] Stripe real keys — run `bash /tmp/stripe_setup.sh sk_live_XXX whsec_XXX` on server
+- [ ] Mobile app Stripe publishable key — update STRIPE_PUBLISHABLE_KEY in mobile/src/utils/constants.ts
 - [ ] E2E tests with Detox (QA agent)
 - [ ] Stripe Connect for owner payouts
 - [ ] Google Maps API key integration
 - [ ] KYC provider integration (Onfido/Persona)
 - [ ] Push notifications (Firebase + APNs)
 - [ ] Production K8s deployment manifests
+- [ ] Get a real domain → replace self-signed cert with Let's Encrypt
+- [ ] GitHub Secrets: set SERVER_HOST / SERVER_USER / SERVER_PASSWORD for CI/CD
+
+---
+
+## Production Server
+
+| Parameter | Value |
+|---|---|
+| **IP** | 109.120.133.113 |
+| **OS** | Ubuntu 24.04.1 LTS |
+| **API URL** | http://109.120.133.113/v1/ |
+| **Health** | http://109.120.133.113/health |
+| **WebSocket** | ws://109.120.133.113/socket.io/ |
+| **Process Manager** | PM2 (app name: `vip-mobility`) |
+| **App path** | /var/www/vip-mobility/backend/ |
+| **Logs** | /var/log/vip-mobility/ |
+| **DB** | PostgreSQL 16 — db: `vip_mobility`, user: `vip_user` |
+| **Cache** | Redis 7 on localhost:6379 |
+| **Web server** | Nginx (reverse proxy → :3000) |
+
+### Server Commands
+```bash
+./deploy.sh             # Full deploy (upload + build + restart)
+./deploy.sh --restart   # Restart PM2 only
+./deploy.sh --logs      # Stream live logs
+./deploy.sh --status    # Show all service status
+
+# Direct SSH
+ssh root@109.120.133.113
+pm2 status              # Process status
+pm2 logs vip-mobility   # Live logs
+systemctl status nginx postgresql redis-server
+```
+
+### Installed Stack on Server
+- Node.js v18.19.1
+- PostgreSQL 16.13
+- Redis 7
+- Nginx (reverse proxy)
+- PM2 6.0.14 (process manager, auto-restart on boot)
+- TypeScript 6.0.2
 
 ---
 
@@ -220,3 +268,6 @@ WSS  /                   (Socket.io tracking)
 | Date | Session | Changes |
 |---|---|---|
 | 2026-04-06 | Initial build | Full project scaffolded: backend (37 files), mobile (41 files), architecture docs, business scenarios, Docker Compose |
+| 2026-04-06 | Server deployment | PostgreSQL + Redis + Nginx + Node.js installed on 109.120.133.113, backend deployed via PM2, auto-deploy script created |
+| 2026-04-06 | DB credentials shared | DB accessible via SSH tunnel: postgresql://vip_user:VipSecure2026@localhost:5432/vip_mobility |
+| 2026-04-06 | Phase 2 complete | HTTPS/SSL, admin dashboard (16 files), CI/CD GitHub Actions, Expo EAS config, Stripe setup script, mobile API URL pointed to server |

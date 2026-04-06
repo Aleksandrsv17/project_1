@@ -1,8 +1,8 @@
-export const API_BASE_URL = 'http://localhost:3000/api';
+export const API_BASE_URL = 'http://109.120.133.113/v1';
 
-export const SOCKET_URL = 'http://localhost:3000';
+export const SOCKET_URL = 'ws://109.120.133.113';
 
-export const STRIPE_PUBLISHABLE_KEY = 'pk_test_your_stripe_publishable_key_here';
+export const STRIPE_PUBLISHABLE_KEY = 'pk_test_REPLACE_WITH_REAL_PUBLISHABLE_KEY';
 
 export const DEFAULT_REGION = {
   latitude: 25.2048,
