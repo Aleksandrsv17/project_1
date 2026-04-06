@@ -1,0 +1,67 @@
+{
+  "expo": {
+    "name": "VIP Mobility",
+    "slug": "vip-mobility",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a2e"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.vipmobility.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "VIP Mobility needs your location to show nearby vehicles and track your trip.",
+        "NSLocationAlwaysUsageDescription": "VIP Mobility needs your location for active trip tracking.",
+        "NSCameraUsageDescription": "VIP Mobility needs camera access to upload vehicle photos.",
+        "NSPhotoLibraryUsageDescription": "VIP Mobility needs photo library access to upload vehicle photos."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "com.vipmobility.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#c9a84c"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow VIP Mobility to use your location."
+        }
+      ],
+      "@stripe/stripe-react-native"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "your-eas-project-id"
+      }
+    }
+  }
+}

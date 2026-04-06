@@ -1,0 +1,861 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  Alert,
+  ActivityIndicator,
+  Platform,
+  Image,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useAddVehicle } from '../../hooks/useVehicles';
+import { useLocation } from '../../hooks/useLocation';
+import { COLORS, SPACING, BORDER_RADIUS, VEHICLE_CATEGORIES } from '../../utils/constants';
+import { AddVehiclePayload } from '../../api/vehicles';
+import { OwnerStackParamList } from '../../navigation/OwnerNavigator';
+
+type AddVehicleScreenProps = {
+  navigation: NativeStackNavigationProp<OwnerStackParamList, 'AddVehicle'>;
+};
+
+const STEPS = ['Vehicle Info', 'Photos', 'Pricing', 'Availability'];
+
+const FUEL_TYPES = ['petrol', 'diesel', 'electric', 'hybrid'] as const;
+const TRANSMISSION_TYPES = ['automatic', 'manual'] as const;
+
+const COMMON_FEATURES = [
+  'GPS Navigation', 'Bluetooth', 'Apple CarPlay', 'Android Auto',
+  'Leather Seats', 'Sunroof', 'Heated Seats', 'Parking Sensors',
+  'Rear Camera', 'Cruise Control', 'Climate Control', '360 Camera',
+];
+
+export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
+  const [currentStep, setCurrentStep] = useState(0);
+  const addVehicleMutation = useAddVehicle();
+  const { location, address: detectedAddress } = useLocation();
+
+  // Step 1: Vehicle Info
+  const [make, setMake] = useState('');
+  const [model, setModel] = useState('');
+  const [year, setYear] = useState('');
+  const [color, setColor] = useState('');
+  const [licensePlate, setLicensePlate] = useState('');
+  const [seats, setSeats] = useState('5');
+  const [category, setCategory] = useState('sedan');
+  const [transmission, setTransmission] = useState<'automatic' | 'manual'>('automatic');
+  const [fuelType, setFuelType] = useState<'petrol' | 'diesel' | 'electric' | 'hybrid'>('petrol');
+  const [description, setDescription] = useState('');
+
+  // Step 2: Photos
+  const [images, setImages] = useState<string[]>([]);
+
+  // Step 3: Pricing
+  const [pricePerHour, setPricePerHour] = useState('');
+  const [pricePerDay, setPricePerDay] = useState('');
+  const [chauffeurAvailable, setChauffeurAvailable] = useState(false);
+  const [chauffeurFeePerHour, setChauffeurFeePerHour] = useState('');
+
+  // Step 4: Features & Location
+  const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
+  const [pickupAddress, setPickupAddress] = useState(detectedAddress ?? '');
+  const [pickupCity, setPickupCity] = useState('Dubai');
+
+  function validateStep(): boolean {
+    switch (currentStep) {
+      case 0:
+        if (!make.trim() || !model.trim() || !year.trim() || !licensePlate.trim()) {
+          Alert.alert('Missing Info', 'Please fill in all required vehicle information.');
+          return false;
+        }
+        if (isNaN(Number(year)) || Number(year) < 2000 || Number(year) > 2030) {
+          Alert.alert('Invalid Year', 'Please enter a valid year (2000-2030).');
+          return false;
+        }
+        return true;
+      case 1:
+        // Photos are optional but encouraged
+        return true;
+      case 2:
+        if (!pricePerHour.trim() || !pricePerDay.trim()) {
+          Alert.alert('Missing Pricing', 'Please enter hourly and daily rates.');
+          return false;
+        }
+        if (isNaN(Number(pricePerHour)) || Number(pricePerHour) <= 0) {
+          Alert.alert('Invalid Price', 'Please enter a valid hourly price.');
+          return false;
+        }
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  function handleNext() {
+    if (!validateStep()) return;
+    if (currentStep < STEPS.length - 1) {
+      setCurrentStep((s) => s + 1);
+    } else {
+      handleSubmit();
+    }
+  }
+
+  function handleBack() {
+    if (currentStep > 0) {
+      setCurrentStep((s) => s - 1);
+    } else {
+      navigation.goBack();
+    }
+  }
+
+  function toggleFeature(feature: string) {
+    setSelectedFeatures((prev) =>
+      prev.includes(feature) ? prev.filter((f) => f !== feature) : [...prev, feature]
+    );
+  }
+
+  function handleAddPhoto() {
+    // TODO: Implement with expo-image-picker
+    Alert.alert('Add Photo', 'In production: open camera or photo library', [
+      {
+        text: 'OK',
+        onPress: () => {
+          setImages((prev) => [
+            ...prev,
+            `https://via.placeholder.com/300x200?text=Vehicle+${prev.length + 1}`,
+          ]);
+        },
+      },
+    ]);
+  }
+
+  async function handleSubmit() {
+    const payload: AddVehiclePayload = {
+      make: make.trim(),
+      model: model.trim(),
+      year: Number(year),
+      category: category as AddVehiclePayload['category'],
+      color: color.trim() || 'White',
+      licensePlate: licensePlate.trim().toUpperCase(),
+      seats: Number(seats),
+      transmission,
+      fuelType,
+      pricePerHour: Number(pricePerHour),
+      pricePerDay: Number(pricePerDay),
+      chauffeurAvailable,
+      chauffeurFeePerHour: chauffeurAvailable ? Number(chauffeurFeePerHour) : undefined,
+      images: images.length > 0 ? images : ['https://via.placeholder.com/300x200?text=Vehicle'],
+      description: description.trim(),
+      location: {
+        latitude: location?.latitude ?? 25.2048,
+        longitude: location?.longitude ?? 55.2708,
+        address: pickupAddress.trim() || detectedAddress || 'Dubai, UAE',
+        city: pickupCity.trim() || 'Dubai',
+      },
+      features: selectedFeatures,
+    };
+
+    try {
+      await addVehicleMutation.mutateAsync(payload);
+      Alert.alert(
+        'Vehicle Added! 🎉',
+        'Your vehicle has been listed and is now visible to customers.',
+        [{ text: 'View My Fleet', onPress: () => navigation.goBack() }]
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add vehicle.';
+      Alert.alert('Error', message);
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <Text style={styles.backIcon}>{currentStep === 0 ? '✕' : '←'}</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Add Vehicle</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Step Progress */}
+      <View style={styles.stepProgress}>
+        {STEPS.map((step, idx) => (
+          <View key={step} style={styles.stepItem}>
+            <View style={[styles.stepDot, idx <= currentStep && styles.stepDotActive]}>
+              {idx < currentStep ? (
+                <Text style={styles.stepCheckmark}>✓</Text>
+              ) : (
+                <Text style={[styles.stepNumber, idx === currentStep && styles.stepNumberActive]}>
+                  {idx + 1}
+                </Text>
+              )}
+            </View>
+            {idx < STEPS.length - 1 && (
+              <View style={[styles.stepLine, idx < currentStep && styles.stepLineActive]} />
+            )}
+          </View>
+        ))}
+      </View>
+      <Text style={styles.stepLabel}>{STEPS[currentStep]}</Text>
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Step 0: Vehicle Info */}
+        {currentStep === 0 && (
+          <View style={styles.stepContent}>
+            <Field label="Make *" value={make} onChangeText={setMake} placeholder="e.g. Toyota, BMW" />
+            <Field label="Model *" value={model} onChangeText={setModel} placeholder="e.g. Camry, X5" />
+
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <Field label="Year *" value={year} onChangeText={setYear} placeholder="2023" keyboardType="numeric" />
+              </View>
+              <View style={styles.halfField}>
+                <Field label="Seats" value={seats} onChangeText={setSeats} placeholder="5" keyboardType="numeric" />
+              </View>
+            </View>
+
+            <Field label="Color" value={color} onChangeText={setColor} placeholder="e.g. White, Black" />
+            <Field label="License Plate *" value={licensePlate} onChangeText={setLicensePlate} placeholder="e.g. A 12345" autoCapitalize="characters" />
+
+            <Text style={styles.fieldLabel}>Category</Text>
+            <View style={styles.chipGrid}>
+              {VEHICLE_CATEGORIES.filter((c) => c.value !== 'all').map((cat) => (
+                <TouchableOpacity
+                  key={cat.value}
+                  style={[styles.chip, category === cat.value && styles.chipActive]}
+                  onPress={() => setCategory(cat.value)}
+                >
+                  <Text style={[styles.chipText, category === cat.value && styles.chipTextActive]}>
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.fieldLabel}>Transmission</Text>
+            <View style={styles.chipRow}>
+              {TRANSMISSION_TYPES.map((t) => (
+                <TouchableOpacity
+                  key={t}
+                  style={[styles.chip, transmission === t && styles.chipActive]}
+                  onPress={() => setTransmission(t)}
+                >
+                  <Text style={[styles.chipText, transmission === t && styles.chipTextActive]}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.fieldLabel}>Fuel Type</Text>
+            <View style={styles.chipGrid}>
+              {FUEL_TYPES.map((f) => (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.chip, fuelType === f && styles.chipActive]}
+                  onPress={() => setFuelType(f)}
+                >
+                  <Text style={[styles.chipText, fuelType === f && styles.chipTextActive]}>
+                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.fieldLabel}>Description</Text>
+            <TextInput
+              style={[styles.input, styles.descriptionInput]}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Describe your vehicle, its condition, and any special features..."
+              placeholderTextColor={COLORS.gray}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+        )}
+
+        {/* Step 1: Photos */}
+        {currentStep === 1 && (
+          <View style={styles.stepContent}>
+            <Text style={styles.stepIntro}>
+              Add high-quality photos to attract more customers. The first photo will be the cover image.
+            </Text>
+
+            <View style={styles.photoGrid}>
+              {images.map((uri, idx) => (
+                <View key={idx} style={styles.photoItem}>
+                  <Image source={{ uri }} style={styles.photoThumb} resizeMode="cover" />
+                  <TouchableOpacity
+                    style={styles.photoDelete}
+                    onPress={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+                  >
+                    <Text style={styles.photoDeleteText}>✕</Text>
+                  </TouchableOpacity>
+                  {idx === 0 && (
+                    <View style={styles.coverBadge}>
+                      <Text style={styles.coverBadgeText}>Cover</Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+              {images.length < 8 && (
+                <TouchableOpacity style={styles.addPhotoButton} onPress={handleAddPhoto}>
+                  <Text style={styles.addPhotoIcon}>📷</Text>
+                  <Text style={styles.addPhotoText}>Add Photo</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <Text style={styles.photoHint}>
+              {images.length}/8 photos · Recommended: exterior, interior, dashboard
+            </Text>
+          </View>
+        )}
+
+        {/* Step 2: Pricing */}
+        {currentStep === 2 && (
+          <View style={styles.stepContent}>
+            <View style={styles.row}>
+              <View style={styles.halfField}>
+                <Field
+                  label="Price Per Hour (AED) *"
+                  value={pricePerHour}
+                  onChangeText={setPricePerHour}
+                  placeholder="e.g. 150"
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.halfField}>
+                <Field
+                  label="Price Per Day (AED) *"
+                  value={pricePerDay}
+                  onChangeText={setPricePerDay}
+                  placeholder="e.g. 800"
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            {/* Chauffeur Toggle */}
+            <View style={styles.toggleCard}>
+              <View style={styles.toggleInfo}>
+                <Text style={styles.toggleTitle}>Offer Chauffeur Service</Text>
+                <Text style={styles.toggleSubtitle}>
+                  Customers can book with a professional driver
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.toggle, chauffeurAvailable && styles.toggleActive]}
+                onPress={() => setChauffeurAvailable((v) => !v)}
+              >
+                <View style={[styles.toggleThumb, chauffeurAvailable && styles.toggleThumbActive]} />
+              </TouchableOpacity>
+            </View>
+
+            {chauffeurAvailable && (
+              <Field
+                label="Chauffeur Fee Per Hour (AED)"
+                value={chauffeurFeePerHour}
+                onChangeText={setChauffeurFeePerHour}
+                placeholder="e.g. 80"
+                keyboardType="numeric"
+              />
+            )}
+
+            {/* Pricing tips */}
+            <View style={styles.tipsCard}>
+              <Text style={styles.tipsTitle}>💡 Pricing Tips</Text>
+              <Text style={styles.tipsText}>
+                • Daily rate is usually 6-8× the hourly rate{'\n'}
+                • Compare with similar vehicles in your area{'\n'}
+                • Competitive pricing increases your booking rate
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Step 3: Features & Location */}
+        {currentStep === 3 && (
+          <View style={styles.stepContent}>
+            <Text style={styles.fieldLabel}>Features</Text>
+            <View style={styles.chipGrid}>
+              {COMMON_FEATURES.map((feature) => (
+                <TouchableOpacity
+                  key={feature}
+                  style={[styles.chip, selectedFeatures.includes(feature) && styles.chipActive]}
+                  onPress={() => toggleFeature(feature)}
+                >
+                  <Text style={[styles.chipText, selectedFeatures.includes(feature) && styles.chipTextActive]}>
+                    {feature}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Field
+              label="Pickup City"
+              value={pickupCity}
+              onChangeText={setPickupCity}
+              placeholder="e.g. Dubai"
+            />
+
+            <Field
+              label="Pickup Address"
+              value={pickupAddress}
+              onChangeText={setPickupAddress}
+              placeholder="Street address where customers can pick up"
+            />
+
+            {location && (
+              <TouchableOpacity
+                style={styles.useLocationButton}
+                onPress={() => setPickupAddress(detectedAddress ?? '')}
+              >
+                <Text style={styles.useLocationText}>📍 Use my current location</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* Navigation Buttons */}
+      <View style={styles.bottomBar}>
+        <SafeAreaView edges={['bottom']}>
+          <View style={styles.bottomBarInner}>
+            {currentStep > 0 && (
+              <TouchableOpacity style={styles.prevButton} onPress={handleBack}>
+                <Text style={styles.prevButtonText}>← Back</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[
+                styles.nextButton,
+                currentStep === 0 && styles.nextButtonFull,
+                addVehicleMutation.isPending && styles.disabledButton,
+              ]}
+              onPress={handleNext}
+              disabled={addVehicleMutation.isPending}
+            >
+              {addVehicleMutation.isPending ? (
+                <ActivityIndicator color={COLORS.primary} size="small" />
+              ) : (
+                <Text style={styles.nextButtonText}>
+                  {currentStep === STEPS.length - 1 ? 'List Vehicle 🚀' : 'Next →'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType,
+  autoCapitalize,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (t: string) => void;
+  placeholder?: string;
+  keyboardType?: 'default' | 'numeric' | 'phone-pad';
+  autoCapitalize?: 'none' | 'words' | 'characters';
+}) {
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        style={styles.input}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={COLORS.gray}
+        keyboardType={keyboardType ?? 'default'}
+        autoCapitalize={autoCapitalize ?? 'words'}
+        autoCorrect={false}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  backButton: {
+    padding: SPACING.xs,
+  },
+  backIcon: {
+    fontSize: 22,
+    color: COLORS.textPrimary,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  headerSpacer: {
+    width: 30,
+  },
+  stepProgress: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.xs,
+    backgroundColor: COLORS.white,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  stepDot: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepDotActive: {
+    backgroundColor: COLORS.accent,
+  },
+  stepNumber: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  stepNumberActive: {
+    color: COLORS.primary,
+  },
+  stepCheckmark: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '700',
+  },
+  stepLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: COLORS.border,
+    marginHorizontal: 4,
+  },
+  stepLineActive: {
+    backgroundColor: COLORS.accent,
+  },
+  stepLabel: {
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+    backgroundColor: COLORS.white,
+    paddingBottom: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  content: {
+    padding: SPACING.md,
+    paddingBottom: 120,
+  },
+  stepContent: {
+    gap: 0,
+  },
+  stepIntro: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+    marginBottom: SPACING.md,
+  },
+  fieldContainer: {
+    marginBottom: SPACING.md,
+  },
+  fieldLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+    marginTop: SPACING.xs,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: Platform.OS === 'ios' ? 13 : 10,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.white,
+  },
+  descriptionInput: {
+    minHeight: 100,
+    textAlignVertical: 'top',
+    paddingTop: SPACING.md,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  halfField: {
+    flex: 1,
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  chip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.full,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+  },
+  chipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  chipText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  chipTextActive: {
+    color: COLORS.accent,
+    fontWeight: '600',
+  },
+  // Photos
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  photoItem: {
+    position: 'relative',
+    width: 100,
+    height: 80,
+  },
+  photoThumb: {
+    width: 100,
+    height: 80,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  photoDelete: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoDeleteText: {
+    color: COLORS.white,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  coverBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  coverBadgeText: {
+    color: COLORS.primary,
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  addPhotoButton: {
+    width: 100,
+    height: 80,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+    borderRadius: BORDER_RADIUS.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+  },
+  addPhotoIcon: {
+    fontSize: 22,
+  },
+  addPhotoText: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  photoHint: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+  },
+  // Pricing
+  toggleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
+  },
+  toggleInfo: {
+    flex: 1,
+  },
+  toggleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  toggleSubtitle: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  toggle: {
+    width: 48,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: COLORS.border,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  toggleActive: {
+    backgroundColor: COLORS.accent,
+  },
+  toggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: COLORS.white,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  toggleThumbActive: {
+    transform: [{ translateX: 22 }],
+  },
+  tipsCard: {
+    backgroundColor: '#eff6ff',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  tipsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1e40af',
+    marginBottom: SPACING.xs,
+  },
+  tipsText: {
+    fontSize: 13,
+    color: '#1e40af',
+    lineHeight: 20,
+  },
+  useLocationButton: {
+    backgroundColor: '#eff6ff',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+  },
+  useLocationText: {
+    color: '#1e40af',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  // Bottom Bar
+  bottomBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  bottomBarInner: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    paddingBottom: SPACING.sm,
+  },
+  prevButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+  },
+  prevButtonText: {
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    fontWeight: '600',
+  },
+  nextButton: {
+    flex: 2,
+    backgroundColor: COLORS.accent,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+  },
+  nextButtonFull: {
+    flex: 1,
+  },
+  disabledButton: {
+    opacity: 0.7,
+  },
+  nextButtonText: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: 16,
+  },
+});
