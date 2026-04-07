@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VIP Mobility — Admin</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD5wNSv6trG1uOBHjsaXkQJzrcgpHGGJI0&libraries=places"></script>
+  <script src="https://cdn.tailwindcss.com" defer></script>
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD5wNSv6trG1uOBHjsaXkQJzrcgpHGGJI0&libraries=places&callback=onMapsReady"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
     .tab-active { background: rgba(201,168,76,0.15); color: #c9a84c; font-weight: 600; }
@@ -228,6 +228,15 @@ let bookings = [];
 let maps = {};
 let markers = [];
 let directionsRenderer = null;
+let mapsReady = false;
+
+function onMapsReady() {
+  mapsReady = true;
+  // Init dashboard map if already visible
+  if (document.getElementById('tab-dashboard') && !document.getElementById('tab-dashboard').classList.contains('hidden')) {
+    initDashboardMap();
+  }
+}
 
 // ── Tab navigation ──────────────────────────────────────────────────────────
 function showTab(name) {
@@ -238,10 +247,12 @@ function showTab(name) {
   const btn = document.querySelector(`[data-tab="${name}"]`);
   if (btn) btn.classList.add('tab-active');
 
-  // Init maps on first show
-  if (name === 'livemap' && !maps.live) initLiveMap();
-  if (name === 'bookingmap' && !maps.booking) initBookingMap();
-  if (name === 'dashboard' && !maps.dashboard) initDashboardMap();
+  // Init maps on first show (only if Google Maps loaded)
+  if (mapsReady) {
+    if (name === 'livemap' && !maps.live) initLiveMap();
+    if (name === 'bookingmap' && !maps.booking) initBookingMap();
+    if (name === 'dashboard' && !maps.dashboard) initDashboardMap();
+  }
 }
 
 // ── Status badge ────────────────────────────────────────────────────────────

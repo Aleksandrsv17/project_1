@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIP Mobility — Admin</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#f3f4f6; color:#111827; display:flex; height:100vh; }
+
+/* Sidebar */
+.sidebar { width:240px; background:#1a1a2e; display:flex; flex-direction:column; flex-shrink:0; }
+.sidebar-brand { padding:24px; border-bottom:1px solid rgba(255,255,255,0.1); }
+.sidebar-brand h1 { color:#c9a84c; font-size:20px; font-weight:700; }
+.sidebar-brand p { color:#9ca3af; font-size:11px; margin-top:4px; }
+.sidebar-nav { flex:1; padding:16px; }
+.nav-item { display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:8px; color:#9ca3af; font-size:14px; cursor:pointer; border:none; background:none; width:100%; text-align:left; transition:all 0.15s; }
+.nav-item:hover { color:#fff; background:rgba(255,255,255,0.05); }
+.nav-item.active { color:#c9a84c; background:rgba(201,168,76,0.12); font-weight:600; }
+.nav-item span { font-size:18px; width:24px; text-align:center; }
+
+/* Main */
+.main { flex:1; overflow-y:auto; }
+.page { display:none; padding:32px; }
+.page.active { display:block; }
+.page-full { display:none; height:100%; }
+.page-full.active { display:flex; flex-direction:column; }
+
+/* Cards */
+h2 { font-size:24px; font-weight:700; margin-bottom:4px; }
+.subtitle { color:#6b7280; font-size:14px; margin-bottom:24px; }
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+.stat-card { background:#fff; border-radius:12px; padding:20px; border:1px solid #e5e7eb; }
+.stat-card .label { color:#6b7280; font-size:13px; }
+.stat-card .value { font-size:28px; font-weight:700; margin-top:8px; }
+
+/* Table */
+.card { background:#fff; border-radius:12px; border:1px solid #e5e7eb; overflow:hidden; }
+table { width:100%; border-collapse:collapse; }
+th { text-align:left; padding:12px 20px; font-size:11px; font-weight:600; text-transform:uppercase; color:#6b7280; background:#f9fafb; }
+td { padding:14px 20px; font-size:14px; border-top:1px solid #f3f4f6; }
+tr:hover td { background:#f9fafb; }
+
+/* Badge */
+.badge { display:inline-block; padding:2px 10px; border-radius:99px; font-size:12px; font-weight:600; }
+.badge-green { background:#d1fae5; color:#065f46; }
+.badge-yellow { background:#fef3c7; color:#92400e; }
+.badge-red { background:#fee2e2; color:#991b1b; }
+.badge-blue { background:#dbeafe; color:#1e40af; }
+.badge-gray { background:#f3f4f6; color:#4b5563; }
+
+/* Buttons */
+.btn { padding:6px 14px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; border:none; transition:opacity 0.15s; }
+.btn:hover { opacity:0.85; }
+.btn-green { background:#10b981; color:#fff; }
+.btn-red { background:#ef4444; color:#fff; }
+.btn-gold { background:#c9a84c; color:#1a1a2e; }
+.btn-gray { background:#f3f4f6; color:#4b5563; }
+
+/* Map */
+.map-container { flex:1; min-height:400px; }
+
+/* Empty */
+.empty { padding:48px; text-align:center; color:#9ca3af; }
+.empty-icon { font-size:48px; margin-bottom:12px; }
+
+/* Upload */
+.upload-row { display:flex; gap:16px; align-items:flex-end; margin-bottom:16px; }
+.upload-row input, .upload-row select { padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; flex:1; }
+.upload-status { font-size:13px; margin-top:8px; }
+.library-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+.library-item { border-radius:8px; overflow:hidden; border:1px solid #e5e7eb; background:#fff; }
+.library-item img { width:100%; height:100px; object-fit:cover; }
+.library-item p { font-size:11px; text-align:center; padding:4px; color:#6b7280; }
+
+/* Filter chips */
+.filters { display:flex; gap:8px; margin-bottom:16px; }
+.filter-btn { padding:6px 16px; border-radius:99px; font-size:13px; font-weight:500; cursor:pointer; border:none; background:#f3f4f6; color:#4b5563; }
+.filter-btn.active { background:#1a1a2e; color:#c9a84c; }
+
+/* Thumb */
+.vehicle-thumb { width:56px; height:42px; border-radius:8px; object-fit:cover; background:#f3f4f6; }
+.vehicle-info { display:flex; align-items:center; gap:12px; }
+</style>
+</head>
+<body>
+
+<div class="sidebar">
+  <div class="sidebar-brand">
+    <h1>VIP Mobility</h1>
+    <p>Admin Dashboard</p>
+  </div>
+  <nav class="sidebar-nav" id="sidebar-nav"></nav>
+</div>
+
+<div class="main" id="main-content"></div>
+
+<script>
+// ─── Config ──────────────────────────────────────────────────────────────────
+const API = window.location.protocol + '//109.120.133.113/v1';
+const ADMIN_KEY = 'vip-admin-2026';
+let currentTab = 'dashboard';
+let allVehicles = [], allBookings = [], allUsers = [], libraryData = { images: [], makes: [] };
+
+// ─── Pages ───────────────────────────────────────────────────────────────────
+const PAGES = [
+  { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+  { id: 'vehicles', icon: '🚗', label: 'Vehicles' },
+  { id: 'bookings', icon: '📋', label: 'Bookings' },
+  { id: 'livemap', icon: '🗺️', label: 'Live Map' },
+  { id: 'library', icon: '📷', label: 'Car Library' },
+  { id: 'users', icon: '👤', label: 'Users' },
+];
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+function init() {
+  // Build sidebar
+  const nav = document.getElementById('sidebar-nav');
+  nav.innerHTML = PAGES.map(p =>
+    `<button class="nav-item${p.id === 'dashboard' ? ' active' : ''}" data-id="${p.id}" onclick="switchTab('${p.id}')"><span>${p.icon}</span>${p.label}</button>`
+  ).join('');
+
+  // Load data
+  loadAll();
+  switchTab('dashboard');
+}
+
+function switchTab(id) {
+  currentTab = id;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.id === id));
+  renderPage(id);
+}
+
+async function loadAll() {
+  const [v, b, u, l] = await Promise.all([
+    api('/vehicles?limit=100&status=all'),
+    api('/bookings?limit=100'),
+    api('/auth/'),
+    api('/uploads/library'),
+  ]);
+  allVehicles = v?.vehicles || [];
+  allBookings = Array.isArray(b) ? b : (b?.bookings || []);
+  allUsers = Array.isArray(u) ? u : (u?.users || u || []);
+  libraryData = l || { images: [], makes: [] };
+  renderPage(currentTab);
+}
+
+async function api(path, method = 'GET', body = null) {
+  try {
+    const headers = { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY };
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(API + path, opts);
+    const data = await res.json();
+    return data?.data || data;
+  } catch (e) { console.error('API error:', path, e); return null; }
+}
+
+// ─── Badge helper ────────────────────────────────────────────────────────────
+function badge(status) {
+  const m = { active:'green', completed:'gray', confirmed:'blue', pending:'yellow', cancelled:'red', inactive:'gray', submitted:'blue' };
+  return `<span class="badge badge-${m[status] || 'gray'}">${status}</span>`;
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+function renderPage(id) {
+  const main = document.getElementById('main-content');
+  switch(id) {
+    case 'dashboard': main.innerHTML = renderDashboard(); break;
+    case 'vehicles': main.innerHTML = renderVehicles(); break;
+    case 'bookings': main.innerHTML = renderBookings(); break;
+    case 'livemap': main.innerHTML = renderLiveMap(); setTimeout(initLiveMap, 50); break;
+    case 'library': main.innerHTML = renderLibrary(); break;
+    case 'users': main.innerHTML = renderUsers(); break;
+  }
+}
+
+// ─── Dashboard ───────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const pending = allVehicles.filter(v => v.status === 'pending').length;
+  return `<div class="page active">
+    <h2>Dashboard</h2><p class="subtitle">Platform overview</p>
+    <div class="stats">
+      <div class="stat-card"><div class="label">Total Vehicles</div><div class="value">${allVehicles.length}</div></div>
+      <div class="stat-card"><div class="label">Pending Approval</div><div class="value" style="color:#f59e0b">${pending}</div></div>
+      <div class="stat-card"><div class="label">Total Bookings</div><div class="value">${allBookings.length}</div></div>
+      <div class="stat-card"><div class="label">Total Users</div><div class="value">${allUsers.length}</div></div>
+    </div>
+    <div class="card">
+      <div style="padding:16px;border-bottom:1px solid #e5e7eb;display:flex;justify-content:space-between;align-items:center">
+        <strong>Recent Vehicles</strong>
+        <button class="btn btn-gold" onclick="switchTab('vehicles')">View All →</button>
+      </div>
+      <table>
+        <tr><th>Vehicle</th><th>Category</th><th>Rate</th><th>Status</th></tr>
+        ${allVehicles.slice(0, 5).map(v => `<tr>
+          <td><strong>${v.year} ${v.make} ${v.model}</strong></td>
+          <td style="text-transform:capitalize">${v.category}</td>
+          <td style="color:#c9a84c;font-weight:600">AED ${v.daily_rate}/day</td>
+          <td>${badge(v.status)}</td>
+        </tr>`).join('') || '<tr><td colspan="4" class="empty">No vehicles yet</td></tr>'}
+      </table>
+    </div>
+  </div>`;
+}
+
+// ─── Vehicles ────────────────────────────────────────────────────────────────
+function renderVehicles() {
+  return `<div class="page active">
+    <h2>Vehicles</h2><p class="subtitle">${allVehicles.length} vehicles total</p>
+    <div class="card">
+      <table>
+        <tr><th>Vehicle</th><th>Category</th><th>City</th><th>Daily Rate</th><th>Status</th><th>Actions</th></tr>
+        ${allVehicles.map(v => {
+          const thumb = v.media && v.media.length > 0
+            ? `<img class="vehicle-thumb" src="${v.media[0].url}" onerror="this.style.display='none'">`
+            : `<div class="vehicle-thumb" style="display:flex;align-items:center;justify-content:center;font-size:20px">🚗</div>`;
+          return `<tr>
+          <td><div class="vehicle-info">${thumb}<div><strong>${v.year} ${v.make} ${v.model}</strong><br><span style="font-size:12px;color:#9ca3af">${v.license_plate || ''}</span></div></div></td>
+          <td style="text-transform:capitalize">${v.category}</td>
+          <td>${v.location_city || '—'}</td>
+          <td style="color:#c9a84c;font-weight:600">AED ${v.daily_rate}</td>
+          <td>${badge(v.status)}</td>
+          <td>${v.status === 'pending' ? `<button class="btn btn-green" onclick="approveVehicle('${v.id}')">Approve</button> <button class="btn btn-red" onclick="rejectVehicle('${v.id}')">Reject</button>` :
+            v.status === 'active' ? `<span style="color:#10b981;font-weight:600;font-size:13px">✓ Active</span>` :
+            `<button class="btn btn-gray" onclick="approveVehicle('${v.id}')">Reactivate</button>`}</td>
+        </tr>`;}).join('') || '<tr><td colspan="6" class="empty">No vehicles</td></tr>'}
+      </table>
+    </div>
+  </div>`;
+}
+
+async function approveVehicle(id) {
+  if (!confirm('Approve this vehicle?')) return;
+  await fetch(API + '/vehicles/' + id + '/status', { method:'PATCH', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body:JSON.stringify({status:'active'}) });
+  await loadAll();
+}
+async function rejectVehicle(id) {
+  if (!confirm('Reject this vehicle?')) return;
+  await fetch(API + '/vehicles/' + id + '/status', { method:'PATCH', headers:{'Content-Type':'application/json','x-admin-key':ADMIN_KEY}, body:JSON.stringify({status:'inactive'}) });
+  await loadAll();
+}
+
+// ─── Bookings ────────────────────────────────────────────────────────────────
+function renderBookings() {
+  return `<div class="page active">
+    <h2>Bookings</h2><p class="subtitle">${allBookings.length} bookings total</p>
+    <div class="card">
+      <table>
+        <tr><th>ID</th><th>Mode</th><th>Status</th><th>Amount</th><th>Start</th></tr>
+        ${allBookings.map(b => `<tr>
+          <td style="font-family:monospace;font-size:12px">${b.id?.slice(0,8) || ''}...</td>
+          <td style="text-transform:capitalize">${(b.mode || '').replace('_',' ')}</td>
+          <td>${badge(b.status)}</td>
+          <td style="color:#c9a84c;font-weight:600">AED ${b.total_amount}</td>
+          <td style="font-size:13px;color:#6b7280">${b.start_time ? new Date(b.start_time).toLocaleString() : '—'}</td>
+        </tr>`).join('') || '<tr><td colspan="5" class="empty">No bookings</td></tr>'}
+      </table>
+    </div>
+  </div>`;
+}
+
+// ─── Live Map ────────────────────────────────────────────────────────────────
+function renderLiveMap() {
+  return `<div class="page-full active">
+    <div style="padding:16px 24px;background:#fff;border-bottom:1px solid #e5e7eb">
+      <h2 style="margin-bottom:0">Live Map</h2>
+      <p style="color:#6b7280;font-size:13px">All vehicles on the map</p>
+    </div>
+    <div id="map-live" class="map-container"></div>
+  </div>`;
+}
+
+function initLiveMap() {
+  if (typeof google === 'undefined') return;
+  const map = new google.maps.Map(document.getElementById('map-live'), {
+    center:{lat:25.2048,lng:55.2708}, zoom:11,
+    disableDefaultUI:true, zoomControl:true,
+    styles:[{featureType:'poi',stylers:[{visibility:'off'}]},{featureType:'transit',stylers:[{visibility:'off'}]}],
+  });
+  allVehicles.forEach(v => {
+    if (!v.location_lat || !v.location_lng) return;
+    const marker = new google.maps.Marker({
+      position:{lat:parseFloat(v.location_lat),lng:parseFloat(v.location_lng)}, map,
+      icon:{path:google.maps.SymbolPath.CIRCLE,scale:10,fillColor:v.status==='active'?'#10b981':'#f59e0b',fillOpacity:1,strokeColor:'#fff',strokeWeight:2},
+    });
+    const info = new google.maps.InfoWindow({
+      content:`<div style="padding:4px"><b>${v.year} ${v.make} ${v.model}</b><br><span style="color:#6b7280;font-size:12px">${v.location_city||''}</span><br><span style="color:#c9a84c;font-weight:700">AED ${v.daily_rate}/day</span></div>`
+    });
+    marker.addListener('click', () => info.open(map, marker));
+  });
+}
+
+// ─── Library ─────────────────────────────────────────────────────────────────
+function renderLibrary() {
+  const baseUrl = API.replace('/v1', '');
+  const images = libraryData.images || [];
+  return `<div class="page active">
+    <h2>Car Photo Library</h2><p class="subtitle">Upload stock photos for vehicle owners</p>
+    <div class="card" style="padding:20px;margin-bottom:20px">
+      <strong style="display:block;margin-bottom:12px">Upload New Photos</strong>
+      <div class="upload-row">
+        <div style="flex:1"><label style="font-size:13px;color:#6b7280;display:block;margin-bottom:4px">Car Make</label>
+          <input id="lib-make" placeholder="e.g. BMW, Mercedes"></div>
+        <div style="flex:1"><label style="font-size:13px;color:#6b7280;display:block;margin-bottom:4px">Images</label>
+          <input id="lib-files" type="file" accept="image/*" multiple></div>
+        <button class="btn btn-gold" style="padding:10px 20px;font-size:14px" onclick="uploadLib()">Upload</button>
+      </div>
+      <div id="lib-status"></div>
+    </div>
+    ${images.length > 0 ? `<div class="library-grid">${images.map(img => {
+      const url = img.url.startsWith('http') ? img.url : baseUrl + img.url;
+      return `<div class="library-item"><img src="${url}" onerror="this.parentElement.remove()"><p>${img.make}</p></div>`;
+    }).join('')}</div>` : '<div class="empty"><div class="empty-icon">📷</div>No library images yet<br>Upload photos above</div>'}
+  </div>`;
+}
+
+async function uploadLib() {
+  const make = document.getElementById('lib-make').value.trim();
+  const files = document.getElementById('lib-files').files;
+  const status = document.getElementById('lib-status');
+  if (!make) { alert('Enter a car make'); return; }
+  if (!files.length) { alert('Select images'); return; }
+  status.innerHTML = '<span style="color:#3b82f6">Uploading...</span>';
+  const fd = new FormData();
+  for (const f of files) fd.append('images', f);
+  try {
+    const res = await fetch(API + '/uploads/library/' + make.toLowerCase(), { method:'POST', headers:{'x-admin-key':ADMIN_KEY,'Accept':'application/json'}, body:fd });
+    if (res.ok) { status.innerHTML = '<span style="color:#10b981">✓ Uploaded!</span>'; await loadAll(); }
+    else status.innerHTML = '<span style="color:#ef4444">Failed: ' + res.status + '</span>';
+  } catch(e) { status.innerHTML = '<span style="color:#ef4444">Error: ' + e.message + '</span>'; }
+}
+
+// ─── Users ───────────────────────────────────────────────────────────────────
+function renderUsers() {
+  return `<div class="page active">
+    <h2>Users</h2><p class="subtitle">${allUsers.length} users registered</p>
+    <div class="card">
+      <table>
+        <tr><th>Name</th><th>Email</th><th>Role</th><th>Joined</th></tr>
+        ${allUsers.map(u => `<tr>
+          <td><strong>${u.full_name || (u.first_name||'') + ' ' + (u.last_name||'')}</strong></td>
+          <td style="color:#6b7280">${u.email}</td>
+          <td>${badge(u.role)}</td>
+          <td style="font-size:13px;color:#6b7280">${u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+        </tr>`).join('') || '<tr><td colspan="4" class="empty">No users</td></tr>'}
+      </table>
+    </div>
+  </div>`;
+}
+
+// ─── Start ───────────────────────────────────────────────────────────────────
+init();
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD5wNSv6trG1uOBHjsaXkQJzrcgpHGGJI0&libraries=places"></script>
+</body>
+</html>

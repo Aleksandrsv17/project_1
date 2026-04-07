@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as ImagePicker from 'expo-image-picker';
 import { useAddVehicle } from '../../hooks/useVehicles';
 import { useLocation } from '../../hooks/useLocation';
-import { reverseGeocode } from '../../api/maps';
+import { reverseGeocode, searchPlaces, getPlaceDetails, PlacePrediction } from '../../api/maps';
 import { uploadVehicleImages, getLibraryImages, LibraryImage } from '../../api/uploads';
 import { COLORS, SPACING, BORDER_RADIUS, VEHICLE_CATEGORIES, DEFAULT_REGION } from '../../utils/constants';
 import { AddVehiclePayload } from '../../api/vehicles';
@@ -33,6 +33,14 @@ const STEPS = ['Vehicle Info', 'Photos', 'Pricing', 'Availability'];
 
 const FUEL_TYPES = ['petrol', 'diesel', 'electric', 'hybrid'] as const;
 const TRANSMISSION_TYPES = ['automatic', 'manual'] as const;
+
+const COUNTRIES = [
+  'United Arab Emirates', 'Saudi Arabia', 'Qatar', 'Bahrain', 'Kuwait', 'Oman',
+  'United States', 'United Kingdom', 'Germany', 'France', 'Italy', 'Spain',
+  'Switzerland', 'Netherlands', 'Turkey', 'Russia', 'India', 'China', 'Japan',
+  'Australia', 'Canada', 'Brazil', 'South Africa', 'Egypt', 'Morocco',
+  'Singapore', 'Malaysia', 'Thailand', 'Indonesia', 'South Korea',
+];
 
 const COMMON_FEATURES = [
   'GPS Navigation', 'Bluetooth', 'Apple CarPlay', 'Android Auto',
@@ -76,6 +84,11 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [pickupAddress, setPickupAddress] = useState(detectedAddress ?? '');
   const [pickupCity, setPickupCity] = useState('Dubai');
+  const [pickupCountry, setPickupCountry] = useState('United Arab Emirates');
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+  const [countrySearch, setCountrySearch] = useState('');
+  const [addressPredictions, setAddressPredictions] = useState<any[]>([]);
+  const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pinCoords, setPinCoords] = useState<{ latitude: number; longitude: number }>(
     location ? { latitude: location.latitude, longitude: location.longitude } : { latitude: 25.2048, longitude: 55.2708 }
   );
@@ -125,6 +138,32 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
     } else {
       navigation.goBack();
     }
+  }
+
+  function handleAddressSearch(text: string) {
+    setPickupAddress(text);
+    if (addressDebounceRef.current) clearTimeout(addressDebounceRef.current);
+    if (text.trim().length < 3) { setAddressPredictions([]); return; }
+    addressDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchPlaces(text, location ?? undefined);
+        setAddressPredictions(results);
+      } catch { setAddressPredictions([]); }
+    }, 300);
+  }
+
+  async function handleSelectAddress(p: PlacePrediction) {
+    setAddressPredictions([]);
+    try {
+      const d = await getPlaceDetails(p.placeId);
+      setPickupAddress(p.description);
+      setPinCoords({ latitude: d.latitude, longitude: d.longitude });
+      if (d.formattedAddress) {
+        // Try to extract city from address
+        const parts = d.formattedAddress.split(',').map((s: string) => s.trim());
+        if (parts.length >= 2) setPickupCity(parts[parts.length - 2]);
+      }
+    } catch {}
   }
 
   function toggleFeature(feature: string) {
@@ -250,6 +289,16 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
 
     try {
       await addVehicleMutation.mutateAsync(payload);
+
+      // Reset all fields
+      setCurrentStep(0);
+      setMake(''); setModel(''); setYear(''); setColor('');
+      setLicensePlate(''); setSeats('5'); setCategory('sedan');
+      setTransmission('automatic'); setFuelType('petrol'); setDescription('');
+      setImages([]); setPricePerHour(''); setPricePerDay('');
+      setChauffeurAvailable(false); setChauffeurFeePerHour('');
+      setSelectedFeatures([]); setPickupAddress(detectedAddress ?? ''); setPickupCity('Dubai');
+
       Alert.alert(
         'Vehicle Added! 🎉',
         'Your vehicle has been listed and is now visible to customers.',
@@ -569,20 +618,82 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
               ))}
             </View>
 
-            <Field
-              label="Pickup City"
-              value={pickupCity}
-              onChangeText={setPickupCity}
-              placeholder="e.g. Dubai"
-            />
+            {/* Country selector */}
+            <Text style={styles.fieldLabel}>Country</Text>
+            <TouchableOpacity
+              style={styles.locationDropdown}
+              onPress={() => setShowCountryPicker(!showCountryPicker)}
+            >
+              <Text style={styles.locationDropdownIcon}>🌐</Text>
+              <Text style={styles.locationDropdownText}>{pickupCountry}</Text>
+              <Text style={styles.locationDropdownArrow}>{showCountryPicker ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+            {showCountryPicker && (
+              <View style={styles.countryPickerContainer}>
+                <View style={styles.countrySearchBox}>
+                  <Text style={{ fontSize: 14 }}>🔍</Text>
+                  <TextInput
+                    style={styles.countrySearchInput}
+                    value={countrySearch}
+                    onChangeText={setCountrySearch}
+                    placeholder="Search country..."
+                    placeholderTextColor={COLORS.gray}
+                    autoFocus
+                  />
+                </View>
+                <ScrollView style={styles.countryList} nestedScrollEnabled>
+                  {COUNTRIES.filter(c => c.toLowerCase().includes(countrySearch.toLowerCase())).map(c => (
+                    <TouchableOpacity
+                      key={c}
+                      style={[styles.countryItem, pickupCountry === c && styles.countryItemActive]}
+                      onPress={() => { setPickupCountry(c); setShowCountryPicker(false); setCountrySearch(''); }}
+                    >
+                      <Text style={[styles.countryItemText, pickupCountry === c && styles.countryItemTextActive]}>{c}</Text>
+                      {pickupCountry === c && <Text style={styles.countryCheck}>✓</Text>}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
 
-            <Field
-              label="Pickup Address"
-              value={pickupAddress}
-              onChangeText={setPickupAddress}
-              placeholder="Street address where customers can pick up"
-            />
+            {/* Address search with autocomplete */}
+            <Text style={[styles.fieldLabel, { marginTop: SPACING.md }]}>Vehicle Address</Text>
+            <View style={styles.addressInputCard}>
+              <View style={styles.addressDotsCol}>
+                <View style={styles.addressGreenDot} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <TextInput
+                  style={styles.addressInput}
+                  value={pickupAddress}
+                  onChangeText={handleAddressSearch}
+                  placeholder="Search address..."
+                  placeholderTextColor={COLORS.gray}
+                />
+              </View>
+              {pickupAddress.length > 0 && (
+                <TouchableOpacity onPress={() => { setPickupAddress(''); setAddressPredictions([]); }}>
+                  <Text style={{ fontSize: 14, color: COLORS.gray, padding: 4 }}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
 
+            {/* Address predictions */}
+            {addressPredictions.length > 0 && (
+              <View style={styles.addressPredictions}>
+                {addressPredictions.map((p: PlacePrediction) => (
+                  <TouchableOpacity key={p.placeId} style={styles.addressPredRow} onPress={() => handleSelectAddress(p)}>
+                    <Text style={styles.addressPredPin}>📍</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.addressPredMain} numberOfLines={1}>{p.mainText}</Text>
+                      <Text style={styles.addressPredSub} numberOfLines={1}>{p.secondaryText}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Use my location button */}
             {location && (
               <TouchableOpacity
                 style={styles.useLocationButton}
@@ -595,22 +706,15 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
               </TouchableOpacity>
             )}
 
-            <Text style={[styles.fieldLabel, { marginTop: SPACING.md }]}>
-              Tap the map to set vehicle pickup location
-            </Text>
-            <View style={styles.mapPickerContainer}>
+            {/* Map with pin */}
+            <View style={[styles.mapPickerContainer, { marginTop: SPACING.md }]}>
               <MapView
                 style={styles.mapPicker}
-                provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-                initialRegion={{
-                  ...pinCoords,
-                  latitudeDelta: 0.02,
-                  longitudeDelta: 0.02,
-                }}
+                provider={PROVIDER_GOOGLE}
                 region={{
                   ...pinCoords,
-                  latitudeDelta: 0.02,
-                  longitudeDelta: 0.02,
+                  latitudeDelta: 0.015,
+                  longitudeDelta: 0.015,
                 }}
                 onPress={async (e: MapPressEvent) => {
                   const { latitude, longitude } = e.nativeEvent.coordinate;
@@ -619,9 +723,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
                     const geo = await reverseGeocode(latitude, longitude);
                     setPickupAddress(geo.formattedAddress);
                     if (geo.city) setPickupCity(geo.city);
-                  } catch {
-                    // Keep existing address if geocoding fails
-                  }
+                  } catch {}
                 }}
               >
                 <Marker coordinate={pinCoords}>
@@ -630,6 +732,11 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
                   </View>
                 </Marker>
               </MapView>
+              {pickupAddress ? (
+                <View style={styles.mapAddressBar}>
+                  <Text style={styles.mapAddressText} numberOfLines={2}>{pickupAddress}</Text>
+                </View>
+              ) : null}
             </View>
           </View>
         )}
@@ -1038,6 +1145,96 @@ const styles = StyleSheet.create({
   mapPinText: {
     fontSize: 22,
   },
+  mapAddressBar: {
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  mapAddressText: {
+    fontSize: 13,
+    color: COLORS.textPrimary,
+  },
+  locationDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    gap: SPACING.sm,
+  },
+  locationDropdownIcon: { fontSize: 16 },
+  locationDropdownText: { flex: 1, fontSize: 15, color: COLORS.textPrimary, fontWeight: '500' },
+  locationDropdownArrow: { fontSize: 12, color: COLORS.textSecondary },
+  countryPickerContainer: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    marginTop: SPACING.xs,
+    maxHeight: 250,
+    overflow: 'hidden',
+  },
+  countrySearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayLight,
+    gap: SPACING.sm,
+  },
+  countrySearchInput: { flex: 1, fontSize: 14, color: COLORS.textPrimary },
+  countryList: { maxHeight: 200 },
+  countryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayLight,
+  },
+  countryItemActive: { backgroundColor: '#fefce8' },
+  countryItemText: { fontSize: 15, color: COLORS.textPrimary },
+  countryItemTextActive: { color: COLORS.accent, fontWeight: '700' },
+  countryCheck: { fontSize: 16, color: COLORS.accent, fontWeight: '700' },
+  addressInputCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    gap: SPACING.sm,
+  },
+  addressDotsCol: { width: 16, alignItems: 'center' },
+  addressGreenDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981' },
+  addressInput: { flex: 1, fontSize: 15, color: COLORS.textPrimary, paddingVertical: 12 },
+  addressPredictions: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: BORDER_RADIUS.md,
+    borderBottomRightRadius: BORDER_RADIUS.md,
+    maxHeight: 200,
+  },
+  addressPredRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayLight,
+    gap: SPACING.sm,
+  },
+  addressPredPin: { fontSize: 14 },
+  addressPredMain: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  addressPredSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
   uploadingRow: {
     flexDirection: 'row',
     alignItems: 'center',

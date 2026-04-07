@@ -30,8 +30,8 @@ export class VehicleService {
       `INSERT INTO vehicles
         (owner_id, make, model, year, license_plate, color, category,
          daily_rate, hourly_rate, chauffeur_available, chauffeur_daily_rate,
-         deposit_amount, max_daily_km, location_city, location_lat, location_lng, description)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         deposit_amount, max_daily_km, location_city, location_lat, location_lng, description, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'active')
        RETURNING *`,
       [
         ownerId,
@@ -146,7 +146,7 @@ export class VehicleService {
 
   async findByOwner(ownerId: string): Promise<VehicleWithMedia[]> {
     const result = await query<Vehicle>(
-      'SELECT * FROM vehicles WHERE owner_id = $1 ORDER BY created_at DESC',
+      "SELECT * FROM vehicles WHERE owner_id = $1 AND status != 'inactive' ORDER BY created_at DESC",
       [ownerId]
     );
 
@@ -202,7 +202,7 @@ export class VehicleService {
     return result.rows[0];
   }
 
-  async delete(vehicleId: string, ownerId: string): Promise<void> {
+  async delete(vehicleId: string, userId: string): Promise<void> {
     const vehicle = await query<Vehicle>(
       'SELECT id, owner_id FROM vehicles WHERE id = $1',
       [vehicleId]
@@ -212,8 +212,12 @@ export class VehicleService {
       throw new NotFoundError('Vehicle');
     }
 
-    if (vehicle.rows[0].owner_id !== ownerId) {
-      throw new ForbiddenError('You do not own this vehicle');
+    if (vehicle.rows[0].owner_id !== userId) {
+      // Check if user is admin
+      const userResult = await query<{ role: string }>('SELECT role FROM users WHERE id = $1', [userId]);
+      if (userResult.rows[0]?.role !== 'admin') {
+        throw new ForbiddenError('You do not own this vehicle');
+      }
     }
 
     // Check for active bookings
@@ -233,7 +237,7 @@ export class VehicleService {
       [vehicleId]
     );
 
-    logger.info('Vehicle deactivated', { vehicleId, ownerId });
+    logger.info('Vehicle deactivated', { vehicleId, userId });
   }
 
   /**

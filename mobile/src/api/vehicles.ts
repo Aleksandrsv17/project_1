@@ -119,6 +119,8 @@ export async function getVehicles(filters?: VehicleFilters): Promise<VehicleList
   return {
     vehicles: rawVehicles.map(mapVehicle),
     total: data?.pagination?.total ?? rawVehicles.length,
+    page: data?.pagination?.page ?? 1,
+    totalPages: data?.pagination?.pages ?? 1,
   };
 }
 
@@ -135,9 +137,41 @@ export async function getMyVehicles(): Promise<Vehicle[]> {
 }
 
 export async function addVehicle(payload: AddVehiclePayload): Promise<Vehicle> {
-  const response = await apiClient.post('/vehicles', payload);
+  const body = {
+    make: payload.make,
+    model: payload.model,
+    year: payload.year,
+    license_plate: payload.licensePlate,
+    color: payload.color,
+    category: payload.category,
+    daily_rate: payload.pricePerDay,
+    hourly_rate: payload.pricePerHour,
+    chauffeur_available: payload.chauffeurAvailable,
+    chauffeur_daily_rate: payload.chauffeurFeePerHour ? payload.chauffeurFeePerHour * 8 : undefined,
+    location_city: payload.location?.city,
+    location_lat: payload.location?.latitude,
+    location_lng: payload.location?.longitude,
+    description: payload.description,
+  };
+  const response = await apiClient.post('/vehicles', body);
   const raw = response.data?.data?.vehicle ?? response.data?.data ?? response.data;
-  return mapVehicle(raw);
+  const vehicle = mapVehicle(raw);
+
+  // Upload images as media after vehicle is created
+  if (payload.images && payload.images.length > 0) {
+    for (let i = 0; i < payload.images.length; i++) {
+      try {
+        await apiClient.post(`/vehicles/${vehicle.id}/media`, {
+          url: payload.images[i],
+          is_primary: i === 0,
+        });
+      } catch {
+        // Continue even if one image fails
+      }
+    }
+  }
+
+  return vehicle;
 }
 
 export async function updateVehicle(id: string, payload: Partial<AddVehiclePayload>): Promise<Vehicle> {

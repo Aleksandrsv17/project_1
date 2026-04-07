@@ -35,7 +35,7 @@ export const createVehicleSchema = Joi.object({
   year: Joi.number().integer().min(1990).max(new Date().getFullYear() + 1).required(),
   license_plate: Joi.string().min(2).max(30).trim().uppercase().required(),
   color: Joi.string().max(50).trim().optional(),
-  category: Joi.string().valid('sedan', 'suv', 'coupe', 'convertible', 'van', 'truck').required(),
+  category: Joi.string().valid('sedan', 'suv', 'luxury', 'sports', 'coupe', 'convertible', 'van', 'truck').required(),
   daily_rate: Joi.number().positive().precision(2).required(),
   hourly_rate: Joi.number().positive().precision(2).optional(),
   chauffeur_available: Joi.boolean().default(false),
@@ -45,7 +45,7 @@ export const createVehicleSchema = Joi.object({
   location_city: Joi.string().max(100).trim().optional(),
   location_lat: Joi.number().min(-90).max(90).optional(),
   location_lng: Joi.number().min(-180).max(180).optional(),
-  description: Joi.string().max(2000).optional(),
+  description: Joi.string().max(2000).allow('').optional(),
 });
 
 export const updateVehicleSchema = Joi.object({
@@ -68,7 +68,7 @@ export const updateVehicleSchema = Joi.object({
 
 export const vehicleQuerySchema = Joi.object({
   city: Joi.string().optional(),
-  category: Joi.string().valid('sedan', 'suv', 'coupe', 'convertible', 'van', 'truck').optional(),
+  category: Joi.string().valid('sedan', 'suv', 'luxury', 'sports', 'coupe', 'convertible', 'van', 'truck').optional(),
   status: Joi.string().valid('pending', 'active', 'inactive', 'maintenance', 'all').optional(),
   min_rate: Joi.number().positive().optional(),
   max_rate: Joi.number().positive().optional(),

@@ -32,6 +32,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const role = 'customer';
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
@@ -169,14 +170,27 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
               {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
             </View>
 
-            <Field
-              label="Confirm Password"
-              value={confirmPassword}
-              onChangeText={(t) => { setConfirmPassword(t); setErrors((e) => ({ ...e, confirmPassword: '' })); }}
-              placeholder="Re-enter your password"
-              error={errors.confirmPassword}
-              secureTextEntry
-            />
+            {/* Confirm Password */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.fieldLabel}>Confirm Password</Text>
+              <View style={styles.passwordRow}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput, errors.confirmPassword ? styles.inputError : undefined]}
+                  value={confirmPassword}
+                  onChangeText={(t) => { setConfirmPassword(t); setErrors((e) => ({ ...e, confirmPassword: '' })); }}
+                  placeholder="Re-enter your password"
+                  placeholderTextColor={COLORS.gray}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowConfirmPassword((v) => !v)}
+                >
+                  <Text style={styles.eyeIcon}>{showConfirmPassword ? '🙈' : '👁️'}</Text>
+                </TouchableOpacity>
+              </View>
+              {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
+            </View>
           </View>
 
           {/* Terms */}

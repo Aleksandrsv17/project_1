@@ -53,6 +53,7 @@ export function MyVehiclesScreen({ navigation }: MyVehiclesScreenProps) {
           onPress: async () => {
             try {
               await deleteVehicleMutation.mutateAsync(vehicle.id);
+              Alert.alert('Deleted', 'Vehicle has been removed from your fleet.');
             } catch {
               Alert.alert('Error', 'Failed to delete vehicle.');
             }

@@ -12,21 +12,21 @@ router.get('/:id', vehicleController.getById.bind(vehicleController));
 router.post(
   '/',
   authenticate,
-  requireRole('owner', 'admin'),
+  requireRole('customer', 'owner', 'admin'),
   vehicleController.create.bind(vehicleController)
 );
 
 router.get(
   '/owner/my-vehicles',
   authenticate,
-  requireRole('owner', 'admin'),
+  requireRole('customer', 'owner', 'admin'),
   vehicleController.getMyVehicles.bind(vehicleController)
 );
 
 router.patch(
   '/:id',
   authenticate,
-  requireRole('owner', 'admin'),
+  requireRole('customer', 'owner', 'admin'),
   vehicleController.update.bind(vehicleController)
 );
 
@@ -46,14 +46,14 @@ router.patch(
 router.delete(
   '/:id',
   authenticate,
-  requireRole('owner', 'admin'),
+  requireRole('customer', 'owner', 'admin'),
   vehicleController.delete.bind(vehicleController)
 );
 
 router.post(
   '/:id/media',
   authenticate,
-  requireRole('owner', 'admin'),
+  requireRole('customer', 'owner', 'admin'),
   vehicleController.addMedia.bind(vehicleController)
 );
 
