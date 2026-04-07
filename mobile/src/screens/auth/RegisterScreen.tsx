@@ -24,15 +24,13 @@ type RegisterScreenProps = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'>;
 };
 
-type Role = 'customer' | 'owner';
-
 export function RegisterScreen({ navigation }: RegisterScreenProps) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<Role>('customer');
+  const role = 'customer';
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
@@ -119,27 +117,6 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
           <View style={styles.header}>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join VIP Mobility today</Text>
-          </View>
-
-          {/* Role Selector */}
-          <View style={styles.roleContainer}>
-            <Text style={styles.roleLabel}>I want to:</Text>
-            <View style={styles.rolePicker}>
-              <RoleOption
-                selected={role === 'customer'}
-                title="Rent a Vehicle"
-                subtitle="Book cars & rides"
-                icon="🚗"
-                onPress={() => setRole('customer')}
-              />
-              <RoleOption
-                selected={role === 'owner'}
-                title="List My Vehicle"
-                subtitle="Earn as an owner"
-                icon="🏎️"
-                onPress={() => setRole('owner')}
-              />
-            </View>
           </View>
 
           {/* Fields */}

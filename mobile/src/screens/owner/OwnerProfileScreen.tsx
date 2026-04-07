@@ -9,10 +9,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/authStore';
+import { useAppModeStore } from '../../store/appModeStore';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
 
 export function OwnerProfileScreen() {
   const { user, logout } = useAuthStore();
+  const { setMode } = useAppModeStore();
 
   const initials = user?.fullName
     ? user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -30,6 +32,10 @@ export function OwnerProfileScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
+          <TouchableOpacity style={styles.modeSwitch} onPress={() => setMode('customer')}>
+            <Text style={styles.modeSwitchIcon}>🏠</Text>
+            <Text style={styles.modeSwitchText}>Customer</Text>
+          </TouchableOpacity>
         </View>
 
         {/* User card */}
@@ -99,8 +105,11 @@ function MenuItem({ icon, label, subtitle, onPress }: {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
-  header: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
+  modeSwitch: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: BORDER_RADIUS.full },
+  modeSwitchIcon: { fontSize: 14 },
+  modeSwitchText: { fontSize: 13, fontWeight: '700', color: COLORS.accent },
   userCard: {
     backgroundColor: COLORS.primary, marginHorizontal: SPACING.md, marginTop: SPACING.md,
     borderRadius: BORDER_RADIUS.xl, padding: SPACING.lg, alignItems: 'center',

@@ -9,9 +9,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { CustomerTabParamList } from '../../navigation/MainNavigator';
 import { useAuthStore } from '../../store/authStore';
+import { useAppModeStore } from '../../store/appModeStore';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
-import { CustomerTabParamList } from '../../navigation/CustomerNavigator';
 
 type ProfileScreenProps = {
   navigation: BottomTabNavigationProp<CustomerTabParamList, 'Profile'>;
@@ -19,6 +20,7 @@ type ProfileScreenProps = {
 
 export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, logout } = useAuthStore();
+  const { setMode } = useAppModeStore();
 
   const initials = user?.fullName
     ? user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -40,9 +42,13 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
+        {/* Header with mode switch */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
+          <TouchableOpacity style={styles.modeSwitch} onPress={() => setMode('owner')}>
+            <Text style={styles.modeSwitchIcon}>🚗</Text>
+            <Text style={styles.modeSwitchText}>Rent Out</Text>
+          </TouchableOpacity>
         </View>
 
         {/* User card */}
@@ -209,6 +215,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     backgroundColor: COLORS.white,
@@ -219,6 +228,23 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: COLORS.textPrimary,
+  },
+  modeSwitch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.full,
+  },
+  modeSwitchIcon: {
+    fontSize: 14,
+  },
+  modeSwitchText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.accent,
   },
   userCard: {
     backgroundColor: COLORS.primary,
