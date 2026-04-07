@@ -12,6 +12,8 @@ import bookingRoutes from './services/booking/booking.routes';
 import paymentRoutes from './services/payment/payment.routes';
 import chauffeurRoutes from './services/chauffeur/chauffeur.routes';
 import mapsRoutes from './services/maps/maps.routes';
+import uploadRoutes, { UPLOAD_DIR } from './services/upload/upload.service';
+import path from 'path';
 
 export function createApp(): Application {
   const app = express();
@@ -64,6 +66,10 @@ export function createApp(): Application {
   app.use('/v1/payments', paymentRoutes);
   app.use('/v1/chauffeurs', chauffeurRoutes);
   app.use('/v1/maps', mapsRoutes);
+  app.use('/v1/uploads', uploadRoutes);
+
+  // Serve uploaded images as static files
+  app.use('/uploads', express.static(UPLOAD_DIR));
 
   // ── 404 catch-all ───────────────────────────────────────────────────────────
   app.use(notFoundHandler);

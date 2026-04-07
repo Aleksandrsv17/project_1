@@ -37,13 +37,53 @@ export interface KYCPayload {
 }
 
 export async function login(payload: LoginPayload): Promise<AuthResponse> {
-  const response = await apiClient.post<AuthResponse>('/auth/login', payload);
-  return response.data;
+  const response = await apiClient.post('/auth/login', payload);
+  const raw = response.data?.data ?? response.data;
+  return {
+    user: {
+      id: raw.user.id,
+      fullName: `${raw.user.first_name ?? ''} ${raw.user.last_name ?? ''}`.trim() || raw.user.email,
+      email: raw.user.email,
+      phone: raw.user.phone,
+      role: raw.user.role,
+      avatarUrl: raw.user.avatar_url ?? undefined,
+      kycVerified: raw.user.kyc_status === 'verified',
+      createdAt: raw.user.created_at,
+    },
+    accessToken: raw.tokens?.access_token ?? raw.accessToken,
+    refreshToken: raw.tokens?.refresh_token ?? raw.refreshToken,
+  };
 }
 
 export async function register(payload: RegisterPayload): Promise<AuthResponse> {
-  const response = await apiClient.post<AuthResponse>('/auth/register', payload);
-  return response.data;
+  const nameParts = payload.fullName.trim().split(/\s+/);
+  const first_name = nameParts[0];
+  const last_name = nameParts.slice(1).join(' ') || first_name;
+
+  const response = await apiClient.post('/auth/register', {
+    first_name,
+    last_name,
+    email: payload.email,
+    phone: payload.phone,
+    password: payload.password,
+    role: payload.role,
+  });
+
+  const raw = response.data?.data ?? response.data;
+  return {
+    user: {
+      id: raw.user.id,
+      fullName: `${raw.user.first_name} ${raw.user.last_name}`.trim(),
+      email: raw.user.email,
+      phone: raw.user.phone,
+      role: raw.user.role,
+      avatarUrl: raw.user.avatar_url ?? undefined,
+      kycVerified: raw.user.kyc_status === 'verified',
+      createdAt: raw.user.created_at,
+    },
+    accessToken: raw.tokens?.access_token ?? raw.accessToken,
+    refreshToken: raw.tokens?.refresh_token ?? raw.refreshToken,
+  };
 }
 
 export async function logout(refreshToken: string): Promise<void> {

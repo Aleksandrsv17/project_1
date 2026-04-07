@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,13 +10,17 @@ import {
   ActivityIndicator,
   Platform,
   Image,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE, MapPressEvent } from 'react-native-maps';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as ImagePicker from 'expo-image-picker';
 import { useAddVehicle } from '../../hooks/useVehicles';
 import { useLocation } from '../../hooks/useLocation';
 import { reverseGeocode } from '../../api/maps';
+import { uploadVehicleImages, getLibraryImages, LibraryImage } from '../../api/uploads';
 import { COLORS, SPACING, BORDER_RADIUS, VEHICLE_CATEGORIES, DEFAULT_REGION } from '../../utils/constants';
 import { AddVehiclePayload } from '../../api/vehicles';
 import { OwnerStackParamList } from '../../navigation/OwnerNavigator';
@@ -55,6 +59,12 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
 
   // Step 2: Photos
   const [images, setImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryImages, setLibraryImages] = useState<LibraryImage[]>([]);
+  const [libraryMakes, setLibraryMakes] = useState<string[]>([]);
+  const [libraryFilter, setLibraryFilter] = useState<string>('all');
+  const [selectedLibraryImages, setSelectedLibraryImages] = useState<Set<string>>(new Set());
 
   // Step 3: Pricing
   const [pricePerHour, setPricePerHour] = useState('');
@@ -123,18 +133,92 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
     );
   }
 
+  async function handlePickFromGallery() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission Required', 'Please allow access to your photo library.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      selectionLimit: 8 - images.length,
+      quality: 0.8,
+    });
+
+    if (result.canceled || result.assets.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const uris = result.assets.map(a => a.uri);
+      const urls = await uploadVehicleImages(uris);
+      setImages(prev => [...prev, ...urls].slice(0, 8));
+    } catch (err) {
+      Alert.alert('Upload Failed', 'Could not upload images. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function handleTakePhoto() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert('Permission Required', 'Please allow camera access.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+
+    if (result.canceled || result.assets.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const urls = await uploadVehicleImages([result.assets[0].uri]);
+      setImages(prev => [...prev, ...urls].slice(0, 8));
+    } catch (err) {
+      Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  async function handleOpenLibrary() {
+    setShowLibrary(true);
+    setSelectedLibraryImages(new Set());
+    try {
+      const data = await getLibraryImages();
+      setLibraryImages(data.images);
+      setLibraryMakes(data.makes);
+    } catch {
+      // Library might be empty, that's ok
+    }
+  }
+
+  function toggleLibraryImage(url: string) {
+    setSelectedLibraryImages(prev => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else if (images.length + next.size < 8) next.add(url);
+      return next;
+    });
+  }
+
+  function confirmLibrarySelection() {
+    const selected = Array.from(selectedLibraryImages);
+    setImages(prev => [...prev, ...selected].slice(0, 8));
+    setShowLibrary(false);
+    setSelectedLibraryImages(new Set());
+  }
+
   function handleAddPhoto() {
-    // TODO: Implement with expo-image-picker
-    Alert.alert('Add Photo', 'In production: open camera or photo library', [
-      {
-        text: 'OK',
-        onPress: () => {
-          setImages((prev) => [
-            ...prev,
-            `https://via.placeholder.com/300x200?text=Vehicle+${prev.length + 1}`,
-          ]);
-        },
-      },
+    Alert.alert('Add Photo', 'Choose an option', [
+      { text: 'Take Photo', onPress: handleTakePhoto },
+      { text: 'Choose from Gallery', onPress: handlePickFromGallery },
+      { text: 'Browse Car Library', onPress: handleOpenLibrary },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   }
 
@@ -318,11 +402,92 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
               )}
             </View>
 
+            {isUploading && (
+              <View style={styles.uploadingRow}>
+                <ActivityIndicator size="small" color={COLORS.accent} />
+                <Text style={styles.uploadingText}>Uploading...</Text>
+              </View>
+            )}
+
             <Text style={styles.photoHint}>
               {images.length}/8 photos · Recommended: exterior, interior, dashboard
             </Text>
           </View>
         )}
+
+        {/* Library Modal */}
+        <Modal visible={showLibrary} animationType="slide" presentationStyle="pageSheet">
+          <SafeAreaView style={styles.libraryModal} edges={['top']}>
+            <View style={styles.libraryHeader}>
+              <TouchableOpacity onPress={() => setShowLibrary(false)}>
+                <Text style={styles.libraryClose}>✕</Text>
+              </TouchableOpacity>
+              <Text style={styles.libraryTitle}>Car Photo Library</Text>
+              <TouchableOpacity onPress={confirmLibrarySelection}>
+                <Text style={styles.libraryDone}>
+                  Done ({selectedLibraryImages.size})
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Make filter */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.libraryFilterRow}
+            >
+              <TouchableOpacity
+                style={[styles.libraryFilterChip, libraryFilter === 'all' && styles.libraryFilterActive]}
+                onPress={() => setLibraryFilter('all')}
+              >
+                <Text style={[styles.libraryFilterText, libraryFilter === 'all' && styles.libraryFilterTextActive]}>All</Text>
+              </TouchableOpacity>
+              {libraryMakes.map(m => (
+                <TouchableOpacity
+                  key={m}
+                  style={[styles.libraryFilterChip, libraryFilter === m && styles.libraryFilterActive]}
+                  onPress={() => setLibraryFilter(m)}
+                >
+                  <Text style={[styles.libraryFilterText, libraryFilter === m && styles.libraryFilterTextActive]}>{m}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {libraryImages.length === 0 ? (
+              <View style={styles.libraryEmpty}>
+                <Text style={styles.libraryEmptyIcon}>📷</Text>
+                <Text style={styles.libraryEmptyText}>No library images yet</Text>
+                <Text style={styles.libraryEmptySubtext}>
+                  The admin will upload car photos to the library soon.
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={libraryImages.filter(i => libraryFilter === 'all' || i.make === libraryFilter)}
+                keyExtractor={(item) => item.url}
+                numColumns={3}
+                contentContainerStyle={styles.libraryGrid}
+                renderItem={({ item }) => {
+                  const isSelected = selectedLibraryImages.has(item.url);
+                  return (
+                    <TouchableOpacity
+                      style={[styles.libraryImageItem, isSelected && styles.libraryImageSelected]}
+                      onPress={() => toggleLibraryImage(item.url)}
+                    >
+                      <Image source={{ uri: item.url }} style={styles.libraryImageThumb} resizeMode="cover" />
+                      {isSelected && (
+                        <View style={styles.libraryCheckmark}>
+                          <Text style={styles.libraryCheckmarkText}>✓</Text>
+                        </View>
+                      )}
+                      <Text style={styles.libraryImageLabel} numberOfLines={1}>{item.make}</Text>
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+          </SafeAreaView>
+        </Modal>
 
         {/* Step 2: Pricing */}
         {currentStep === 2 && (
@@ -872,6 +1037,133 @@ const styles = StyleSheet.create({
   },
   mapPinText: {
     fontSize: 22,
+  },
+  uploadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    paddingVertical: SPACING.sm,
+  },
+  uploadingText: {
+    fontSize: 13,
+    color: COLORS.accent,
+    fontWeight: '600',
+  },
+  libraryModal: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  libraryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  libraryClose: {
+    fontSize: 20,
+    color: COLORS.textPrimary,
+    padding: 4,
+  },
+  libraryTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  libraryDone: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.accent,
+  },
+  libraryFilterRow: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    gap: SPACING.xs,
+    backgroundColor: COLORS.white,
+  },
+  libraryFilterChip: {
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs + 2,
+    borderRadius: BORDER_RADIUS.full,
+    backgroundColor: COLORS.grayLight,
+  },
+  libraryFilterActive: {
+    backgroundColor: COLORS.primary,
+  },
+  libraryFilterText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  libraryFilterTextActive: {
+    color: COLORS.accent,
+    fontWeight: '600',
+  },
+  libraryGrid: {
+    padding: SPACING.xs,
+  },
+  libraryImageItem: {
+    flex: 1 / 3,
+    margin: SPACING.xs,
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    backgroundColor: COLORS.white,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  libraryImageSelected: {
+    borderColor: COLORS.accent,
+  },
+  libraryImageThumb: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    backgroundColor: COLORS.grayLight,
+  },
+  libraryCheckmark: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: COLORS.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  libraryCheckmarkText: {
+    color: COLORS.primary,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  libraryImageLabel: {
+    fontSize: 10,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    paddingVertical: 2,
+  },
+  libraryEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    padding: SPACING.xl,
+  },
+  libraryEmptyIcon: {
+    fontSize: 48,
+  },
+  libraryEmptyText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  libraryEmptySubtext: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
   // Bottom Bar
   bottomBar: {
