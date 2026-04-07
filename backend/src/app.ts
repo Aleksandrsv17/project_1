@@ -11,6 +11,7 @@ import vehicleRoutes from './services/vehicle/vehicle.routes';
 import bookingRoutes from './services/booking/booking.routes';
 import paymentRoutes from './services/payment/payment.routes';
 import chauffeurRoutes from './services/chauffeur/chauffeur.routes';
+import mapsRoutes from './services/maps/maps.routes';
 
 export function createApp(): Application {
   const app = express();
@@ -62,6 +63,7 @@ export function createApp(): Application {
   app.use('/v1/bookings', bookingRoutes);
   app.use('/v1/payments', paymentRoutes);
   app.use('/v1/chauffeurs', chauffeurRoutes);
+  app.use('/v1/maps', mapsRoutes);
 
   // ── 404 catch-all ───────────────────────────────────────────────────────────
   app.use(notFoundHandler);

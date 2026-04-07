@@ -12,10 +12,12 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE, MapPressEvent } from 'react-native-maps';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAddVehicle } from '../../hooks/useVehicles';
 import { useLocation } from '../../hooks/useLocation';
-import { COLORS, SPACING, BORDER_RADIUS, VEHICLE_CATEGORIES } from '../../utils/constants';
+import { reverseGeocode } from '../../api/maps';
+import { COLORS, SPACING, BORDER_RADIUS, VEHICLE_CATEGORIES, DEFAULT_REGION } from '../../utils/constants';
 import { AddVehiclePayload } from '../../api/vehicles';
 import { OwnerStackParamList } from '../../navigation/OwnerNavigator';
 
@@ -64,6 +66,9 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [pickupAddress, setPickupAddress] = useState(detectedAddress ?? '');
   const [pickupCity, setPickupCity] = useState('Dubai');
+  const [pinCoords, setPinCoords] = useState<{ latitude: number; longitude: number }>(
+    location ? { latitude: location.latitude, longitude: location.longitude } : { latitude: 25.2048, longitude: 55.2708 }
+  );
 
   function validateStep(): boolean {
     switch (currentStep) {
@@ -151,8 +156,8 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
       images: images.length > 0 ? images : ['https://via.placeholder.com/300x200?text=Vehicle'],
       description: description.trim(),
       location: {
-        latitude: location?.latitude ?? 25.2048,
-        longitude: location?.longitude ?? 55.2708,
+        latitude: pinCoords.latitude,
+        longitude: pinCoords.longitude,
         address: pickupAddress.trim() || detectedAddress || 'Dubai, UAE',
         city: pickupCity.trim() || 'Dubai',
       },
@@ -416,11 +421,51 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
             {location && (
               <TouchableOpacity
                 style={styles.useLocationButton}
-                onPress={() => setPickupAddress(detectedAddress ?? '')}
+                onPress={() => {
+                  setPickupAddress(detectedAddress ?? '');
+                  setPinCoords({ latitude: location.latitude, longitude: location.longitude });
+                }}
               >
                 <Text style={styles.useLocationText}>📍 Use my current location</Text>
               </TouchableOpacity>
             )}
+
+            <Text style={[styles.fieldLabel, { marginTop: SPACING.md }]}>
+              Tap the map to set vehicle pickup location
+            </Text>
+            <View style={styles.mapPickerContainer}>
+              <MapView
+                style={styles.mapPicker}
+                provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+                initialRegion={{
+                  ...pinCoords,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                }}
+                region={{
+                  ...pinCoords,
+                  latitudeDelta: 0.02,
+                  longitudeDelta: 0.02,
+                }}
+                onPress={async (e: MapPressEvent) => {
+                  const { latitude, longitude } = e.nativeEvent.coordinate;
+                  setPinCoords({ latitude, longitude });
+                  try {
+                    const geo = await reverseGeocode(latitude, longitude);
+                    setPickupAddress(geo.formattedAddress);
+                    if (geo.city) setPickupCity(geo.city);
+                  } catch {
+                    // Keep existing address if geocoding fails
+                  }
+                }}
+              >
+                <Marker coordinate={pinCoords}>
+                  <View style={styles.mapPinMarker}>
+                    <Text style={styles.mapPinText}>📍</Text>
+                  </View>
+                </Marker>
+              </MapView>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -802,6 +847,31 @@ const styles = StyleSheet.create({
     color: '#1e40af',
     fontWeight: '600',
     fontSize: 14,
+  },
+  mapPickerContainer: {
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  mapPicker: {
+    width: '100%',
+    height: 200,
+  },
+  mapPinMarker: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 6,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  mapPinText: {
+    fontSize: 22,
   },
   // Bottom Bar
   bottomBar: {

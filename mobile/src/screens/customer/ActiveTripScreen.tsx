@@ -17,6 +17,7 @@ import { io, Socket } from 'socket.io-client';
 import { useBooking, useCompleteBooking } from '../../hooks/useBookings';
 import { useBookingStore } from '../../store/bookingStore';
 import { useLocation } from '../../hooks/useLocation';
+import { getDirections, decodePolyline, LatLng } from '../../api/maps';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { COLORS, SPACING, BORDER_RADIUS, SOCKET_URL } from '../../utils/constants';
 import { formatETA, formatDateTime } from '../../utils/formatters';
@@ -42,6 +43,34 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
   const [eta, setEta] = useState<number | null>(null);
   const [isCompleting, setIsCompleting] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
+  const [routeCoords, setRouteCoords] = useState<LatLng[]>([]);
+  const [routeInfo, setRouteInfo] = useState<{ distanceText: string; durationText: string } | null>(null);
+
+  // Fetch real route from Directions API
+  useEffect(() => {
+    if (!booking) return;
+
+    const origin = chauffeurLocation ?? booking.pickupLocation;
+    const destination = booking.dropoffLocation ?? booking.pickupLocation;
+
+    // Only fetch if we have a real destination different from origin
+    if (!booking.dropoffLocation && !chauffeurLocation) return;
+
+    const target = chauffeurLocation ? booking.pickupLocation : destination;
+
+    getDirections(
+      { latitude: origin.latitude, longitude: origin.longitude },
+      { latitude: target.latitude, longitude: target.longitude }
+    )
+      .then((result) => {
+        const decoded = decodePolyline(result.polyline);
+        setRouteCoords(decoded);
+        setRouteInfo({ distanceText: result.distanceText, durationText: result.durationText });
+      })
+      .catch(() => {
+        // Fallback: straight line (already handled below)
+      });
+  }, [booking, chauffeurLocation?.latitude, chauffeurLocation?.longitude]);
 
   // Connect to Socket.io for real-time driver tracking
   useEffect(() => {
@@ -160,7 +189,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        provider={PROVIDER_GOOGLE}
         initialRegion={defaultRegion}
         showsUserLocation
         showsMyLocationButton={false}
@@ -199,15 +228,21 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
           </Marker>
         )}
 
-        {/* Route line from driver to pickup */}
-        {chauffeurLocation && (
+        {/* Route polyline (real road route or fallback straight line) */}
+        {routeCoords.length > 0 ? (
+          <Polyline
+            coordinates={routeCoords}
+            strokeColor={COLORS.accent}
+            strokeWidth={4}
+          />
+        ) : chauffeurLocation ? (
           <Polyline
             coordinates={[chauffeurLocation, booking.pickupLocation]}
             strokeColor={COLORS.accent}
             strokeWidth={3}
             lineDashPattern={[8, 4]}
           />
-        )}
+        ) : null}
       </MapView>
 
       {/* Header Overlay */}
@@ -237,10 +272,14 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
       {/* Bottom Panel */}
       <View style={styles.bottomPanel}>
         {/* ETA */}
-        {eta !== null && (
+        {(eta !== null || routeInfo) && (
           <View style={styles.etaBar}>
             <Text style={styles.etaIcon}>🕐</Text>
-            <Text style={styles.etaText}>{formatETA(eta)}</Text>
+            <Text style={styles.etaText}>
+              {routeInfo
+                ? `${routeInfo.durationText} · ${routeInfo.distanceText}`
+                : formatETA(eta!)}
+            </Text>
           </View>
         )}
 

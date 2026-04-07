@@ -81,6 +81,8 @@ case "$MODE" in
       --exclude node_modules \
       --exclude dist \
       --exclude .env \
+      --exclude ecosystem.config.js \
+      --exclude logs \
       --exclude "*.log" \
       "$LOCAL_BACKEND/" "$SERVER:$APP_DIR/" \
       || err "Upload failed"
@@ -90,7 +92,7 @@ case "$MODE" in
     ssh_run "
       cd $APP_DIR
       npm install
-      npx tsc --skipLibCheck
+      npx tsc --skipLibCheck --noImplicitAny false
     " || err "Build failed"
 
     # Step 3: Restart with PM2

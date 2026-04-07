@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { GoogleMap, Marker } from '@react-google-maps/api';
 import { Users, Car, CalendarCheck, DollarSign } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
 import { api } from '../api/client';
@@ -13,7 +15,19 @@ const chartData = Array.from({ length: 30 }, (_, i) => {
   return { date: dateStr, bookings: (hash % 16) + 5 };
 });
 
+const DASHBOARD_VEHICLES = [
+  { id: 'dv1', lat: 25.2048, lng: 55.2708, available: true },
+  { id: 'dv2', lat: 25.1972, lng: 55.2744, available: true },
+  { id: 'dv3', lat: 25.2176, lng: 55.2839, available: false },
+  { id: 'dv4', lat: 25.0759, lng: 55.1349, available: true },
+  { id: 'dv5', lat: 25.1124, lng: 55.1390, available: true },
+  { id: 'dv6', lat: 25.2285, lng: 55.2866, available: true },
+  { id: 'dv7', lat: 25.2532, lng: 55.3033, available: false },
+  { id: 'dv8', lat: 25.1855, lng: 55.2627, available: true },
+];
+
 export default function DashboardPage() {
+  const navigate = useNavigate();
   const { data: bookings } = useQuery({
     queryKey: ['bookings-recent'],
     queryFn: () => api.get('/bookings?limit=10').then(r => r.data?.data ?? []),
@@ -46,6 +60,50 @@ export default function DashboardPage() {
             <Line type="monotone" dataKey="bookings" stroke="#c9a84c" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Fleet Map Overview */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8 overflow-hidden">
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="text-base font-semibold text-gray-900">Fleet Overview</h3>
+          <button onClick={() => navigate('/admin/live-map')}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-gray-50"
+            style={{ color: '#c9a84c' }}>
+            Open Live Map →
+          </button>
+        </div>
+        <div style={{ height: 300 }}>
+          <GoogleMap
+            mapContainerStyle={{ width: '100%', height: '100%' }}
+            center={{ lat: 25.1700, lng: 55.2200 }}
+            zoom={11}
+            options={{
+              styles: [
+                { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+                { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+              ],
+              fullscreenControl: false,
+              streetViewControl: false,
+              mapTypeControl: false,
+              zoomControl: false,
+            }}
+          >
+            {DASHBOARD_VEHICLES.map(v => (
+              <Marker
+                key={v.id}
+                position={{ lat: v.lat, lng: v.lng }}
+                icon={{
+                  path: google.maps.SymbolPath.CIRCLE,
+                  scale: 8,
+                  fillColor: v.available ? '#10b981' : '#ef4444',
+                  fillOpacity: 1,
+                  strokeColor: '#fff',
+                  strokeWeight: 2,
+                }}
+              />
+            ))}
+          </GoogleMap>
+        </div>
       </div>
 
       {/* Recent Bookings */}

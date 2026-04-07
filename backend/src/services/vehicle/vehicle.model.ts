@@ -78,6 +78,7 @@ export interface UpdateVehicleDto {
 export interface VehicleQuery {
   city?: string;
   category?: VehicleCategory;
+  status?: string;
   min_rate?: number;
   max_rate?: number;
   chauffeur?: boolean;

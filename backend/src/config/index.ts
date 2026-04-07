@@ -67,6 +67,10 @@ export const config = {
     bcryptRounds: optionalNumber('BCRYPT_ROUNDS', 12),
   },
 
+  google: {
+    mapsApiKey: optional('GOOGLE_MAPS_API_KEY', ''),
+  },
+
   cors: {
     origin: optional('CORS_ORIGIN', 'http://localhost:3001'),
   },

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VIP Mobility</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD5wNSv6trG1uOBHjsaXkQJzrcgpHGGJI0&libraries=places"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; }
+    .gold { color: #c9a84c; }
+    .bg-gold { background: #c9a84c; }
+    .bg-navy { background: #1a1a2e; }
+    .screen { display: none; height: 100vh; flex-direction: column; }
+    .screen.active { display: flex; }
+    .fade-in { animation: fadeIn 0.25s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e5e7eb; display: flex; padding: 8px 0 env(safe-area-inset-bottom, 8px); z-index: 50; }
+    .bottom-nav button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; font-size: 10px; color: #9ca3af; border: none; background: none; cursor: pointer; }
+    .bottom-nav button.active { color: #c9a84c; font-weight: 600; }
+    .bottom-nav button span.icon { font-size: 22px; }
+    .vehicle-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 12px; cursor: pointer; transition: transform 0.15s; }
+    .vehicle-card:active { transform: scale(0.98); }
+    .pac-container { z-index: 9999 !important; }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: HOME (Map + Nearby Vehicles)
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-home" class="screen active">
+  <!-- Map -->
+  <div id="home-map" style="flex:1;min-height:50vh"></div>
+
+  <!-- Overlay header -->
+  <div style="position:absolute;top:0;left:0;right:0;z-index:10;padding:12px">
+    <div style="background:rgba(255,255,255,0.95);border-radius:12px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+      <p style="font-size:16px;font-weight:700;color:#111">Hello! 👋</p>
+      <p style="font-size:12px;color:#6b7280">Where to today?</p>
+    </div>
+    <!-- Search bar -->
+    <div style="background:white;border-radius:12px;padding:10px 14px;margin-top:8px;box-shadow:0 2px 8px rgba(0,0,0,0.12);display:flex;align-items:center;gap:8px">
+      <span>🔍</span>
+      <input id="home-search" type="text" placeholder="Search by city or address..." style="flex:1;border:none;outline:none;font-size:14px;color:#111">
+    </div>
+  </div>
+
+  <!-- Bottom sheet -->
+  <div style="background:white;border-radius:24px 24px 0 0;padding:12px 16px 80px;box-shadow:0 -4px 16px rgba(0,0,0,0.1);max-height:45vh;overflow-y:auto">
+    <div style="width:40px;height:4px;background:#e5e7eb;border-radius:2px;margin:0 auto 12px"></div>
+
+    <!-- Quick actions -->
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <div onclick="showScreen('vehicles')" style="flex:1;background:#eff6ff;border-radius:12px;padding:10px;text-align:center;cursor:pointer">
+        <div style="font-size:22px">🚗</div>
+        <div style="font-size:10px;font-weight:600;color:#111;margin-top:2px">Book a Ride</div>
+      </div>
+      <div onclick="showScreen('vehicles')" style="flex:1;background:#f0fdf4;border-radius:12px;padding:10px;text-align:center;cursor:pointer">
+        <div style="font-size:22px">🔑</div>
+        <div style="font-size:10px;font-weight:600;color:#111;margin-top:2px">Rent a Car</div>
+      </div>
+      <div onclick="showScreen('vehicles')" style="flex:1;background:#fefce8;border-radius:12px;padding:10px;text-align:center;cursor:pointer">
+        <div style="font-size:22px">🎩</div>
+        <div style="font-size:10px;font-weight:600;color:#111;margin-top:2px">Chauffeur</div>
+      </div>
+      <div onclick="showScreen('vehicles')" style="flex:1;background:#fdf4ff;border-radius:12px;padding:10px;text-align:center;cursor:pointer">
+        <div style="font-size:22px">👑</div>
+        <div style="font-size:10px;font-weight:600;color:#111;margin-top:2px">Luxury</div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:16px;font-weight:700;color:#111">Nearby Vehicles</span>
+      <span onclick="showScreen('vehicles')" style="font-size:13px;color:#c9a84c;font-weight:600;cursor:pointer">See all</span>
+    </div>
+    <div id="home-vehicles" style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: VEHICLE LIST
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-vehicles" class="screen">
+  <div style="background:white;padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px">
+    <button onclick="showScreen('home')" style="font-size:22px;border:none;background:none;cursor:pointer">←</button>
+    <span style="flex:1;font-size:18px;font-weight:700;color:#111">Available Vehicles</span>
+  </div>
+  <div id="vehicle-list" style="flex:1;overflow-y:auto;padding:16px;padding-bottom:80px"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: VEHICLE DETAIL
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-detail" class="screen">
+  <div style="background:white;padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px">
+    <button onclick="showScreen('vehicles')" style="font-size:22px;border:none;background:none;cursor:pointer">←</button>
+    <span style="flex:1;font-size:18px;font-weight:700;color:#111">Vehicle Details</span>
+  </div>
+  <div id="detail-content" style="flex:1;overflow-y:auto;padding-bottom:100px"></div>
+  <!-- Book button -->
+  <div style="position:fixed;bottom:60px;left:0;right:0;background:white;border-top:1px solid #e5e7eb;padding:12px 16px;z-index:20">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div>
+        <span id="detail-price" style="font-size:22px;font-weight:800;color:#c9a84c"></span>
+        <span style="font-size:12px;color:#6b7280">/hr</span>
+      </div>
+      <button onclick="showScreen('booking')" style="background:#c9a84c;color:#1a1a2e;padding:14px 32px;border-radius:8px;font-weight:700;font-size:16px;border:none;cursor:pointer">Book Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SCREEN: BOOKING (Places Autocomplete)
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div id="screen-booking" class="screen">
+  <div style="background:white;padding:12px 16px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:12px">
+    <button onclick="showScreen('detail')" style="font-size:22px;border:none;background:none;cursor:pointer">←</button>
+    <span style="flex:1;font-size:18px;font-weight:700;color:#111">Book Vehicle</span>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:16px;padding-bottom:100px">
+    <!-- Vehicle summary -->
+    <div id="booking-vehicle-summary" class="bg-navy" style="border-radius:12px;padding:16px;margin-bottom:16px"></div>
+
+    <!-- Mode -->
+    <p style="font-size:14px;font-weight:600;margin-bottom:8px">Booking Mode</p>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button id="mode-self" onclick="setMode('self_drive')" style="flex:1;padding:14px;border:2px solid #c9a84c;border-radius:8px;background:#fefce8;font-weight:600;cursor:pointer">🔑 Self Drive</button>
+      <button id="mode-chauffeur" onclick="setMode('chauffeur')" style="flex:1;padding:14px;border:2px solid #e5e7eb;border-radius:8px;background:white;font-weight:600;cursor:pointer">🎩 Chauffeur</button>
+    </div>
+
+    <!-- Pickup address with Places Autocomplete -->
+    <p style="font-size:14px;font-weight:600;margin-bottom:8px">Pickup Address *</p>
+    <div style="position:relative;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:8px;padding:12px;background:white">
+        <span>🔍</span>
+        <input id="pickup-input" type="text" placeholder="Search pickup location..." style="flex:1;border:none;outline:none;font-size:14px">
+      </div>
+    </div>
+
+    <!-- Dropoff address -->
+    <p style="font-size:14px;font-weight:600;margin-bottom:8px">Drop-off Address</p>
+    <div style="position:relative;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;border:1px solid #e5e7eb;border-radius:8px;padding:12px;background:white">
+        <span>🔍</span>
+        <input id="dropoff-input" type="text" placeholder="Search drop-off location..." style="flex:1;border:none;outline:none;font-size:14px">
+      </div>
+    </div>
+
+    <!-- Mini map showing pickup/dropoff -->
+    <div id="booking-map" style="height:200px;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:16px"></div>
+
+    <!-- Duration -->
+    <p style="font-size:14px;font-weight:600;margin-bottom:8px">Duration</p>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+      <button onclick="setDuration(2)" class="dur-btn" style="padding:8px 16px;border:1px solid #e5e7eb;border-radius:9999px;background:white;cursor:pointer;font-size:13px">2h</button>
+      <button onclick="setDuration(4)" class="dur-btn" style="padding:8px 16px;border:1px solid #e5e7eb;border-radius:9999px;background:white;cursor:pointer;font-size:13px">4h</button>
+      <button onclick="setDuration(8)" class="dur-btn" style="padding:8px 16px;border:1px solid #e5e7eb;border-radius:9999px;background:white;cursor:pointer;font-size:13px">8h</button>
+      <button onclick="setDuration(24)" class="dur-btn" style="padding:8px 16px;border:1px solid #c9a84c;border-radius:9999px;background:#1a1a2e;color:#c9a84c;cursor:pointer;font-size:13px;font-weight:600">1 day</button>
+      <button onclick="setDuration(72)" class="dur-btn" style="padding:8px 16px;border:1px solid #e5e7eb;border-radius:9999px;background:white;cursor:pointer;font-size:13px">3 days</button>
+      <button onclick="setDuration(168)" class="dur-btn" style="padding:8px 16px;border:1px solid #e5e7eb;border-radius:9999px;background:white;cursor:pointer;font-size:13px">1 week</button>
+    </div>
+
+    <!-- Price -->
+    <div style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="color:#6b7280;font-size:14px">Subtotal</span>
+        <span id="booking-subtotal" style="font-weight:600">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="color:#6b7280;font-size:14px">Platform fee (20%)</span>
+        <span id="booking-fee" style="font-weight:600">—</span>
+      </div>
+      <div style="border-top:1px solid #e5e7eb;padding-top:8px;display:flex;justify-content:space-between">
+        <span style="font-weight:700;font-size:16px">Total</span>
+        <span id="booking-total" style="font-weight:800;font-size:18px;color:#c9a84c">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Proceed button -->
+  <div style="position:fixed;bottom:60px;left:0;right:0;background:white;border-top:1px solid #e5e7eb;padding:12px 16px;z-index:20">
+    <button onclick="alert('Payment integration needed — Stripe keys not configured yet.')" style="width:100%;background:#c9a84c;color:#1a1a2e;padding:16px;border-radius:8px;font-weight:700;font-size:16px;border:none;cursor:pointer">
+      Proceed to Payment
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     BOTTOM NAV
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<div class="bottom-nav">
+  <button onclick="showScreen('home')" data-screen="home" class="active">
+    <span class="icon">🏠</span>Home
+  </button>
+  <button onclick="showScreen('vehicles')" data-screen="vehicles">
+    <span class="icon">🔍</span>Search
+  </button>
+  <button onclick="showScreen('bookings-list')" data-screen="bookings-list">
+    <span class="icon">📋</span>Bookings
+  </button>
+  <button onclick="alert('Profile screen — available in mobile app')" data-screen="profile">
+    <span class="icon">👤</span>Profile
+  </button>
+</div>
+
+<script>
+const API = 'https://109.120.133.113/v1';
+let allVehicles = [];
+let selectedVehicle = null;
+let bookingDuration = 24;
+let bookingMode = 'self_drive';
+let homeMap, detailMap, bookingMap, liveMap;
+let pickupMarker, dropoffMarker;
+let pickupAutocomplete, dropoffAutocomplete;
+
+// ── Screen nav ──────────────────────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.bottom-nav button').forEach(b => b.classList.remove('active'));
+  const screen = document.getElementById('screen-' + name);
+  if (screen) { screen.classList.add('active'); screen.classList.add('fade-in'); }
+  const navBtn = document.querySelector(`.bottom-nav [data-screen="${name}"]`);
+  if (navBtn) navBtn.classList.add('active');
+
+  if (name === 'home' && !homeMap) initHomeMap();
+  if (name === 'booking') initBookingScreen();
+}
+
+// ── Load vehicles ───────────────────────────────────────────────────────────
+async function loadVehicles() {
+  try {
+    const res = await fetch(API + '/vehicles?limit=50');
+    const data = await res.json();
+    allVehicles = data?.data?.vehicles ?? [];
+  } catch (e) {
+    console.error('Failed to load vehicles:', e);
+    allVehicles = [];
+  }
+  renderVehicleList();
+  renderHomeVehicles();
+  if (homeMap) plotHomeMarkers();
+}
+
+function renderHomeVehicles() {
+  const container = document.getElementById('home-vehicles');
+  if (allVehicles.length === 0) {
+    container.innerHTML = '<p style="color:#9ca3af;font-size:14px;padding:16px">No vehicles available yet.</p>';
+    return;
+  }
+  container.innerHTML = allVehicles.slice(0, 6).map(v => `
+    <div onclick="openVehicle('${v.id}')" style="min-width:180px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.08);cursor:pointer;flex-shrink:0">
+      <div style="height:100px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:36px">🚗</div>
+      <div style="padding:10px">
+        <p style="font-size:13px;font-weight:700;color:#111">${v.year} ${v.make} ${v.model}</p>
+        <p style="font-size:11px;color:#6b7280">${v.location_city || 'Dubai'}</p>
+        <p style="font-size:14px;font-weight:700;color:#c9a84c;margin-top:4px">AED ${v.hourly_rate || v.daily_rate}/hr</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderVehicleList() {
+  const container = document.getElementById('vehicle-list');
+  if (allVehicles.length === 0) {
+    container.innerHTML = '<p style="text-align:center;color:#9ca3af;padding:40px;font-size:14px">No vehicles available.<br>Check back later!</p>';
+    return;
+  }
+  container.innerHTML = allVehicles.map(v => `
+    <div class="vehicle-card" onclick="openVehicle('${v.id}')">
+      <div style="height:160px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:56px">🚗</div>
+      <div style="padding:14px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <p style="font-size:17px;font-weight:800;color:#111">${v.year} ${v.make} ${v.model}</p>
+            <p style="font-size:12px;color:#6b7280;margin-top:2px">${v.color || ''} · ${v.location_city || 'Dubai'}</p>
+          </div>
+          <span style="background:#d1fae5;color:#065f46;font-size:11px;font-weight:700;padding:4px 8px;border-radius:4px">Available</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <span style="background:#f3f4f6;padding:4px 8px;border-radius:4px;font-size:11px">💺 ${v.seats || 5}</span>
+          <span style="background:#f3f4f6;padding:4px 8px;border-radius:4px;font-size:11px;text-transform:capitalize">⚙️ ${v.transmission || 'auto'}</span>
+          <span style="background:#f3f4f6;padding:4px 8px;border-radius:4px;font-size:11px;text-transform:capitalize">⛽ ${v.fuel_type || 'petrol'}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:10px;border-top:1px solid #f3f4f6">
+          <span style="font-size:20px;font-weight:800;color:#c9a84c">AED ${v.hourly_rate || v.daily_rate}<span style="font-size:12px;font-weight:400;color:#6b7280">/hr</span></span>
+          <span style="font-size:12px;color:#6b7280">AED ${v.daily_rate}/day</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openVehicle(id) {
+  selectedVehicle = allVehicles.find(v => v.id === id);
+  if (!selectedVehicle) return;
+
+  const v = selectedVehicle;
+  document.getElementById('detail-price').textContent = 'AED ' + (v.hourly_rate || v.daily_rate);
+
+  document.getElementById('detail-content').innerHTML = `
+    <div style="height:200px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;font-size:72px">🚗</div>
+    <div style="padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <p style="font-size:22px;font-weight:800;color:#111">${v.year} ${v.make} ${v.model}</p>
+          <p style="font-size:13px;color:#6b7280;margin-top:4px;text-transform:capitalize">${v.color || ''} · ${v.license_plate || ''}</p>
+        </div>
+        <span style="background:#d1fae5;color:#065f46;font-size:11px;font-weight:700;padding:4px 8px;border-radius:4px">Available</span>
+      </div>
+
+      <!-- Specs -->
+      <div style="display:flex;gap:8px;margin:16px 0">
+        <div style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:20px">💺</div>
+          <div style="font-size:13px;font-weight:700;margin-top:4px">${v.seats || 5}</div>
+          <div style="font-size:10px;color:#6b7280">Seats</div>
+        </div>
+        <div style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:20px">⚙️</div>
+          <div style="font-size:13px;font-weight:700;margin-top:4px;text-transform:capitalize">${v.transmission || 'auto'}</div>
+          <div style="font-size:10px;color:#6b7280">Trans</div>
+        </div>
+        <div style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:20px">⛽</div>
+          <div style="font-size:13px;font-weight:700;margin-top:4px;text-transform:capitalize">${v.fuel_type || 'petrol'}</div>
+          <div style="font-size:10px;color:#6b7280">Fuel</div>
+        </div>
+        <div style="flex:1;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:10px;text-align:center">
+          <div style="font-size:20px">📅</div>
+          <div style="font-size:13px;font-weight:700;margin-top:4px">${v.year}</div>
+          <div style="font-size:10px;color:#6b7280">Year</div>
+        </div>
+      </div>
+
+      <!-- Description -->
+      ${v.description ? `
+        <p style="font-size:16px;font-weight:700;margin-bottom:8px">About this vehicle</p>
+        <p style="font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:16px">${v.description}</p>
+      ` : ''}
+
+      <!-- Location Map -->
+      <p style="font-size:16px;font-weight:700;margin-bottom:8px">Vehicle Location</p>
+      <div id="detail-map" style="height:160px;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;margin-bottom:8px"></div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:16px">${v.location_city || 'Dubai'}</p>
+
+      <!-- Mode selection -->
+      <p style="font-size:16px;font-weight:700;margin-bottom:8px">Select Mode</p>
+      <div style="border:2px solid #c9a84c;border-radius:8px;padding:14px;background:#fefce8;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">🔑</span>
+          <div>
+            <p style="font-weight:700">Self Drive</p>
+            <p style="font-size:12px;color:#6b7280">Drive it yourself</p>
+          </div>
+        </div>
+        <span style="font-size:17px;font-weight:700;color:#c9a84c">AED ${v.hourly_rate || v.daily_rate}<span style="font-size:12px;font-weight:400;color:#6b7280">/hr</span></span>
+      </div>
+      ${v.chauffeur_available ? `
+      <div style="border:2px solid #e5e7eb;border-radius:8px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="font-size:24px">🎩</span>
+          <div>
+            <p style="font-weight:700">With Chauffeur</p>
+            <p style="font-size:12px;color:#6b7280">Professional driver included</p>
+          </div>
+        </div>
+        <span style="font-size:17px;font-weight:700;color:#c9a84c">AED ${(v.hourly_rate || 0) + (v.chauffeur_daily_rate || 0)}<span style="font-size:12px;font-weight:400;color:#6b7280">/hr</span></span>
+      </div>
+      ` : ''}
+    </div>
+  `;
+
+  showScreen('detail');
+
+  // Init detail map
+  setTimeout(() => {
+    const lat = parseFloat(v.location_lat) || 25.2048;
+    const lng = parseFloat(v.location_lng) || 55.2708;
+    detailMap = new google.maps.Map(document.getElementById('detail-map'), {
+      center: { lat, lng },
+      zoom: 15,
+      disableDefaultUI: true,
+      gestureHandling: 'none',
+      styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }],
+    });
+    new google.maps.Marker({ position: { lat, lng }, map: detailMap, icon: {
+      path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: '#c9a84c', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2,
+    }});
+  }, 100);
+}
+
+// ── Booking screen ──────────────────────────────────────────────────────────
+function initBookingScreen() {
+  if (!selectedVehicle) return;
+  const v = selectedVehicle;
+
+  document.getElementById('booking-vehicle-summary').innerHTML = `
+    <p style="font-size:18px;font-weight:700;color:white">${v.year} ${v.make} ${v.model}</p>
+    <p style="font-size:13px;color:#9ca3af;margin-top:4px">${v.location_city || 'Dubai'}</p>
+  `;
+
+  updateBookingPrice();
+
+  // Init booking map
+  setTimeout(() => {
+    const lat = parseFloat(v.location_lat) || 25.2048;
+    const lng = parseFloat(v.location_lng) || 55.2708;
+    bookingMap = new google.maps.Map(document.getElementById('booking-map'), {
+      center: { lat, lng },
+      zoom: 13,
+      disableDefaultUI: true,
+      styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }],
+    });
+    pickupMarker = new google.maps.Marker({ position: { lat, lng }, map: bookingMap, label: 'A' });
+
+    // Places Autocomplete
+    pickupAutocomplete = new google.maps.places.Autocomplete(document.getElementById('pickup-input'), {
+      types: ['geocode', 'establishment'],
+    });
+    pickupAutocomplete.addListener('place_changed', () => {
+      const place = pickupAutocomplete.getPlace();
+      if (place.geometry) {
+        const pos = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() };
+        pickupMarker.setPosition(pos);
+        bookingMap.panTo(pos);
+      }
+    });
+
+    dropoffAutocomplete = new google.maps.places.Autocomplete(document.getElementById('dropoff-input'), {
+      types: ['geocode', 'establishment'],
+    });
+    dropoffAutocomplete.addListener('place_changed', () => {
+      const place = dropoffAutocomplete.getPlace();
+      if (place.geometry) {
+        const pos = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() };
+        if (!dropoffMarker) {
+          dropoffMarker = new google.maps.Marker({ position: pos, map: bookingMap, label: 'B' });
+        } else {
+          dropoffMarker.setPosition(pos);
+        }
+        // Fit both markers
+        const bounds = new google.maps.LatLngBounds();
+        bounds.extend(pickupMarker.getPosition());
+        bounds.extend(pos);
+        bookingMap.fitBounds(bounds);
+      }
+    });
+  }, 100);
+}
+
+function setMode(mode) {
+  bookingMode = mode;
+  document.getElementById('mode-self').style.borderColor = mode === 'self_drive' ? '#c9a84c' : '#e5e7eb';
+  document.getElementById('mode-self').style.background = mode === 'self_drive' ? '#fefce8' : 'white';
+  document.getElementById('mode-chauffeur').style.borderColor = mode === 'chauffeur' ? '#c9a84c' : '#e5e7eb';
+  document.getElementById('mode-chauffeur').style.background = mode === 'chauffeur' ? '#fefce8' : 'white';
+  updateBookingPrice();
+}
+
+function setDuration(hours) {
+  bookingDuration = hours;
+  document.querySelectorAll('.dur-btn').forEach(b => {
+    b.style.background = 'white'; b.style.borderColor = '#e5e7eb'; b.style.color = '#111';
+  });
+  event.target.style.background = '#1a1a2e';
+  event.target.style.borderColor = '#c9a84c';
+  event.target.style.color = '#c9a84c';
+  updateBookingPrice();
+}
+
+function updateBookingPrice() {
+  if (!selectedVehicle) return;
+  const rate = selectedVehicle.hourly_rate || selectedVehicle.daily_rate || 0;
+  const subtotal = rate * bookingDuration;
+  const fee = subtotal * 0.2;
+  const total = subtotal + fee;
+  document.getElementById('booking-subtotal').textContent = 'AED ' + subtotal.toFixed(0);
+  document.getElementById('booking-fee').textContent = 'AED ' + fee.toFixed(0);
+  document.getElementById('booking-total').textContent = 'AED ' + total.toFixed(0);
+}
+
+// ── Home Map ────────────────────────────────────────────────────────────────
+function initHomeMap() {
+  homeMap = new google.maps.Map(document.getElementById('home-map'), {
+    center: { lat: 25.2048, lng: 55.2708 },
+    zoom: 12,
+    disableDefaultUI: true,
+    styles: [
+      { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    ],
+  });
+  plotHomeMarkers();
+
+  // Search autocomplete on home
+  const searchAC = new google.maps.places.Autocomplete(document.getElementById('home-search'), {
+    types: ['geocode', 'establishment'],
+  });
+  searchAC.addListener('place_changed', () => {
+    const place = searchAC.getPlace();
+    if (place.geometry) {
+      homeMap.panTo(place.geometry.location);
+      homeMap.setZoom(14);
+    }
+  });
+}
+
+function plotHomeMarkers() {
+  if (!homeMap) return;
+  allVehicles.forEach(v => {
+    if (!v.location_lat || !v.location_lng) return;
+    const marker = new google.maps.Marker({
+      position: { lat: parseFloat(v.location_lat), lng: parseFloat(v.location_lng) },
+      map: homeMap,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE, scale: 10,
+        fillColor: '#10b981', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2,
+      },
+    });
+    const info = new google.maps.InfoWindow({
+      content: `<div style="padding:4px"><b>${v.year} ${v.make} ${v.model}</b><br><span style="color:#c9a84c;font-weight:bold">AED ${v.daily_rate}/day</span></div>`,
+    });
+    marker.addListener('click', () => {
+      info.open(homeMap, marker);
+      setTimeout(() => openVehicle(v.id), 1500);
+    });
+  });
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+initHomeMap();
+loadVehicles();
+</script>
+
+</body>
+</html>

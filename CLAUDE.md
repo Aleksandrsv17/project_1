@@ -214,7 +214,7 @@ WSS  /                   (Socket.io tracking)
 - [ ] Mobile app Stripe publishable key — update STRIPE_PUBLISHABLE_KEY in mobile/src/utils/constants.ts
 - [ ] E2E tests with Detox (QA agent)
 - [ ] Stripe Connect for owner payouts
-- [ ] Google Maps API key integration
+- [ ] **Google Maps API key** — replace `REPLACE_WITH_YOUR_GOOGLE_MAPS_API_KEY` in 3 places (see below)
 - [ ] KYC provider integration (Onfido/Persona)
 - [ ] Push notifications (Firebase + APNs)
 - [ ] Production K8s deployment manifests
@@ -263,6 +263,52 @@ systemctl status nginx postgresql redis-server
 
 ---
 
+## Google Maps Integration
+
+**Status**: Code complete — awaiting API key
+
+**Where to set the key** (replace `REPLACE_WITH_YOUR_GOOGLE_MAPS_API_KEY`):
+1. `mobile/app.json` — iOS config (`expo.ios.config.googleMapsApiKey`) + Android config (`expo.android.config.googleMaps.apiKey`)
+2. `mobile/src/utils/constants.ts` — `GOOGLE_MAPS_API_KEY` constant
+3. `.env` / server env — `GOOGLE_MAPS_API_KEY` (used by backend proxy)
+
+**Required Google Cloud APIs** (enable in APIs & Services > Library):
+- Maps SDK for Android
+- Maps SDK for iOS
+- Places API
+- Directions API
+- Distance Matrix API
+- Geocoding API
+
+**New files created**:
+| File | Purpose |
+|---|---|
+| `backend/src/services/maps/maps.service.ts` | Google Maps API wrapper (directions, distance, geocoding, places) |
+| `backend/src/services/maps/maps.routes.ts` | REST endpoints: `/v1/maps/*` |
+| `mobile/src/api/maps.ts` | Mobile API client + polyline decoder |
+| `mobile/src/components/PlacesAutocomplete.tsx` | Reusable address search with dropdown |
+
+**Screens upgraded**:
+| Screen | Enhancement |
+|---|---|
+| HomeScreen | Google Maps provider on iOS (was Apple Maps) |
+| ActiveTripScreen | Real road route polyline from Directions API + distance/duration display |
+| BookingScreen | Places Autocomplete for pickup & dropoff (replaces plain text inputs) |
+| VehicleDetailScreen | Mini map showing vehicle location |
+| AddVehicleScreen | Interactive map pin picker + reverse geocoding on tap |
+
+**Backend endpoints**:
+```
+POST /v1/maps/directions          — route polyline + distance + duration
+POST /v1/maps/distance            — distance matrix between two points
+GET  /v1/maps/geocode?address=    — address → lat/lng
+GET  /v1/maps/reverse-geocode?lat=&lng=  — lat/lng → address
+GET  /v1/maps/places/autocomplete?input= — place search suggestions
+GET  /v1/maps/places/:placeId     — place details (lat/lng from placeId)
+```
+
+---
+
 ## CLAUDE.md Update Log
 
 | Date | Session | Changes |
@@ -271,3 +317,4 @@ systemctl status nginx postgresql redis-server
 | 2026-04-06 | Server deployment | PostgreSQL + Redis + Nginx + Node.js installed on 109.120.133.113, backend deployed via PM2, auto-deploy script created |
 | 2026-04-06 | DB credentials shared | DB accessible via SSH tunnel: postgresql://vip_user:VipSecure2026@localhost:5432/vip_mobility |
 | 2026-04-06 | Phase 2 complete | HTTPS/SSL, admin dashboard (16 files), CI/CD GitHub Actions, Expo EAS config, Stripe setup script, mobile API URL pointed to server |
+| 2026-04-07 | Google Maps integration | Backend maps service (6 endpoints), mobile API client, PlacesAutocomplete component, upgraded 5 screens with maps features |

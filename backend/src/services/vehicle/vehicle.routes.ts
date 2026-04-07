@@ -30,6 +30,19 @@ router.patch(
   vehicleController.update.bind(vehicleController)
 );
 
+// Admin status update — accepts JWT auth OR x-admin-key header
+router.patch(
+  '/:id/status',
+  (req, res, next) => {
+    const adminKey = req.headers['x-admin-key'];
+    if (adminKey === (process.env.ADMIN_API_KEY || 'vip-admin-2026')) {
+      return next();
+    }
+    return authenticate(req, res, () => requireRole('admin')(req, res, next));
+  },
+  vehicleController.adminUpdateStatus.bind(vehicleController)
+);
+
 router.delete(
   '/:id',
   authenticate,

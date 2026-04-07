@@ -4,6 +4,8 @@ export const SOCKET_URL = 'wss://109.120.133.113';
 
 export const STRIPE_PUBLISHABLE_KEY = 'pk_test_REPLACE_WITH_REAL_PUBLISHABLE_KEY';
 
+export const GOOGLE_MAPS_API_KEY = 'AIzaSyD5wNSv6trG1uOBHjsaXkQJzrcgpHGGJI0';
+
 export const DEFAULT_REGION = {
   latitude: 25.2048,
   longitude: 55.2708,

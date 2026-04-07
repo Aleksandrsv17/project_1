@@ -4,11 +4,13 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, StyleSheet } from 'react-native';
 import { OwnerDashboardScreen } from '../screens/owner/OwnerDashboardScreen';
 import { MyVehiclesScreen } from '../screens/owner/MyVehiclesScreen';
+import { FleetMapScreen } from '../screens/owner/FleetMapScreen';
 import { AddVehicleScreen } from '../screens/owner/AddVehicleScreen';
 import { COLORS, BORDER_RADIUS } from '../utils/constants';
 
 export type OwnerTabParamList = {
   OwnerDashboard: undefined;
+  FleetMap: undefined;
   MyVehicles: undefined;
   AddVehicle: undefined;
   OwnerProfile: undefined;
@@ -54,6 +56,15 @@ function OwnerTabs() {
         options={{
           tabBarIcon: ({ focused }) => (
             <TabIcon icon="📊" focused={focused} label="Dashboard" />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="FleetMap"
+        component={FleetMapScreen}
+        options={{
+          tabBarIcon: ({ focused }) => (
+            <TabIcon icon="🗺️" focused={focused} label="Map" />
           ),
         }}
       />

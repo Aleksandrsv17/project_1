@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIP Mobility — Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD5wNSv6trG1uOBHjsaXkQJzrcgpHGGJI0&libraries=places"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .tab-active { background: rgba(201,168,76,0.15); color: #c9a84c; font-weight: 600; }
+    .gold { color: #c9a84c; }
+    .bg-gold { background-color: #c9a84c; }
+    .bg-navy { background-color: #1a1a2e; }
+    .fade-in { animation: fadeIn 0.2s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  </style>
+</head>
+<body class="bg-gray-100 h-screen flex">
+
+<!-- Sidebar -->
+<aside class="w-64 bg-navy flex flex-col flex-shrink-0">
+  <div class="p-6 border-b border-white/10">
+    <h1 class="text-xl font-bold gold">VIP Mobility</h1>
+    <p class="text-xs text-gray-400 mt-1">Admin Dashboard</p>
+  </div>
+  <nav class="flex-1 p-4 space-y-1" id="nav">
+    <button onclick="showTab('dashboard')" data-tab="dashboard" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 w-full text-left transition-colors">
+      <span>📊</span> Dashboard
+    </button>
+    <button onclick="showTab('vehicles')" data-tab="vehicles" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 w-full text-left transition-colors">
+      <span>🚗</span> Vehicles
+    </button>
+    <button onclick="showTab('bookings')" data-tab="bookings" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 w-full text-left transition-colors">
+      <span>📋</span> Bookings
+    </button>
+    <button onclick="showTab('livemap')" data-tab="livemap" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 w-full text-left transition-colors">
+      <span>🗺️</span> Live Map
+    </button>
+    <button onclick="showTab('bookingmap')" data-tab="bookingmap" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 w-full text-left transition-colors">
+      <span>📍</span> Booking Routes
+    </button>
+    <button onclick="showTab('users')" data-tab="users" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 w-full text-left transition-colors">
+      <span>👤</span> Users
+    </button>
+  </nav>
+  <div class="p-4 border-t border-white/10">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-gold flex items-center justify-center text-white text-sm font-bold">A</div>
+      <div>
+        <p class="text-white text-sm font-medium">Admin</p>
+        <p class="text-gray-400 text-xs">Demo Mode</p>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- Main Content -->
+<main class="flex-1 overflow-auto" id="main">
+
+  <!-- Dashboard Tab -->
+  <div id="tab-dashboard" class="tab-content p-8">
+    <h2 class="text-2xl font-bold text-gray-900 mb-2">Dashboard</h2>
+    <p class="text-gray-500 text-sm mb-6">Platform overview</p>
+    <div class="grid grid-cols-4 gap-6 mb-8" id="stats-cards">
+      <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <p class="text-sm text-gray-500">Total Vehicles</p>
+        <p class="text-3xl font-bold mt-2" id="stat-vehicles">—</p>
+      </div>
+      <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <p class="text-sm text-gray-500">Pending Approval</p>
+        <p class="text-3xl font-bold mt-2 text-yellow-600" id="stat-pending">—</p>
+      </div>
+      <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <p class="text-sm text-gray-500">Total Bookings</p>
+        <p class="text-3xl font-bold mt-2" id="stat-bookings">—</p>
+      </div>
+      <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+        <p class="text-sm text-gray-500">Total Users</p>
+        <p class="text-3xl font-bold mt-2" id="stat-users">—</p>
+      </div>
+    </div>
+    <!-- Dashboard Map -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+      <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="font-semibold text-gray-900">Fleet Overview</h3>
+        <button onclick="showTab('livemap')" class="text-xs gold font-medium">Open Live Map →</button>
+      </div>
+      <div id="dashboard-map" style="height:300px"></div>
+    </div>
+  </div>
+
+  <!-- Vehicles Tab -->
+  <div id="tab-vehicles" class="tab-content p-8 hidden">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h2 class="text-2xl font-bold text-gray-900">Vehicles</h2>
+        <p class="text-gray-500 text-sm mt-1" id="vehicles-count"></p>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <table class="w-full">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Vehicle</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Category</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">City</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Daily Rate</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="vehicles-table" class="divide-y divide-gray-100"></tbody>
+      </table>
+      <div id="vehicles-empty" class="p-8 text-center text-gray-400 hidden">No vehicles found</div>
+    </div>
+  </div>
+
+  <!-- Bookings Tab -->
+  <div id="tab-bookings" class="tab-content p-8 hidden">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Bookings</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <table class="w-full">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">ID</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Mode</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Amount</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Start</th>
+          </tr>
+        </thead>
+        <tbody id="bookings-table" class="divide-y divide-gray-100"></tbody>
+      </table>
+      <div id="bookings-empty" class="p-8 text-center text-gray-400 hidden">No bookings found</div>
+    </div>
+  </div>
+
+  <!-- Live Map Tab -->
+  <div id="tab-livemap" class="tab-content hidden" style="height:100%">
+    <div class="p-4 bg-white border-b border-gray-100">
+      <h2 class="text-xl font-bold text-gray-900">Live Map</h2>
+      <p class="text-gray-500 text-sm">All vehicles on the map</p>
+    </div>
+    <div id="live-map" style="height:calc(100% - 70px)"></div>
+  </div>
+
+  <!-- Booking Map Tab -->
+  <div id="tab-bookingmap" class="tab-content hidden" style="height:100%">
+    <div class="p-4 bg-white border-b border-gray-100 flex items-center justify-between">
+      <div>
+        <h2 class="text-xl font-bold text-gray-900">Booking Routes</h2>
+        <p class="text-gray-500 text-sm">Select a booking to see its route</p>
+      </div>
+      <select id="booking-select" onchange="showBookingRoute()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+        <option value="">Select a booking...</option>
+      </select>
+    </div>
+    <div id="booking-map" style="height:calc(100% - 70px)"></div>
+  </div>
+
+  <!-- Users Tab -->
+  <div id="tab-users" class="tab-content p-8 hidden">
+    <h2 class="text-2xl font-bold text-gray-900 mb-6">Users</h2>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <table class="w-full">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Name</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Email</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Role</th>
+            <th class="text-left px-6 py-3 text-xs font-medium text-gray-500 uppercase">Joined</th>
+          </tr>
+        </thead>
+        <tbody id="users-table" class="divide-y divide-gray-100"></tbody>
+      </table>
+      <div id="users-empty" class="p-8 text-center text-gray-400 hidden">No users found</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const API = 'https://109.120.133.113/v1';
+let vehicles = [];
+let bookings = [];
+let maps = {};
+let markers = [];
+let directionsRenderer = null;
+
+// ── Tab navigation ──────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('tab-active'));
+  const tab = document.getElementById('tab-' + name);
+  if (tab) { tab.classList.remove('hidden'); tab.classList.add('fade-in'); }
+  const btn = document.querySelector(`[data-tab="${name}"]`);
+  if (btn) btn.classList.add('tab-active');
+
+  // Init maps on first show
+  if (name === 'livemap' && !maps.live) initLiveMap();
+  if (name === 'bookingmap' && !maps.booking) initBookingMap();
+  if (name === 'dashboard' && !maps.dashboard) initDashboardMap();
+}
+
+// ── Status badge ────────────────────────────────────────────────────────────
+function badge(status) {
+  const colors = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    active: 'bg-green-100 text-green-800',
+    confirmed: 'bg-blue-100 text-blue-800',
+    completed: 'bg-gray-100 text-gray-800',
+    cancelled: 'bg-red-100 text-red-800',
+    inactive: 'bg-gray-100 text-gray-500',
+  };
+  const cls = colors[status] || 'bg-gray-100 text-gray-700';
+  return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${cls}">${status}</span>`;
+}
+
+// ── API calls ───────────────────────────────────────────────────────────────
+async function fetchJSON(path) {
+  try {
+    const res = await fetch(API + path);
+    const data = await res.json();
+    return data?.data ?? data;
+  } catch (e) {
+    console.error('API error:', path, e);
+    return null;
+  }
+}
+
+const ADMIN_KEY = 'vip-admin-2026';
+
+async function approveVehicle(id) {
+  if (!confirm('Approve this vehicle?')) return;
+  try {
+    const res = await fetch(API + '/vehicles/' + id + '/status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+      body: JSON.stringify({ status: 'active' }),
+    });
+    if (res.ok) {
+      alert('Vehicle approved!');
+      loadVehicles();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert('Failed to approve: ' + (data.message || res.status));
+    }
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+async function rejectVehicle(id) {
+  if (!confirm('Reject this vehicle?')) return;
+  try {
+    const res = await fetch(API + '/vehicles/' + id + '/status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+      body: JSON.stringify({ status: 'inactive' }),
+    });
+    if (res.ok) {
+      alert('Vehicle rejected.');
+      loadVehicles();
+    } else {
+      alert('Failed to reject.');
+    }
+  } catch (e) {
+    alert('Error: ' + e.message);
+  }
+}
+
+// ── Load data ───────────────────────────────────────────────────────────────
+async function loadVehicles() {
+  const data = await fetchJSON('/vehicles?limit=100&status=all');
+  vehicles = data?.vehicles ?? [];
+
+  const tbody = document.getElementById('vehicles-table');
+  const empty = document.getElementById('vehicles-empty');
+  document.getElementById('vehicles-count').textContent = vehicles.length + ' vehicles total';
+
+  if (vehicles.length === 0) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = vehicles.map(v => `
+    <tr class="hover:bg-gray-50">
+      <td class="px-6 py-4">
+        <p class="text-sm font-medium text-gray-900">${v.year} ${v.make} ${v.model}</p>
+        <p class="text-xs text-gray-400">${v.license_plate || ''}</p>
+      </td>
+      <td class="px-6 py-4 text-sm capitalize">${v.category}</td>
+      <td class="px-6 py-4 text-sm">${v.location_city || '—'}</td>
+      <td class="px-6 py-4 text-sm font-medium gold">AED ${v.daily_rate}</td>
+      <td class="px-6 py-4">${badge(v.status)}</td>
+      <td class="px-6 py-4">
+        ${v.status === 'pending' ? `
+          <button onclick="approveVehicle('${v.id}')" class="text-xs px-3 py-1.5 rounded font-medium text-white bg-green-500 hover:bg-green-600 mr-1">Approve</button>
+          <button onclick="rejectVehicle('${v.id}')" class="text-xs px-3 py-1.5 rounded font-medium text-white bg-red-500 hover:bg-red-600">Reject</button>
+        ` : v.status === 'active' ? `
+          <span class="text-xs text-green-600 font-medium">✓ Active</span>
+        ` : `
+          <button onclick="approveVehicle('${v.id}')" class="text-xs px-3 py-1.5 rounded font-medium text-gray-600 bg-gray-100 hover:bg-gray-200">Reactivate</button>
+        `}
+      </td>
+    </tr>
+  `).join('');
+
+  // Update stats
+  document.getElementById('stat-vehicles').textContent = vehicles.length;
+  document.getElementById('stat-pending').textContent = vehicles.filter(v => v.status === 'pending').length;
+}
+
+async function loadBookings() {
+  const data = await fetchJSON('/bookings?limit=100');
+  bookings = Array.isArray(data) ? data : (data?.bookings ?? []);
+
+  const tbody = document.getElementById('bookings-table');
+  const empty = document.getElementById('bookings-empty');
+  document.getElementById('stat-bookings').textContent = bookings.length;
+
+  if (bookings.length === 0) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = bookings.map(b => `
+    <tr class="hover:bg-gray-50">
+      <td class="px-6 py-4 font-mono text-xs text-gray-600">${b.id.slice(0,8)}...</td>
+      <td class="px-6 py-4 text-sm capitalize">${(b.mode || '').replace('_', ' ')}</td>
+      <td class="px-6 py-4">${badge(b.status)}</td>
+      <td class="px-6 py-4 text-sm font-medium gold">AED ${b.total_amount}</td>
+      <td class="px-6 py-4 text-sm text-gray-600">${new Date(b.start_time).toLocaleString()}</td>
+    </tr>
+  `).join('');
+
+  // Populate booking map selector
+  const select = document.getElementById('booking-select');
+  select.innerHTML = '<option value="">Select a booking...</option>' +
+    bookings.filter(b => b.pickup_lat && b.dropoff_lat).map(b =>
+      `<option value="${b.id}">${b.id.slice(0,8)}... — ${b.mode} — AED ${b.total_amount}</option>`
+    ).join('');
+}
+
+async function loadUsers() {
+  const data = await fetchJSON('/auth/users?limit=100');
+  const users = Array.isArray(data) ? data : (data?.users ?? []);
+
+  document.getElementById('stat-users').textContent = users.length;
+  const tbody = document.getElementById('users-table');
+  const empty = document.getElementById('users-empty');
+
+  if (users.length === 0) {
+    tbody.innerHTML = '';
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  tbody.innerHTML = users.map(u => `
+    <tr class="hover:bg-gray-50">
+      <td class="px-6 py-4 text-sm font-medium text-gray-900">${u.full_name || u.first_name + ' ' + (u.last_name || '')}</td>
+      <td class="px-6 py-4 text-sm text-gray-600">${u.email}</td>
+      <td class="px-6 py-4">${badge(u.role)}</td>
+      <td class="px-6 py-4 text-sm text-gray-600">${new Date(u.created_at).toLocaleDateString()}</td>
+    </tr>
+  `).join('');
+}
+
+// ── Maps ────────────────────────────────────────────────────────────────────
+function initDashboardMap() {
+  const map = new google.maps.Map(document.getElementById('dashboard-map'), {
+    center: { lat: 25.2048, lng: 55.2708 },
+    zoom: 11,
+    disableDefaultUI: true,
+    styles: [
+      { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    ],
+  });
+  maps.dashboard = map;
+  plotVehiclesOnMap(map);
+}
+
+function initLiveMap() {
+  const map = new google.maps.Map(document.getElementById('live-map'), {
+    center: { lat: 25.2048, lng: 55.2708 },
+    zoom: 12,
+    fullscreenControl: false,
+    streetViewControl: false,
+    styles: [
+      { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    ],
+  });
+  maps.live = map;
+  plotVehiclesOnMap(map, true);
+}
+
+function plotVehiclesOnMap(map, withInfo) {
+  // Clear old markers
+  markers.forEach(m => m.setMap(null));
+  markers = [];
+
+  const vlist = vehicles.length > 0 ? vehicles : [];
+  vlist.forEach(v => {
+    if (!v.location_lat || !v.location_lng) return;
+    const marker = new google.maps.Marker({
+      position: { lat: parseFloat(v.location_lat), lng: parseFloat(v.location_lng) },
+      map: map,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: v.status === 'active' ? '#10b981' : v.status === 'pending' ? '#f59e0b' : '#ef4444',
+        fillOpacity: 1,
+        strokeColor: '#fff',
+        strokeWeight: 2,
+      },
+    });
+    markers.push(marker);
+
+    if (withInfo) {
+      const info = new google.maps.InfoWindow({
+        content: `
+          <div style="padding:4px;min-width:180px">
+            <p style="font-weight:bold;margin:0">${v.year} ${v.make} ${v.model}</p>
+            <p style="color:#666;font-size:12px;margin:4px 0">${v.location_city || ''}</p>
+            <p style="font-size:12px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${v.status === 'active' ? '#10b981' : '#f59e0b'};margin-right:4px"></span>${v.status}</p>
+            <p style="color:#c9a84c;font-weight:bold;margin-top:4px">AED ${v.daily_rate}/day</p>
+          </div>
+        `,
+      });
+      marker.addListener('click', () => info.open(map, marker));
+    }
+  });
+
+  // Fit bounds
+  if (vlist.length > 0 && vlist.some(v => v.location_lat)) {
+    const bounds = new google.maps.LatLngBounds();
+    vlist.forEach(v => {
+      if (v.location_lat) bounds.extend({ lat: parseFloat(v.location_lat), lng: parseFloat(v.location_lng) });
+    });
+    map.fitBounds(bounds);
+  }
+}
+
+function initBookingMap() {
+  const map = new google.maps.Map(document.getElementById('booking-map'), {
+    center: { lat: 25.2048, lng: 55.2708 },
+    zoom: 12,
+    fullscreenControl: false,
+    streetViewControl: false,
+    styles: [
+      { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+      { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    ],
+  });
+  maps.booking = map;
+  directionsRenderer = new google.maps.DirectionsRenderer({
+    map: map,
+    polylineOptions: { strokeColor: '#c9a84c', strokeWeight: 5 },
+  });
+}
+
+function showBookingRoute() {
+  const id = document.getElementById('booking-select').value;
+  if (!id || !maps.booking) return;
+
+  const b = bookings.find(x => x.id === id);
+  if (!b || !b.pickup_lat || !b.dropoff_lat) return;
+
+  const directionsService = new google.maps.DirectionsService();
+  directionsService.route({
+    origin: { lat: parseFloat(b.pickup_lat), lng: parseFloat(b.pickup_lng) },
+    destination: { lat: parseFloat(b.dropoff_lat), lng: parseFloat(b.dropoff_lng) },
+    travelMode: google.maps.TravelMode.DRIVING,
+  }, (result, status) => {
+    if (status === 'OK') {
+      directionsRenderer.setDirections(result);
+    } else {
+      // Fallback: just show markers
+      maps.booking.setCenter({ lat: parseFloat(b.pickup_lat), lng: parseFloat(b.pickup_lng) });
+      maps.booking.setZoom(13);
+    }
+  });
+}
+
+// ── Init ────────────────────────────────────────────────────────────────────
+showTab('dashboard');
+loadVehicles();
+loadBookings();
+loadUsers();
+</script>
+
+</body>
+</html>

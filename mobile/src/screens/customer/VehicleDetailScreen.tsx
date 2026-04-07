@@ -8,8 +8,10 @@ import {
   StyleSheet,
   Dimensions,
   FlatList,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { useVehicle } from '../../hooks/useVehicles';
@@ -184,6 +186,39 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
               </View>
             </View>
           )}
+
+          {/* Vehicle Location Map */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Vehicle Location</Text>
+            <View style={styles.mapContainer}>
+              <MapView
+                style={styles.miniMap}
+                provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+                initialRegion={{
+                  latitude: vehicle.location.latitude,
+                  longitude: vehicle.location.longitude,
+                  latitudeDelta: 0.01,
+                  longitudeDelta: 0.01,
+                }}
+                scrollEnabled={false}
+                zoomEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={false}
+              >
+                <Marker
+                  coordinate={{
+                    latitude: vehicle.location.latitude,
+                    longitude: vehicle.location.longitude,
+                  }}
+                >
+                  <View style={styles.mapMarker}>
+                    <Text style={styles.mapMarkerText}>🚗</Text>
+                  </View>
+                </Marker>
+              </MapView>
+              <Text style={styles.mapAddress}>{vehicle.location.address}</Text>
+            </View>
+          </View>
 
           {/* Pricing & Mode Selection */}
           <View style={styles.section}>
@@ -473,6 +508,35 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: 12,
     color: COLORS.textPrimary,
+  },
+  mapContainer: {
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  miniMap: {
+    width: '100%',
+    height: 160,
+  },
+  mapMarker: {
+    backgroundColor: COLORS.white,
+    borderRadius: 20,
+    padding: 6,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  mapMarkerText: {
+    fontSize: 20,
+  },
+  mapAddress: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    padding: SPACING.sm,
+    backgroundColor: COLORS.white,
   },
   modeOption: {
     flexDirection: 'row',

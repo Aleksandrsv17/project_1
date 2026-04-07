@@ -9,11 +9,11 @@ export default function VehiclesPage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery<Vehicle[]>({
     queryKey: ['vehicles-admin'],
-    queryFn: () => api.get('/vehicles?limit=100').then(r => r.data?.data?.vehicles ?? []),
+    queryFn: () => api.get('/vehicles?limit=100&status=all').then(r => r.data?.data?.vehicles ?? []),
   });
 
   const updateStatus = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/vehicles/${id}`, { status }),
+    mutationFn: ({ id, status }: { id: string; status: string }) => api.patch(`/vehicles/${id}/status`, { status }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['vehicles-admin'] }),
   });
 

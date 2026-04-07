@@ -1,9 +1,12 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { LayoutDashboard, Users, Car, CalendarCheck, CreditCard, LogOut } from 'lucide-react';
+import { LayoutDashboard, Users, Car, CalendarCheck, CreditCard, LogOut, Map, MapPin, Navigation } from 'lucide-react';
 
 const nav = [
   { to: '/admin/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/live-map', label: 'Live Map', icon: Map },
+  { to: '/admin/vehicle-map', label: 'Vehicle Map', icon: MapPin },
+  { to: '/admin/booking-map', label: 'Booking Routes', icon: Navigation },
   { to: '/admin/users', label: 'Users', icon: Users },
   { to: '/admin/vehicles', label: 'Vehicles', icon: Car },
   { to: '/admin/bookings', label: 'Bookings', icon: CalendarCheck },

@@ -16,9 +16,11 @@ import { RouteProp } from '@react-navigation/native';
 import { useBookingStore } from '../../store/bookingStore';
 import { useVehicle } from '../../hooks/useVehicles';
 import { useCreateBooking } from '../../hooks/useBookings';
+import { useLocation } from '../../hooks/useLocation';
 import { createPaymentIntent } from '../../api/payments';
 import { PriceBreakdown } from '../../components/PriceBreakdown';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
+import { PlacesAutocomplete } from '../../components/PlacesAutocomplete';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
 import { calculateBookingTotal, formatDateTime, formatDuration } from '../../utils/formatters';
 import { differenceInHours, addHours, addDays } from 'date-fns';
@@ -49,8 +51,15 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
   const [mode, setMode] = useState<'self_drive' | 'chauffeur'>(bookingDraft?.mode ?? 'self_drive');
   const [pickupAddress, setPickupAddress] = useState(bookingDraft?.pickupAddress ?? '');
   const [dropoffAddress, setDropoffAddress] = useState(bookingDraft?.dropoffAddress ?? '');
+  const [pickupCoords, setPickupCoords] = useState<{ latitude: number; longitude: number } | null>(
+    bookingDraft?.pickupLatitude
+      ? { latitude: bookingDraft.pickupLatitude, longitude: bookingDraft.pickupLongitude! }
+      : null
+  );
+  const [dropoffCoords, setDropoffCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   const [notes, setNotes] = useState(bookingDraft?.notes ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { location: userLocation } = useLocation();
 
   const durationHours = Math.max(1, differenceInHours(endTime, startTime));
 
@@ -96,14 +105,14 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         pickupLocation: {
-          latitude: bookingDraft?.pickupLatitude ?? vehicle.location.latitude,
-          longitude: bookingDraft?.pickupLongitude ?? vehicle.location.longitude,
+          latitude: pickupCoords?.latitude ?? bookingDraft?.pickupLatitude ?? vehicle.location.latitude,
+          longitude: pickupCoords?.longitude ?? bookingDraft?.pickupLongitude ?? vehicle.location.longitude,
           address: pickupAddress,
         },
         dropoffLocation: dropoffAddress.trim()
           ? {
-              latitude: bookingDraft?.dropoffLatitude ?? vehicle.location.latitude,
-              longitude: bookingDraft?.dropoffLongitude ?? vehicle.location.longitude,
+              latitude: dropoffCoords?.latitude ?? vehicle.location.latitude,
+              longitude: dropoffCoords?.longitude ?? vehicle.location.longitude,
               address: dropoffAddress,
             }
           : undefined,
@@ -224,30 +233,32 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
         </View>
 
         {/* Pickup Address */}
-        <View style={styles.section}>
+        <View style={[styles.section, { zIndex: 20 }]}>
           <Text style={styles.sectionTitle}>Pickup Address *</Text>
-          <TextInput
-            style={styles.textInput}
+          <PlacesAutocomplete
+            placeholder="Search pickup location..."
             value={pickupAddress}
             onChangeText={setPickupAddress}
-            placeholder="Enter pickup location..."
-            placeholderTextColor={COLORS.gray}
-            multiline
-            numberOfLines={2}
+            biasLocation={userLocation ?? undefined}
+            onPlaceSelected={(place) => {
+              setPickupAddress(place.address);
+              setPickupCoords({ latitude: place.latitude, longitude: place.longitude });
+            }}
           />
         </View>
 
         {/* Dropoff Address */}
-        <View style={styles.section}>
+        <View style={[styles.section, { zIndex: 10 }]}>
           <Text style={styles.sectionTitle}>Drop-off Address (optional)</Text>
-          <TextInput
-            style={styles.textInput}
+          <PlacesAutocomplete
+            placeholder="Search drop-off location..."
             value={dropoffAddress}
             onChangeText={setDropoffAddress}
-            placeholder="Enter drop-off location (if different)..."
-            placeholderTextColor={COLORS.gray}
-            multiline
-            numberOfLines={2}
+            biasLocation={userLocation ?? undefined}
+            onPlaceSelected={(place) => {
+              setDropoffAddress(place.address);
+              setDropoffCoords({ latitude: place.latitude, longitude: place.longitude });
+            }}
           />
         </View>
 

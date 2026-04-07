@@ -60,9 +60,18 @@ export class VehicleService {
   }
 
   async findAll(queryParams: VehicleQuery): Promise<{ vehicles: VehicleWithMedia[]; total: number }> {
-    const conditions: string[] = ["v.status = 'active'"];
+    const conditions: string[] = [];
     const values: unknown[] = [];
     let paramIdx = 1;
+
+    if (queryParams.status === 'all') {
+      // No status filter — show everything (admin use)
+    } else if (queryParams.status) {
+      conditions.push(`v.status = $${paramIdx++}`);
+      values.push(queryParams.status);
+    } else {
+      conditions.push("v.status = 'active'");
+    }
 
     if (queryParams.city) {
       conditions.push(`v.location_city ILIKE $${paramIdx++}`);
@@ -225,6 +234,34 @@ export class VehicleService {
     );
 
     logger.info('Vehicle deactivated', { vehicleId, ownerId });
+  }
+
+  /**
+   * Admin-only: update vehicle status (approve/reject)
+   */
+  async adminUpdateStatus(vehicleId: string, status: string): Promise<Vehicle> {
+    const vehicle = await query<Vehicle>(
+      'SELECT id FROM vehicles WHERE id = $1',
+      [vehicleId]
+    );
+
+    if (!vehicle.rows[0]) {
+      throw new NotFoundError('Vehicle');
+    }
+
+    const allowed = ['active', 'inactive', 'pending', 'maintenance'];
+    if (!allowed.includes(status)) {
+      throw new AppError(`Invalid status. Must be one of: ${allowed.join(', ')}`, 400);
+    }
+
+    const result = await query<Vehicle>(
+      `UPDATE vehicles SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [status, vehicleId]
+    );
+
+    logger.info('Vehicle status updated by admin', { vehicleId, status });
+
+    return result.rows[0];
   }
 
   async addMedia(vehicleId: string, ownerId: string, url: string, isPrimary = false): Promise<void> {

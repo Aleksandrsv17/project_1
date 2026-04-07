@@ -15,6 +15,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.vipmobility.app",
+      "config": {
+        "googleMapsApiKey": "AIzaSyD5wNSv6trG1uOBHjsaXkQJzrcgpHGGJI0"
+      },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "VIP Mobility needs your location to show nearby vehicles and track your trip.",
         "NSLocationAlwaysUsageDescription": "VIP Mobility needs your location for active trip tracking.",
@@ -28,6 +31,11 @@
         "backgroundColor": "#1a1a2e"
       },
       "package": "com.vipmobility.app",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyD5wNSv6trG1uOBHjsaXkQJzrcgpHGGJI0"
+        }
+      },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -56,7 +64,7 @@
           "locationAlwaysAndWhenInUsePermission": "Allow VIP Mobility to use your location."
         }
       ],
-      "@stripe/stripe-react-native"
+      ["@stripe/stripe-react-native", { "merchantIdentifier": "merchant.com.vipmobility.app", "enableGooglePay": true }]
     ],
     "extra": {
       "eas": {

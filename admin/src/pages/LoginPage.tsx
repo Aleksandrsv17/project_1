@@ -53,6 +53,18 @@ export default function LoginPage() {
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
         </form>
+
+        <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+          <p className="text-xs text-gray-400 mb-3">No account yet?</p>
+          <button
+            onClick={() => {
+              window.location.href = '/admin/?demo=1';
+            }}
+            className="w-full py-3 rounded-lg font-semibold text-sm transition-colors border-2 hover:bg-gray-50"
+            style={{ borderColor: '#1a1a2e', color: '#1a1a2e' }}>
+            Enter Demo Mode
+          </button>
+        </div>
       </div>
     </div>
   );

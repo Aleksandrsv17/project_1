@@ -7,15 +7,17 @@ import {
   TouchableOpacity,
   RefreshControl,
   FlatList,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useOwnerBookings, useEarningsSummary, useConfirmBooking } from '../../hooks/useBookings';
 import { useMyVehicles } from '../../hooks/useVehicles';
 import { BookingCard } from '../../components/BookingCard';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { InlineError } from '../../components/ErrorBoundary';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
+import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
 import { formatCurrency, formatCurrencyCompact } from '../../utils/formatters';
 import { Booking } from '../../api/bookings';
 import { useAuthStore } from '../../store/authStore';
@@ -200,6 +202,69 @@ export function OwnerDashboardScreen({ navigation }: OwnerDashboardProps) {
             />
           </View>
         </View>
+
+        {/* Fleet Map Preview */}
+        {vehicles && vehicles.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Fleet Map</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('FleetMap' as never)}>
+                <Text style={styles.seeAllText}>Full Map →</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.miniMapContainer}>
+              <MapView
+                style={styles.miniMap}
+                provider={PROVIDER_GOOGLE}
+                initialRegion={
+                  vehicles.length > 0
+                    ? {
+                        latitude: vehicles[0].location.latitude,
+                        longitude: vehicles[0].location.longitude,
+                        latitudeDelta: 0.08,
+                        longitudeDelta: 0.08,
+                      }
+                    : DEFAULT_REGION
+                }
+                scrollEnabled={false}
+                zoomEnabled={false}
+                rotateEnabled={false}
+                pitchEnabled={false}
+                onPress={() => navigation.navigate('FleetMap' as never)}
+              >
+                {vehicles.map((v) => (
+                  <Marker
+                    key={v.id}
+                    coordinate={{
+                      latitude: v.location.latitude,
+                      longitude: v.location.longitude,
+                    }}
+                  >
+                    <View
+                      style={[
+                        styles.miniMapMarker,
+                        { backgroundColor: v.isAvailable ? '#d1fae5' : '#fee2e2' },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 14 }}>🚗</Text>
+                    </View>
+                  </Marker>
+                ))}
+              </MapView>
+              <View style={styles.miniMapLegend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#10b981' }]} />
+                  <Text style={styles.legendText}>Available</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
+                  <Text style={styles.legendText}>Booked</Text>
+                </View>
+                <Text style={styles.legendTap}>Tap to expand</Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Recent Bookings */}
         <View style={styles.section}>
@@ -398,6 +463,53 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textSecondary,
     textAlign: 'center',
+  },
+  miniMapContainer: {
+    borderRadius: BORDER_RADIUS.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  miniMap: {
+    width: '100%',
+    height: 180,
+  },
+  miniMapMarker: {
+    borderRadius: 16,
+    padding: 4,
+    shadowColor: COLORS.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  miniMapLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs + 2,
+    backgroundColor: COLORS.white,
+    gap: SPACING.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+  },
+  legendTap: {
+    fontSize: 11,
+    color: COLORS.accent,
+    fontWeight: '600',
+    marginLeft: 'auto',
   },
   emptyBookings: {
     padding: SPACING.lg,

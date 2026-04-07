@@ -92,6 +92,18 @@ export class VehicleController {
     }
   }
 
+  async adminUpdateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { status } = req.body as { status: string };
+      if (!status) throw new ValidationError('status is required');
+
+      const vehicle = await vehicleService.adminUpdateStatus(req.params.id, status);
+      res.status(200).json({ success: true, data: { vehicle } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async addMedia(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;

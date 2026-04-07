@@ -69,6 +69,7 @@ export const updateVehicleSchema = Joi.object({
 export const vehicleQuerySchema = Joi.object({
   city: Joi.string().optional(),
   category: Joi.string().valid('sedan', 'suv', 'coupe', 'convertible', 'van', 'truck').optional(),
+  status: Joi.string().valid('pending', 'active', 'inactive', 'maintenance', 'all').optional(),
   min_rate: Joi.number().positive().optional(),
   max_rate: Joi.number().positive().optional(),
   chauffeur: Joi.boolean().optional(),
