@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as ImagePicker from 'expo-image-picker';
 import { submitKYC } from '../../api/auth';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
@@ -34,23 +35,38 @@ export function KYCScreen({ navigation }: KYCScreenProps) {
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // TODO: Implement actual image picker using expo-image-picker
+  async function pickImage(setter: (uri: string) => void, useCamera = false) {
+    if (useCamera) {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) { Alert.alert('Permission Required', 'Camera access is needed.'); return; }
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      if (!result.canceled && result.assets[0]) setter(result.assets[0].uri);
+    } else {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) { Alert.alert('Permission Required', 'Photo library access is needed.'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
+      if (!result.canceled && result.assets[0]) setter(result.assets[0].uri);
+    }
+  }
+
   function handlePickFront() {
-    Alert.alert('Upload Front', 'In production: open camera or photo library', [
-      { text: 'OK', onPress: () => setFrontImage('https://via.placeholder.com/300x200?text=ID+Front') },
+    Alert.alert('Document Front', 'Choose source', [
+      { text: 'Camera', onPress: () => pickImage(setFrontImage, true) },
+      { text: 'Photo Library', onPress: () => pickImage(setFrontImage) },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   }
 
   function handlePickBack() {
-    Alert.alert('Upload Back', 'In production: open camera or photo library', [
-      { text: 'OK', onPress: () => setBackImage('https://via.placeholder.com/300x200?text=ID+Back') },
+    Alert.alert('Document Back', 'Choose source', [
+      { text: 'Camera', onPress: () => pickImage(setBackImage, true) },
+      { text: 'Photo Library', onPress: () => pickImage(setBackImage) },
+      { text: 'Cancel', style: 'cancel' },
     ]);
   }
 
   function handlePickSelfie() {
-    Alert.alert('Take Selfie', 'In production: open front camera', [
-      { text: 'OK', onPress: () => setSelfieImage('https://via.placeholder.com/200x200?text=Selfie') },
-    ]);
+    pickImage(setSelfieImage, true);
   }
 
   async function handleSubmit() {

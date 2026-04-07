@@ -118,6 +118,14 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
       }
     });
 
+    socket.on('ride:status_updated', (data: { status: string }) => {
+      if (data.status === 'completed') {
+        Alert.alert('Trip Completed', 'Your trip has been completed.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
+    });
+
     socket.on('trip-completed', () => {
       Alert.alert('Trip Completed', 'Your trip has been completed.', [
         { text: 'OK', onPress: () => navigation.goBack() },
@@ -147,7 +155,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
             setIsCompleting(true);
             try {
               await completeBookingMutation.mutateAsync(bookingId);
-              socketRef.current?.emit('trip-complete', bookingId);
+              socketRef.current?.emit('ride:status', { bookingId, status: 'completed' });
               navigation.replace('BookingHistory');
             } catch {
               Alert.alert('Error', 'Failed to complete trip. Please try again.');

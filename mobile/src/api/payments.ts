@@ -20,15 +20,24 @@ export interface PaymentMethod {
 }
 
 export async function createPaymentIntent(bookingId: string): Promise<PaymentIntent> {
-  const response = await apiClient.post<PaymentIntent>('/payments/create-intent', { bookingId });
-  return response.data;
+  const response = await apiClient.post('/payments/intent', { booking_id: bookingId });
+  const raw = response.data?.data ?? response.data;
+  return {
+    clientSecret: raw.client_secret ?? raw.clientSecret,
+    paymentIntentId: raw.payment_intent_id ?? raw.paymentIntentId,
+    amount: raw.amount,
+    currency: raw.currency ?? 'aed',
+  };
 }
 
 export async function confirmPayment(paymentIntentId: string, bookingId: string): Promise<{
   success: boolean;
   booking: { id: string; paymentStatus: string; status: string };
 }> {
-  const response = await apiClient.post('/payments/confirm', { paymentIntentId, bookingId });
+  const response = await apiClient.post('/bookings/confirm-payment', {
+    payment_intent_id: paymentIntentId,
+    booking_id: bookingId,
+  });
   return response.data;
 }
 

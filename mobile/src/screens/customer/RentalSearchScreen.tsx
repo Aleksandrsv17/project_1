@@ -15,14 +15,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { searchPlaces, getPlaceDetails, PlacePrediction, LatLng } from '../../api/maps';
 import { useLocation } from '../../hooks/useLocation';
-import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
+import { COLORS, SPACING, BORDER_RADIUS, REGIONS } from '../../utils/constants';
 import { CustomerStackParamList } from '../../navigation/CustomerNavigator';
 
 type Props = {
   navigation: NativeStackNavigationProp<CustomerStackParamList, 'RentalSearch'>;
 };
-
-const REGIONS = ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah', 'Fujairah'];
 
 export function RentalSearchScreen({ navigation }: Props) {
   const { location } = useLocation();
@@ -65,6 +63,7 @@ export function RentalSearchScreen({ navigation }: Props) {
   const durationText = durationHours >= 24 ? `${Math.round(durationHours / 24)} day${Math.round(durationHours / 24) !== 1 ? 's' : ''}` : `${durationHours} hours`;
 
   function handleFindRentals() {
+    if (startDate < new Date()) { Alert.alert('Invalid Date', 'Start date cannot be in the past.'); return; }
     if (endDate <= startDate) { Alert.alert('Invalid Dates', 'End date must be after start date.'); return; }
     navigation.navigate('VehicleList', { city: region } as never);
   }

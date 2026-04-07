@@ -162,6 +162,28 @@ export class BookingController {
       next(err);
     }
   }
+  async earningsSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const summary = await bookingService.getEarningsSummary(authReq.user.sub);
+      res.status(200).json({ success: true, data: summary });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async rate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const { rating, review } = req.body as { rating?: number; review?: string };
+      if (!rating) throw new ValidationError('rating is required (1-5)');
+
+      const booking = await bookingService.rateBooking(req.params.id, authReq.user.sub, rating, review);
+      res.status(200).json({ success: true, data: { booking } });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const bookingController = new BookingController();

@@ -167,6 +167,34 @@ export class ChauffeurService {
 
     logger.info('Chauffeur rating updated', { chauffeurId, bookingId, avgScore });
   }
+  async getLocationByBooking(bookingId: string) {
+    // Get chauffeur assigned to this booking
+    const bookingResult = await query<{ chauffeur_id: string }>(
+      'SELECT chauffeur_id FROM bookings WHERE id = $1',
+      [bookingId]
+    );
+    const chauffeurId = bookingResult.rows[0]?.chauffeur_id;
+    if (!chauffeurId) {
+      return { latitude: null, longitude: null, heading: 0, speed: 0, updatedAt: null };
+    }
+
+    const result = await query<{ current_lat: string; current_lng: string; updated_at: string }>(
+      'SELECT current_lat, current_lng, updated_at FROM chauffeurs WHERE id = $1',
+      [chauffeurId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return { latitude: null, longitude: null, heading: 0, speed: 0, updatedAt: null };
+    }
+
+    return {
+      latitude: parseFloat(row.current_lat) || null,
+      longitude: parseFloat(row.current_lng) || null,
+      heading: 0,
+      speed: 0,
+      updatedAt: row.updated_at,
+    };
+  }
 }
 
 export const chauffeurService = new ChauffeurService();

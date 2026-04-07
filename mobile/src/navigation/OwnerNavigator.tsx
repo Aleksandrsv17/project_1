@@ -6,6 +6,7 @@ import { OwnerDashboardScreen } from '../screens/owner/OwnerDashboardScreen';
 import { MyVehiclesScreen } from '../screens/owner/MyVehiclesScreen';
 import { FleetMapScreen } from '../screens/owner/FleetMapScreen';
 import { AddVehicleScreen } from '../screens/owner/AddVehicleScreen';
+import { OwnerProfileScreen } from '../screens/owner/OwnerProfileScreen';
 import { COLORS, BORDER_RADIUS } from '../utils/constants';
 
 export type OwnerTabParamList = {
@@ -88,7 +89,7 @@ function OwnerTabs() {
       />
       <Tab.Screen
         name="OwnerProfile"
-        component={OwnerDashboardScreen} // TODO: Replace with OwnerProfileScreen
+        component={OwnerProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
             <TabIcon icon="👤" focused={focused} label="Profile" />

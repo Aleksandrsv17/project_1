@@ -172,8 +172,7 @@ function VehicleManageCard({
           >
             <Text style={styles.deleteButtonText}>🗑 Delete</Text>
           </TouchableOpacity>
-          {/* TODO: Edit button - navigate to EditVehicle screen */}
-          <TouchableOpacity style={styles.editButton}>
+          <TouchableOpacity style={styles.editButton} onPress={() => Alert.alert('Edit Vehicle', 'Vehicle editing will be available in the next update.')}>
             <Text style={styles.editButtonText}>✏️ Edit</Text>
           </TouchableOpacity>
         </View>

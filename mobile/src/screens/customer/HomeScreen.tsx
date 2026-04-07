@@ -10,6 +10,8 @@ import {
   FlatList,
   Keyboard,
   Alert,
+  ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -30,7 +32,7 @@ type HomeScreenProps = {
   navigation: BottomTabNavigationProp<CustomerTabParamList, 'Home'>;
 };
 
-type ViewMode = 'idle' | 'search' | 'route';
+type ViewMode = 'idle' | 'search' | 'route' | 'searching';
 
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const { user } = useAuthStore();
@@ -47,6 +49,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [routeCoords, setRouteCoords] = useState<LatLng[]>([]);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
+  const [searchingSeconds, setSearchingSeconds] = useState(0);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const region = location
     ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 }
@@ -157,10 +161,41 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     setPredictions([]);
   }
 
-  function handleFindVehicles() {
+  function handleRequestRide() {
     Keyboard.dismiss();
-    navigation.navigate('VehicleList');
+    setViewMode('searching');
+    setSearchingSeconds(0);
+
+    // Start pulse animation
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
   }
+
+  function handleCancelSearch() {
+    Alert.alert('Cancel Ride', 'Stop searching for a driver?', [
+      { text: 'Keep Searching', style: 'cancel' },
+      {
+        text: 'Cancel',
+        style: 'destructive',
+        onPress: () => {
+          pulseAnim.stopAnimation();
+          pulseAnim.setValue(1);
+          setViewMode('route');
+        },
+      },
+    ]);
+  }
+
+  // Searching timer
+  React.useEffect(() => {
+    if (viewMode !== 'searching') return;
+    const timer = setInterval(() => setSearchingSeconds(s => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, [viewMode]);
 
   function handleVehiclePress(vehicle: Vehicle) {
     (navigation as any).navigate('VehicleDetail', { vehicleId: vehicle.id });
@@ -388,7 +423,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             )}
           </SafeAreaView>
 
-          {/* Route info + find vehicles button */}
+          {/* Route info + request ride button */}
           {viewMode === 'route' && destCoords && (
             <View style={styles.routeBottomCard}>
               {routeInfo && (
@@ -398,11 +433,54 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   <Text style={styles.routeInfoText}>📍 {routeInfo.distance}</Text>
                 </View>
               )}
-              <TouchableOpacity style={styles.findVehiclesButton} onPress={handleFindVehicles}>
-                <Text style={styles.findVehiclesText}>Find Available Vehicles</Text>
+              <TouchableOpacity style={styles.findVehiclesButton} onPress={handleRequestRide}>
+                <Text style={styles.findVehiclesText}>Request Ride</Text>
               </TouchableOpacity>
             </View>
           )}
+        </>
+      )}
+
+      {/* ── SEARCHING MODE: Looking for driver ── */}
+      {viewMode === 'searching' && (
+        <>
+          {/* Keep showing the route on map */}
+          <SafeAreaView style={styles.searchingHeader} edges={['top']}>
+            <View style={styles.searchingHeaderCard}>
+              <Text style={styles.searchingHeaderTitle}>Looking for your driver...</Text>
+              <Text style={styles.searchingHeaderSub}>
+                {pickupText} → {destText}
+              </Text>
+            </View>
+          </SafeAreaView>
+
+          <View style={styles.searchingOverlay}>
+            {/* Pulsing circle */}
+            <Animated.View style={[styles.pulseCircleOuter, { transform: [{ scale: pulseAnim }] }]}>
+              <View style={styles.pulseCircleInner}>
+                <Text style={styles.pulseIcon}>🚗</Text>
+              </View>
+            </Animated.View>
+
+            <Text style={styles.searchingTitle}>Searching for drivers nearby</Text>
+            <Text style={styles.searchingTimer}>
+              {Math.floor(searchingSeconds / 60)}:{(searchingSeconds % 60).toString().padStart(2, '0')}
+            </Text>
+
+            {routeInfo && (
+              <View style={styles.searchingRouteInfo}>
+                <Text style={styles.searchingRouteText}>🕐 {routeInfo.duration}  ·  📍 {routeInfo.distance}</Text>
+              </View>
+            )}
+
+            <Text style={styles.searchingHint}>
+              This usually takes less than a minute
+            </Text>
+
+            <TouchableOpacity style={styles.cancelSearchButton} onPress={handleCancelSearch}>
+              <Text style={styles.cancelSearchText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
     </View>
@@ -534,4 +612,48 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md, alignItems: 'center',
   },
   findVehiclesText: { color: COLORS.accent, fontWeight: '700', fontSize: 16 },
+
+  // ── Searching mode ──
+  searchingHeader: { paddingHorizontal: SPACING.md },
+  searchingHeaderCard: {
+    backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: BORDER_RADIUS.lg,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    shadowColor: COLORS.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
+  },
+  searchingHeaderTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  searchingHeaderSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+
+  searchingOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: BORDER_RADIUS.xxl, borderTopRightRadius: BORDER_RADIUS.xxl,
+    paddingTop: SPACING.lg, paddingBottom: SPACING.xl + 68, paddingHorizontal: SPACING.md,
+    alignItems: 'center',
+    shadowColor: COLORS.black, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 16,
+  },
+  pulseCircleOuter: {
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: 'rgba(201,168,76,0.15)',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  pulseCircleInner: {
+    width: 68, height: 68, borderRadius: 34,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  pulseIcon: { fontSize: 30 },
+  searchingTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.xs },
+  searchingTimer: { fontSize: 28, fontWeight: '800', color: COLORS.accent, marginBottom: SPACING.md },
+  searchingRouteInfo: {
+    backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, marginBottom: SPACING.sm,
+  },
+  searchingRouteText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
+  searchingHint: { fontSize: 13, color: COLORS.gray, marginBottom: SPACING.lg },
+  cancelSearchButton: {
+    borderWidth: 1, borderColor: '#fee2e2', backgroundColor: '#fff5f5',
+    borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xxl,
+  },
+  cancelSearchText: { fontSize: 15, fontWeight: '600', color: '#ef4444' },
 });

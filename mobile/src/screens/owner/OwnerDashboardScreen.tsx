@@ -65,7 +65,9 @@ export function OwnerDashboardScreen({ navigation }: OwnerDashboardProps) {
   }
 
   function handleBookingPress(booking: Booking) {
-    // TODO: Navigate to booking detail
+    if (booking.status === 'active') {
+      (navigation as any).navigate('ActiveTrip', { bookingId: booking.id });
+    }
   }
 
   const pendingBookings = bookingsData?.bookings.filter((b) => b.status === 'pending') ?? [];

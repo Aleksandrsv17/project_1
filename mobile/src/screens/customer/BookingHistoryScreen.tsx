@@ -36,6 +36,7 @@ const STATUS_TABS = [
 
 export function BookingHistoryScreen({ navigation }: BookingHistoryScreenProps) {
   const [activeStatus, setActiveStatus] = useState<string | undefined>(undefined);
+  const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [ratingModal, setRatingModal] = useState<{ booking: Booking } | null>(null);
   const [selectedRating, setSelectedRating] = useState(5);
   const [reviewText, setReviewText] = useState('');
@@ -103,24 +104,32 @@ export function BookingHistoryScreen({ navigation }: BookingHistoryScreenProps) 
         <Text style={styles.headerTitle}>My Bookings</Text>
       </View>
 
-      {/* Status Tabs */}
-      <FlatList
-        data={STATUS_TABS}
-        keyExtractor={(item) => item.label}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabList}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[styles.tab, activeStatus === item.value && styles.tabActive]}
-            onPress={() => setActiveStatus(item.value)}
-          >
-            <Text style={[styles.tabText, activeStatus === item.value && styles.tabTextActive]}>
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        )}
-      />
+      {/* Status Dropdown */}
+      <TouchableOpacity
+        style={styles.statusDropdown}
+        onPress={() => setShowStatusPicker(v => !v)}
+      >
+        <Text style={styles.statusDropdownLabel}>
+          {STATUS_TABS.find(t => t.value === activeStatus)?.label ?? 'All'}
+        </Text>
+        <Text style={styles.statusDropdownArrow}>{showStatusPicker ? '▲' : '▼'}</Text>
+      </TouchableOpacity>
+      {showStatusPicker && (
+        <View style={styles.statusPickerList}>
+          {STATUS_TABS.map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={[styles.statusPickerItem, activeStatus === item.value && styles.statusPickerItemActive]}
+              onPress={() => { setActiveStatus(item.value); setShowStatusPicker(false); }}
+            >
+              <Text style={[styles.statusPickerText, activeStatus === item.value && styles.statusPickerTextActive]}>
+                {item.label}
+              </Text>
+              {activeStatus === item.value && <Text style={styles.statusCheck}>✓</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Content */}
       {isLoading ? (
@@ -253,33 +262,61 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: COLORS.textPrimary,
   },
-  tabList: {
+  statusDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: SPACING.md,
+    marginVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    gap: SPACING.sm,
+    paddingVertical: 10,
     backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  tab: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.full,
     borderWidth: 1,
     borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
   },
-  tabActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  tabText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  tabTextActive: {
-    color: COLORS.accent,
+  statusDropdownLabel: {
+    fontSize: 15,
     fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  statusDropdownArrow: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  statusPickerList: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+  },
+  statusPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayLight,
+  },
+  statusPickerItemActive: {
+    backgroundColor: '#fefce8',
+  },
+  statusPickerText: {
+    fontSize: 15,
+    color: COLORS.textPrimary,
+  },
+  statusPickerTextActive: {
+    color: COLORS.accent,
+    fontWeight: '700',
+  },
+  statusCheck: {
+    fontSize: 16,
+    color: COLORS.accent,
+    fontWeight: '700',
   },
   listContent: {
     padding: SPACING.md,

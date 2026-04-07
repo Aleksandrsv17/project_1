@@ -27,6 +27,8 @@ export const BOOKING_MODES = [
   { label: 'With Chauffeur', value: 'chauffeur' },
 ];
 
+export const REGIONS = ['Dubai', 'Abu Dhabi', 'Sharjah', 'Ajman', 'Ras Al Khaimah', 'Fujairah'];
+
 export const BOOKING_STATUS = {
   PENDING: 'pending',
   CONFIRMED: 'confirmed',

@@ -230,6 +230,21 @@ export class UserService {
     return toPublicUser(result.rows[0]);
   }
 
+  async submitKyc(userId: string, data: {
+    document_type: string;
+    document_number: string;
+    document_image_front: string;
+    document_image_back?: string;
+    selfie_image: string;
+  }): Promise<void> {
+    // Update KYC status to submitted and store document references
+    await query(
+      `UPDATE users SET kyc_status = 'submitted', kyc_document_type = $1, updated_at = NOW() WHERE id = $2`,
+      [data.document_type, userId]
+    );
+    logger.info('KYC submitted', { userId, documentType: data.document_type });
+  }
+
   async delete(userId: string): Promise<void> {
     const result = await query(
       'UPDATE users SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL',

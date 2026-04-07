@@ -87,6 +87,14 @@ export class ChauffeurController {
       next(err);
     }
   }
+  async getBookingLocation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const location = await chauffeurService.getLocationByBooking(req.params.bookingId);
+      res.status(200).json({ success: true, data: location });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const chauffeurController = new ChauffeurController();

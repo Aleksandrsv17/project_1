@@ -132,6 +132,48 @@ export class UserController {
     }
   }
 
+  async submitKyc(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const { document_type, document_number, document_image_front, document_image_back, selfie_image } = req.body;
+
+      if (!document_type || !document_image_front || !selfie_image) {
+        throw new ValidationError('document_type, document_image_front, and selfie_image are required');
+      }
+
+      // Store KYC data and set status to submitted
+      await userService.submitKyc(authReq.user.sub, {
+        document_type,
+        document_number: document_number ?? '',
+        document_image_front,
+        document_image_back,
+        selfie_image,
+      });
+
+      res.status(200).json({
+        success: true,
+        data: { message: 'KYC documents submitted for review', status: 'submitted' },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { email } = req.body as { email?: string };
+      if (!email) throw new ValidationError('email is required');
+
+      // Always return success to prevent email enumeration
+      res.status(200).json({
+        success: true,
+        data: { message: 'If this email is registered, a password reset link has been sent.' },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async deleteAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;

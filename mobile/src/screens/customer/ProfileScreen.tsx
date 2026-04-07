@@ -70,13 +70,13 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
             icon="👤"
             label="Personal Information"
             subtitle="Name, email, phone"
-            onPress={() => navigation.navigate('EditProfile' as never)}
+            onPress={() => Alert.alert('Profile', `Name: ${user?.fullName}\nEmail: ${user?.email}\nPhone: ${user?.phone}`)}
           />
           <MenuItem
             icon="🪪"
             label="KYC Verification"
             subtitle={user?.kycVerified ? 'Verified' : 'Complete your verification'}
-            onPress={() => navigation.navigate('KYCStatus' as never)}
+            onPress={() => Alert.alert('KYC', user?.kycVerified ? 'Your identity is verified.' : 'Please complete KYC from the registration flow or contact support.')}
             badge={!user?.kycVerified ? 'Required' : undefined}
           />
           <MenuItem

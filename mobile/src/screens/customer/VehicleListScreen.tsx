@@ -35,6 +35,7 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
   const [chauffeurOnly, setChauffeurOnly] = useState(initialChauffeur ?? false);
   const [citySearch, setCitySearch] = useState(initialCity ?? '');
   const [showFilters, setShowFilters] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
 
@@ -96,32 +97,40 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
         />
       </View>
 
-      {/* Category Chips */}
-      <FlatList
-        data={VEHICLE_CATEGORIES}
-        keyExtractor={(item) => item.value}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categoryList}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={[
-              styles.categoryChip,
-              selectedCategory === item.value && styles.categoryChipActive,
-            ]}
-            onPress={() => setSelectedCategory(item.value)}
-          >
-            <Text
+      {/* Category Dropdown */}
+      <TouchableOpacity
+        style={styles.categoryDropdown}
+        onPress={() => setShowCategoryPicker(v => !v)}
+      >
+        <Text style={styles.categoryDropdownLabel}>
+          {VEHICLE_CATEGORIES.find(c => c.value === selectedCategory)?.label ?? 'All'}
+        </Text>
+        <Text style={styles.categoryDropdownArrow}>{showCategoryPicker ? '▲' : '▼'}</Text>
+      </TouchableOpacity>
+      {showCategoryPicker && (
+        <View style={styles.categoryPickerList}>
+          {VEHICLE_CATEGORIES.map((item) => (
+            <TouchableOpacity
+              key={item.value}
               style={[
-                styles.categoryChipText,
-                selectedCategory === item.value && styles.categoryChipTextActive,
+                styles.categoryPickerItem,
+                selectedCategory === item.value && styles.categoryPickerItemActive,
               ]}
+              onPress={() => { setSelectedCategory(item.value); setShowCategoryPicker(false); }}
             >
-              {item.label}
-            </Text>
-          </TouchableOpacity>
-        )}
-      />
+              <Text
+                style={[
+                  styles.categoryPickerText,
+                  selectedCategory === item.value && styles.categoryPickerTextActive,
+                ]}
+              >
+                {item.label}
+              </Text>
+              {selectedCategory === item.value && <Text style={styles.categoryCheck}>✓</Text>}
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
 
       {/* Chauffeur Toggle */}
       <View style={styles.toggleRow}>
@@ -318,31 +327,61 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.textPrimary,
   },
-  categoryList: {
+  categoryDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.sm,
-    gap: SPACING.sm,
-  },
-  categoryChip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: BORDER_RADIUS.full,
+    paddingVertical: 10,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.md,
   },
-  categoryChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  categoryChipText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  categoryChipTextActive: {
-    color: COLORS.accent,
+  categoryDropdownLabel: {
+    fontSize: 15,
     fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  categoryDropdownArrow: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  categoryPickerList: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    overflow: 'hidden',
+  },
+  categoryPickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.grayLight,
+  },
+  categoryPickerItemActive: {
+    backgroundColor: '#fefce8',
+  },
+  categoryPickerText: {
+    fontSize: 15,
+    color: COLORS.textPrimary,
+  },
+  categoryPickerTextActive: {
+    color: COLORS.accent,
+    fontWeight: '700',
+  },
+  categoryCheck: {
+    fontSize: 16,
+    color: COLORS.accent,
+    fontWeight: '700',
   },
   toggleRow: {
     flexDirection: 'row',

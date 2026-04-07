@@ -10,7 +10,10 @@ router.post('/register', authRateLimiter, userController.register.bind(userContr
 router.post('/login', authRateLimiter, userController.login.bind(userController));
 router.post('/refresh', authRateLimiter, userController.refresh.bind(userController));
 
+router.post('/forgot-password', authRateLimiter, userController.forgotPassword.bind(userController));
+
 // Protected routes
+router.post('/kyc', authenticate, userController.submitKyc.bind(userController));
 router.post('/logout', authenticate, userController.logout.bind(userController));
 router.get('/profile', authenticate, userController.getProfile.bind(userController));
 router.patch('/profile', authenticate, userController.updateProfile.bind(userController));

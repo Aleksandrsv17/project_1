@@ -620,6 +620,79 @@ export class BookingService {
       customer: customerResult.rows[0],
     };
   }
+  async getEarningsSummary(ownerId: string) {
+    const totalResult = await query<{ total: string; count: string }>(
+      `SELECT COALESCE(SUM(b.total_amount), 0) as total, COUNT(*)::text as count
+       FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id
+       WHERE v.owner_id = $1 AND b.status = 'completed'`,
+      [ownerId]
+    );
+
+    const monthResult = await query<{ total: string }>(
+      `SELECT COALESCE(SUM(b.total_amount), 0) as total
+       FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id
+       WHERE v.owner_id = $1 AND b.status = 'completed'
+       AND b.updated_at >= date_trunc('month', NOW())`,
+      [ownerId]
+    );
+
+    const activeResult = await query<{ count: string }>(
+      `SELECT COUNT(*)::text as count
+       FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id
+       WHERE v.owner_id = $1 AND b.status = 'active'`,
+      [ownerId]
+    );
+
+    const pendingResult = await query<{ total: string }>(
+      `SELECT COALESCE(SUM(b.total_amount), 0) as total
+       FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id
+       WHERE v.owner_id = $1 AND b.status = 'completed'
+       AND b.updated_at >= NOW() - INTERVAL '7 days'`,
+      [ownerId]
+    );
+
+    return {
+      total_earnings: parseFloat(totalResult.rows[0]?.total ?? '0'),
+      this_month_earnings: parseFloat(monthResult.rows[0]?.total ?? '0'),
+      total_bookings: parseInt(totalResult.rows[0]?.count ?? '0', 10),
+      active_bookings: parseInt(activeResult.rows[0]?.count ?? '0', 10),
+      pending_payouts: parseFloat(pendingResult.rows[0]?.total ?? '0'),
+    };
+  }
+
+  async rateBooking(bookingId: string, userId: string, rating: number, review?: string): Promise<Booking> {
+    const result = await query<Booking>(
+      "SELECT * FROM bookings WHERE id = $1 AND customer_id = $2 AND status = 'completed'",
+      [bookingId, userId]
+    );
+    const booking = result.rows[0];
+    if (!booking) throw new NotFoundError('Completed booking');
+
+    if (rating < 1 || rating > 5) throw new AppError('Rating must be between 1 and 5', 400);
+
+    // Insert or update rating
+    await query(
+      `INSERT INTO ratings (booking_id, user_id, vehicle_id, rating, review, created_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())
+       ON CONFLICT (booking_id) DO UPDATE SET rating = $4, review = $5`,
+      [bookingId, userId, booking.vehicle_id, rating, review ?? null]
+    );
+
+    // Update vehicle average rating
+    const avgResult = await query<{ avg: string; count: string }>(
+      `SELECT AVG(rating)::text as avg, COUNT(*)::text as count FROM ratings WHERE vehicle_id = $1`,
+      [booking.vehicle_id]
+    );
+    if (avgResult.rows[0]) {
+      await query(
+        'UPDATE vehicles SET rating = $1, review_count = $2, updated_at = NOW() WHERE id = $3',
+        [parseFloat(avgResult.rows[0].avg), parseInt(avgResult.rows[0].count, 10), booking.vehicle_id]
+      );
+    }
+
+    logger.info('Booking rated', { bookingId, rating });
+    return booking;
+  }
 }
 
 export const bookingService = new BookingService();

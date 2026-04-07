@@ -8,6 +8,12 @@ const router = Router();
 router.get('/available', chauffeurController.listAvailable.bind(chauffeurController));
 router.get('/:id', chauffeurController.getById.bind(chauffeurController));
 
+router.get(
+  '/booking/:bookingId/location',
+  authenticate,
+  chauffeurController.getBookingLocation.bind(chauffeurController)
+);
+
 // Authenticated routes
 router.post(
   '/register',

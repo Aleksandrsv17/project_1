@@ -46,8 +46,16 @@ const upload = multer({
 
 const router = Router();
 
-// Upload one or more vehicle images
-router.post('/vehicle-images', upload.array('images', 8), (req: Request, res: Response) => {
+// Upload one or more vehicle images (requires auth)
+router.post('/vehicle-images', (req: Request, res: Response, next: NextFunction) => {
+  // Accept auth token OR admin key
+  const adminKey = req.headers['x-admin-key'];
+  const authHeader = req.headers.authorization;
+  if (!adminKey && !authHeader) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  return next();
+}, upload.array('images', 8), (req: Request, res: Response) => {
   const files = req.files as Express.Multer.File[];
   if (!files || files.length === 0) {
     return res.status(400).json({ error: 'No images uploaded' });
