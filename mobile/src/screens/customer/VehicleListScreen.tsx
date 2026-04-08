@@ -27,6 +27,7 @@ type VehicleListScreenProps = {
 };
 
 export function VehicleListScreen({ navigation, route }: VehicleListScreenProps) {
+  const styles = getStyles();
   const initialCategory = route.params?.category;
   const initialChauffeur = route.params?.chauffeurAvailable;
   const initialCity = route.params?.city;
@@ -253,7 +254,7 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -544,4 +545,4 @@ const styles = StyleSheet.create({
     color: COLORS.primary,
     fontWeight: '700',
   },
-});
+}); }

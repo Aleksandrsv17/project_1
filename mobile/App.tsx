@@ -6,6 +6,7 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { ErrorBoundary } from './src/components/ErrorBoundary';
+import { ThemeProvider } from './src/themes/ThemeContext';
 import { RootNavigator } from './src/navigation';
 import { STRIPE_PUBLISHABLE_KEY } from './src/utils/constants';
 
@@ -73,14 +74,16 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
-            <StatusBar style="light" />
-            <RootNavigator />
-          </StripeProvider>
-        </QueryClientProvider>
-      </SafeAreaProvider>
+      <ThemeProvider>
+        <SafeAreaProvider>
+          <QueryClientProvider client={queryClient}>
+            <StripeProvider publishableKey={STRIPE_PUBLISHABLE_KEY}>
+              <StatusBar style="light" />
+              <RootNavigator />
+            </StripeProvider>
+          </QueryClientProvider>
+        </SafeAreaProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

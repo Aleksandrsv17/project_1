@@ -29,6 +29,7 @@ type OwnerDashboardProps = {
 };
 
 export function OwnerDashboardScreen({ navigation }: OwnerDashboardProps) {
+  const styles = getStyles();
   const { user } = useAuthStore();
   const { data: earnings, isLoading: earningsLoading, refetch: refetchEarnings } = useEarningsSummary();
   const { data: bookingsData, isLoading: bookingsLoading, refetch: refetchBookings } = useOwnerBookings({ limit: 10 });
@@ -307,6 +308,7 @@ function EarningsCard({
   icon: string;
   color: string;
 }) {
+  const styles = getStyles();
   return (
     <View style={[styles.earningsCard, { backgroundColor: color }]}>
       <Text style={styles.earningsIcon}>{icon}</Text>
@@ -317,6 +319,7 @@ function EarningsCard({
 }
 
 function VehicleStat({ label, value, icon }: { label: string; value: string; icon: string }) {
+  const styles = getStyles();
   return (
     <View style={styles.vehicleStat}>
       <Text style={styles.vehicleStatIcon}>{icon}</Text>
@@ -326,7 +329,7 @@ function VehicleStat({ label, value, icon }: { label: string; value: string; ico
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -524,4 +527,4 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: SPACING.xxl,
   },
-});
+}); }

@@ -36,6 +36,7 @@ const QUICK_TOPICS = [
 ];
 
 export function SupportScreen({ navigation }: SupportScreenProps) {
+  const styles = getStyles();
   const { user } = useAuthStore();
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -185,7 +186,7 @@ export function SupportScreen({ navigation }: SupportScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   flex: { flex: 1 },
   header: {
@@ -243,4 +244,4 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: { opacity: 0.4 },
   sendButtonText: { color: COLORS.primary, fontWeight: '700', fontSize: 14 },
-});
+}); }

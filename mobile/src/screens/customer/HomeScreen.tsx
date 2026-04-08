@@ -12,6 +12,7 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -35,6 +36,7 @@ type HomeScreenProps = {
 type ViewMode = 'idle' | 'search' | 'route' | 'searching';
 
 export function HomeScreen({ navigation }: HomeScreenProps) {
+  const styles = getStyles();
   const { user } = useAuthStore();
   const { location, address: userAddress } = useLocation();
   const mapRef = useRef<MapView>(null);
@@ -296,21 +298,154 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           <View style={styles.bottomSheet}>
             <View style={styles.sheetHandle} />
             <View style={styles.quickActionsRow}>
-              <TouchableOpacity style={styles.quickAction} onPress={handleStartSearch}>
-                <Text style={styles.quickActionIcon}>🚗</Text>
-                <Text style={styles.quickActionLabel}>Ride</Text>
+              <TouchableOpacity
+                style={{
+                  width: '47%',
+                  backgroundColor: '#2C2A26',
+                  borderRadius: 2,
+                  paddingVertical: SPACING.sm,
+                  alignItems: 'center',
+                  gap: 6,
+                  // Faceted edge highlight — subtle top-left border glow
+                  borderTopWidth: 1,
+                  borderLeftWidth: 1,
+                  borderTopColor: 'rgba(200,191,168,0.35)',
+                  borderLeftColor: 'rgba(200,191,168,0.2)',
+                  borderRightWidth: 1,
+                  borderBottomWidth: 1,
+                  borderRightColor: 'rgba(0,0,0,0.15)',
+                  borderBottomColor: 'rgba(0,0,0,0.2)',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 4, height: 6 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 10,
+                  elevation: 6,
+                }}
+                activeOpacity={0.85}
+                onPress={handleStartSearch}
+              >
+                <Image
+                  source={require('../../../assets/ride-car.png')}
+                  style={{ width: 100, height: 60, resizeMode: 'contain' }}
+                />
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: '#C8BFA8',
+                  letterSpacing: 4,
+                  textTransform: 'uppercase',
+                }}>Ride</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.quickAction} onPress={() => (navigation as any).navigate('ChauffeurSearch')}>
-                <Text style={styles.quickActionIcon}>🎩</Text>
-                <Text style={styles.quickActionLabel}>Chauffeur</Text>
+              <TouchableOpacity
+                style={{
+                  width: '47%',
+                  backgroundColor: '#2C2A26',
+                  borderRadius: 2,
+                  paddingVertical: SPACING.sm,
+                  alignItems: 'center',
+                  gap: 6,
+                  borderTopWidth: 1,
+                  borderLeftWidth: 1,
+                  borderTopColor: 'rgba(200,191,168,0.35)',
+                  borderLeftColor: 'rgba(200,191,168,0.2)',
+                  borderRightWidth: 1,
+                  borderBottomWidth: 1,
+                  borderRightColor: 'rgba(0,0,0,0.15)',
+                  borderBottomColor: 'rgba(0,0,0,0.2)',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 4, height: 6 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 10,
+                  elevation: 6,
+                }}
+                activeOpacity={0.85}
+                onPress={() => (navigation as any).navigate('ChauffeurSearch')}
+              >
+                <Image
+                  source={require('../../../assets/chauffeur-hat.png')}
+                  style={{ width: 100, height: 60, resizeMode: 'contain' }}
+                />
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: '#C8BFA8',
+                  letterSpacing: 4,
+                  textTransform: 'uppercase',
+                }}>Chauffeur</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.quickAction} onPress={() => (navigation as any).navigate('RentalSearch')}>
-                <Text style={styles.quickActionIcon}>🔑</Text>
-                <Text style={styles.quickActionLabel}>Rental</Text>
+              <TouchableOpacity
+                style={{
+                  width: '47%',
+                  backgroundColor: '#2C2A26',
+                  borderRadius: 2,
+                  paddingVertical: SPACING.sm,
+                  alignItems: 'center',
+                  gap: 6,
+                  borderTopWidth: 1,
+                  borderLeftWidth: 1,
+                  borderTopColor: 'rgba(200,191,168,0.35)',
+                  borderLeftColor: 'rgba(200,191,168,0.2)',
+                  borderRightWidth: 1,
+                  borderBottomWidth: 1,
+                  borderRightColor: 'rgba(0,0,0,0.15)',
+                  borderBottomColor: 'rgba(0,0,0,0.2)',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 4, height: 6 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 10,
+                  elevation: 6,
+                }}
+                activeOpacity={0.85}
+                onPress={() => (navigation as any).navigate('RentalSearch')}
+              >
+                <Image
+                  source={require('../../../assets/rental-key.png')}
+                  style={{ width: 100, height: 60, resizeMode: 'contain' }}
+                />
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: '#C8BFA8',
+                  letterSpacing: 4,
+                  textTransform: 'uppercase',
+                }}>Rental</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.quickAction} onPress={() => Alert.alert('Coming Soon', 'Luxury services coming soon!')}>
-                <Text style={styles.quickActionIcon}>👑</Text>
-                <Text style={styles.quickActionLabel}>Luxury</Text>
+              <TouchableOpacity
+                style={{
+                  width: '47%',
+                  backgroundColor: '#2C2A26',
+                  borderRadius: 2,
+                  paddingVertical: SPACING.sm,
+                  alignItems: 'center',
+                  gap: 6,
+                  borderTopWidth: 1,
+                  borderLeftWidth: 1,
+                  borderTopColor: 'rgba(200,191,168,0.35)',
+                  borderLeftColor: 'rgba(200,191,168,0.2)',
+                  borderRightWidth: 1,
+                  borderBottomWidth: 1,
+                  borderRightColor: 'rgba(0,0,0,0.15)',
+                  borderBottomColor: 'rgba(0,0,0,0.2)',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 4, height: 6 },
+                  shadowOpacity: 0.25,
+                  shadowRadius: 10,
+                  elevation: 6,
+                }}
+                activeOpacity={0.85}
+                onPress={() => Alert.alert('Coming Soon', 'Luxury services coming soon!')}
+              >
+                <Image
+                  source={require('../../../assets/luxury-crown.png')}
+                  style={{ width: 100, height: 60, resizeMode: 'contain' }}
+                />
+                <Text style={{
+                  fontSize: 11,
+                  fontWeight: '700',
+                  color: '#C8BFA8',
+                  letterSpacing: 4,
+                  textTransform: 'uppercase',
+                }}>Luxury</Text>
               </TouchableOpacity>
             </View>
 
@@ -487,7 +622,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
 
@@ -656,4 +791,4 @@ const styles = StyleSheet.create({
     borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xxl,
   },
   cancelSearchText: { fontSize: 15, fontWeight: '600', color: '#ef4444' },
-});
+}); }

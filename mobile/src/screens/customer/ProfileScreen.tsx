@@ -19,6 +19,7 @@ type ProfileScreenProps = {
 };
 
 export function ProfileScreen({ navigation }: ProfileScreenProps) {
+  const styles = getStyles();
   const { user, logout } = useAuthStore();
   const { setMode } = useAppModeStore();
 
@@ -190,6 +191,7 @@ function MenuItem({
   onPress: () => void;
   badge?: string;
 }) {
+  const styles = getStyles();
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
       <Text style={styles.menuIcon}>{icon}</Text>
@@ -209,7 +211,7 @@ function MenuItem({
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -393,4 +395,4 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     marginTop: SPACING.md,
   },
-});
+}); }

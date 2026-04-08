@@ -1,0 +1,35 @@
+VIP Mobility — Plan for 2026-04-08
+====================================
+
+1. LANDING PAGE
+   - Build Uber-style landing page for 109.120.133.113
+   - Showcase app features, screenshots, download links
+   - Call-to-action buttons (Download App, List Your Car)
+   - Modern, premium design matching VIP Mobility brand
+
+2. DEVELOP MORE APP
+   - Ride flow: after driver accepts → show driver profile, car, plate, chat, call
+   - Driver/chauffeur app screens (accept/reject rides, navigate, complete trips)
+   - Booking detail screen for history items
+   - Real payment flow with Stripe
+   - Push notifications setup
+   - Polish existing screens and fix any remaining bugs
+
+3. TRY ON REAL PHONE
+   - Test latest APK on Android device
+   - APK link: https://expo.dev/accounts/aleksandrsv17/projects/vip-mobility/builds/c11bc59b-bedf-46e8-8841-866561fc47f6
+   - Test registration, login, vehicle listing, booking flow
+   - Test Google Maps, Places autocomplete on real device
+   - Consider iOS testing via Expo Go or TestFlight
+
+4. CONNECT USER WITH DRIVER
+   - Build driver-side flow:
+     * Driver sees incoming ride requests (push notification + in-app)
+     * Driver accepts or rejects ride
+     * Customer sees driver info (name, photo, car model, plate number)
+     * Real-time GPS tracking during ride (Socket.io already built)
+     * In-ride chat and call buttons
+     * Trip completion and mutual rating
+   - This is the most complex remaining feature for MVP
+
+PRIORITY ORDER: Landing page (quick win) → Real phone testing → Driver-customer connection → App polish

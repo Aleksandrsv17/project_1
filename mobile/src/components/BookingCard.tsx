@@ -14,9 +14,13 @@ interface BookingCardProps {
 
 export function BookingCard({ booking, onPress, showActions, onCancel }: BookingCardProps) {
   const statusConfig = getBookingStatusConfig(booking.status);
-  const durationHours = differenceInHours(parseISO(booking.endTime), parseISO(booking.startTime));
+  const startTime = booking.startTime || booking.createdAt || new Date().toISOString();
+  const endTime = booking.endTime || startTime;
+  const durationHours = Math.max(1, differenceInHours(parseISO(endTime), parseISO(startTime)));
+  const vehicle = booking.vehicle || { images: [], year: 0, make: '', model: '', licensePlate: '' };
   const thumbnailUri =
-    booking.vehicle.images[0] ?? 'https://via.placeholder.com/80x60?text=Car';
+    (vehicle.images && vehicle.images[0]) || 'https://via.placeholder.com/80x60?text=Car';
+  const pricing = booking.pricing || { total: 0 };
 
   return (
     <TouchableOpacity
@@ -28,9 +32,9 @@ export function BookingCard({ booking, onPress, showActions, onCancel }: Booking
         <Image source={{ uri: thumbnailUri }} style={styles.vehicleImage} resizeMode="cover" />
         <View style={styles.headerInfo}>
           <Text style={styles.vehicleName} numberOfLines={1}>
-            {booking.vehicle.year} {booking.vehicle.make} {booking.vehicle.model}
+            {vehicle.year} {vehicle.make} {vehicle.model}
           </Text>
-          <Text style={styles.plateText}>{booking.vehicle.licensePlate}</Text>
+          <Text style={styles.plateText}>{vehicle.licensePlate}</Text>
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bgColor }]}>
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
               {statusConfig.label}
@@ -45,12 +49,12 @@ export function BookingCard({ booking, onPress, showActions, onCancel }: Booking
         <DetailRow
           icon="📅"
           label="From"
-          value={formatDateTime(booking.startTime)}
+          value={formatDateTime(startTime)}
         />
         <DetailRow
           icon="🏁"
           label="To"
-          value={formatDateTime(booking.endTime)}
+          value={formatDateTime(endTime)}
         />
         <DetailRow
           icon="⏱"
@@ -66,7 +70,7 @@ export function BookingCard({ booking, onPress, showActions, onCancel }: Booking
 
       <View style={styles.footer}>
         <Text style={styles.totalLabel}>Total Paid</Text>
-        <Text style={styles.totalValue}>{formatCurrency(booking.pricing.total)}</Text>
+        <Text style={styles.totalValue}>{formatCurrency(pricing.total)}</Text>
       </View>
 
       {showActions && booking.status === 'pending' && (

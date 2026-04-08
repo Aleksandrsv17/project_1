@@ -25,6 +25,7 @@ type RegisterScreenProps = {
 };
 
 export function RegisterScreen({ navigation }: RegisterScreenProps) {
+  const styles = getStyles();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -241,6 +242,7 @@ function RoleOption({
   icon: string;
   onPress: () => void;
 }) {
+  const styles = getStyles();
   return (
     <TouchableOpacity
       style={[styles.roleOption, selected && styles.roleOptionSelected]}
@@ -272,6 +274,7 @@ function Field({
   autoCapitalize?: 'none' | 'words' | 'sentences';
   secureTextEntry?: boolean;
 }) {
+  const styles = getStyles();
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -291,7 +294,7 @@ function Field({
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -458,4 +461,4 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     fontWeight: '600',
   },
-});
+}); }

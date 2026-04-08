@@ -31,6 +31,7 @@ type ActiveTripScreenProps = {
 };
 
 export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
+  const styles = getStyles();
   const { bookingId } = route.params;
   const mapRef = useRef<MapView>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -352,6 +353,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
 }
 
 function TripInfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  const styles = getStyles();
   return (
     <View style={styles.tripInfoRow}>
       <Text style={styles.tripInfoIcon}>{icon}</Text>
@@ -361,7 +363,7 @@ function TripInfoRow({ icon, label, value }: { icon: string; label: string; valu
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   container: {
     flex: 1,
   },
@@ -561,4 +563,4 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     color: COLORS.error,
   },
-});
+}); }

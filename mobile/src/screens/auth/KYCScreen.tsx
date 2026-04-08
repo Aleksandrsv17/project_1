@@ -29,6 +29,7 @@ const DOC_TYPES: { value: DocType; label: string; icon: string }[] = [
 ];
 
 export function KYCScreen({ navigation }: KYCScreenProps) {
+  const styles = getStyles();
   const [docType, setDocType] = useState<DocType>('passport');
   const [frontImage, setFrontImage] = useState<string | null>(null);
   const [backImage, setBackImage] = useState<string | null>(null);
@@ -208,7 +209,7 @@ export function KYCScreen({ navigation }: KYCScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -349,4 +350,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textDecorationLine: 'underline',
   },
-});
+}); }

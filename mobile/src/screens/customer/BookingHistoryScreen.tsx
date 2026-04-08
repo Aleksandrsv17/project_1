@@ -35,6 +35,7 @@ const STATUS_TABS = [
 ];
 
 export function BookingHistoryScreen({ navigation }: BookingHistoryScreenProps) {
+  const styles = getStyles();
   const [activeStatus, setActiveStatus] = useState<string | undefined>(undefined);
   const [showStatusPicker, setShowStatusPicker] = useState(false);
   const [ratingModal, setRatingModal] = useState<{ booking: Booking } | null>(null);
@@ -245,7 +246,7 @@ export function BookingHistoryScreen({ navigation }: BookingHistoryScreenProps) 
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -439,4 +440,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
   },
-});
+}); }

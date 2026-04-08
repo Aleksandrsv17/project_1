@@ -26,6 +26,7 @@ type MyVehiclesScreenProps = {
 };
 
 export function MyVehiclesScreen({ navigation }: MyVehiclesScreenProps) {
+  const styles = getStyles();
   const { data: vehicles, isLoading, isError, refetch, isFetching } = useMyVehicles();
   const toggleAvailabilityMutation = useToggleVehicleAvailability();
   const deleteVehicleMutation = useDeleteVehicle();
@@ -133,6 +134,7 @@ function VehicleManageCard({
   onDelete: () => void;
   isToggling: boolean;
 }) {
+  const styles = getStyles();
   const thumbnail = vehicle.images[0] ?? 'https://via.placeholder.com/80x60?text=Car';
 
   return (
@@ -183,6 +185,7 @@ function VehicleManageCard({
 }
 
 function StatItem({ label, value, capitalize }: { label: string; value: string; capitalize?: boolean }) {
+  const styles = getStyles();
   return (
     <View style={styles.statItem}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -191,7 +194,7 @@ function StatItem({ label, value, capitalize }: { label: string; value: string; 
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -364,4 +367,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
-});
+}); }

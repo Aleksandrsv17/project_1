@@ -27,6 +27,7 @@ type FleetMapScreenProps = {
 };
 
 export function FleetMapScreen({ navigation }: FleetMapScreenProps) {
+  const styles = getStyles();
   const mapRef = useRef<MapView>(null);
   const { location } = useLocation();
   const { data: vehicles, isLoading: vehiclesLoading } = useMyVehicles();
@@ -241,7 +242,7 @@ export function FleetMapScreen({ navigation }: FleetMapScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
   headerOverlay: {
@@ -350,4 +351,4 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
   closeDetailText: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '600' },
-});
+}); }

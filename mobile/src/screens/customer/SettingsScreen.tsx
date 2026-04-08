@@ -10,13 +10,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
-import { CustomerStackParamList } from '../../navigation/CustomerNavigator';
+import { useTheme } from '../../themes/ThemeContext';
+import { MainStackParamList } from '../../navigation/MainNavigator';
 
 type SettingsScreenProps = {
-  navigation: NativeStackNavigationProp<CustomerStackParamList, 'Settings'>;
+  navigation: NativeStackNavigationProp<MainStackParamList, 'Settings'>;
 };
 
 export function SettingsScreen({ navigation }: SettingsScreenProps) {
+  const styles = getStyles();
+  const { themeName, setThemeName, availableThemes, theme } = useTheme();
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(false);
@@ -74,6 +77,37 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           />
         </View>
 
+        {/* Theme */}
+        <Text style={styles.sectionTitle}>App Theme</Text>
+        <View style={styles.card}>
+          {availableThemes.map(t => {
+            const meta: Record<string, { bg: string; br: number; lbl: string; sub: string; preview: string; ls: number }> = {
+              'default':      { bg: '#c9a84c', br: 8, lbl: 'VIP Classic',  sub: 'Rounded, gold accents, classic',        preview: 'Btn', ls: 0 },
+              'luxury-flat':  { bg: '#1E1E1E', br: 0, lbl: 'Luxury Flat',  sub: 'Sharp corners, monochrome, uppercase',  preview: 'BTN', ls: 1 },
+              'concept-car':  { bg: '#2C2A26', br: 2, lbl: 'Concept Car',  sub: 'Angular, warm sand tones, geometric',   preview: 'RIDE', ls: 2 },
+            };
+            const m = meta[t] ?? meta['default'];
+            return (
+              <TouchableOpacity
+                key={t}
+                style={[styles.settingRow, themeName === t && { backgroundColor: t === 'concept-car' ? '#F0EBE3' : '#fefce8' }]}
+                onPress={() => setThemeName(t)}
+              >
+                <View style={{ width: 48, height: 32, backgroundColor: m.bg, borderRadius: m.br, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ color: t === 'concept-car' ? '#C8BFA8' : '#fff', fontSize: 8, fontWeight: '700', letterSpacing: m.ls }}>
+                    {m.preview}
+                  </Text>
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingLabel}>{m.lbl}</Text>
+                  <Text style={styles.settingSubtitle}>{m.sub}</Text>
+                </View>
+                {themeName === t && <Text style={{ fontSize: 16, color: COLORS.accent, fontWeight: '700' }}>✓</Text>}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {/* Language */}
         <Text style={styles.sectionTitle}>Preferences</Text>
         <View style={styles.card}>
@@ -115,6 +149,7 @@ function SettingToggle({
   value: boolean;
   onValueChange: (v: boolean) => void;
 }) {
+  const styles = getStyles();
   return (
     <View style={styles.settingRow}>
       <Text style={styles.settingIcon}>{icon}</Text>
@@ -133,6 +168,7 @@ function SettingToggle({
 }
 
 function SettingRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  const styles = getStyles();
   return (
     <TouchableOpacity style={styles.settingRow}>
       <Text style={styles.settingIcon}>{icon}</Text>
@@ -145,7 +181,7 @@ function SettingRow({ icon, label, value }: { icon: string; label: string; value
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   header: {
     flexDirection: 'row', alignItems: 'center',
@@ -176,4 +212,4 @@ const styles = StyleSheet.create({
   settingSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   settingValue: { fontSize: 14, color: COLORS.textSecondary },
   settingArrow: { fontSize: 20, color: COLORS.gray, fontWeight: '300' },
-});
+}); }

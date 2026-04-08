@@ -49,6 +49,7 @@ const COMMON_FEATURES = [
 ];
 
 export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
+  const styles = getStyles();
   const [currentStep, setCurrentStep] = useState(0);
   const addVehicleMutation = useAddVehicle();
   const { location, address: detectedAddress } = useLocation();
@@ -790,6 +791,7 @@ function Field({
   keyboardType?: 'default' | 'numeric' | 'phone-pad';
   autoCapitalize?: 'none' | 'words' | 'characters';
 }) {
+  const styles = getStyles();
   return (
     <View style={styles.fieldContainer}>
       <Text style={styles.fieldLabel}>{label}</Text>
@@ -807,7 +809,7 @@ function Field({
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -1417,4 +1419,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
   },
-});
+}); }

@@ -13,6 +13,7 @@ import { useAppModeStore } from '../../store/appModeStore';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
 
 export function OwnerProfileScreen() {
+  const styles = getStyles();
   const { user, logout } = useAuthStore();
   const { setMode } = useAppModeStore();
 
@@ -91,6 +92,7 @@ export function OwnerProfileScreen() {
 function MenuItem({ icon, label, subtitle, onPress }: {
   icon: string; label: string; subtitle: string; onPress: () => void;
 }) {
+  const styles = getStyles();
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
       <Text style={styles.menuIcon}>{icon}</Text>
@@ -103,7 +105,7 @@ function MenuItem({ icon, label, subtitle, onPress }: {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
@@ -135,4 +137,4 @@ const styles = StyleSheet.create({
   logoutIcon: { fontSize: 18 },
   logoutText: { fontSize: 15, fontWeight: '600', color: '#ef4444' },
   versionText: { textAlign: 'center', fontSize: 12, color: COLORS.gray, marginTop: SPACING.md },
-});
+}); }

@@ -23,6 +23,7 @@ type Props = {
 };
 
 export function RentalSearchScreen({ navigation }: Props) {
+  const styles = getStyles();
   const { location } = useLocation();
   const [step, setStep] = useState(0);
 
@@ -185,7 +186,7 @@ export function RentalSearchScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   backBtn: { padding: SPACING.xs },
@@ -219,4 +220,4 @@ const styles = StyleSheet.create({
   durationText: { fontSize: 14, fontWeight: '600', color: '#065f46' },
   findButton: { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center', marginTop: SPACING.lg },
   findButtonText: { color: COLORS.accent, fontWeight: '700', fontSize: 16 },
-});
+}); }

@@ -31,6 +31,7 @@ type VehicleDetailScreenProps = {
 };
 
 export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenProps) {
+  const styles = getStyles();
   const { vehicleId } = route.params;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [selectedMode, setSelectedMode] = useState<'self_drive' | 'chauffeur'>('self_drive');
@@ -305,6 +306,7 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
 }
 
 function SpecCard({ icon, label, value }: { icon: string; label: string; value: string }) {
+  const styles = getStyles();
   return (
     <View style={styles.specCard}>
       <Text style={styles.specIcon}>{icon}</Text>
@@ -314,7 +316,7 @@ function SpecCard({ icon, label, value }: { icon: string; label: string; value: 
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -665,4 +667,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
   },
-});
+}); }

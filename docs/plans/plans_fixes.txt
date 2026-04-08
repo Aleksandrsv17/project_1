@@ -1,0 +1,178 @@
+VIP Mobility — CTO Audit: Bugs to Fix (2026-04-08)
+=====================================================
+Full audit by CTO + Backend Architect + Mobile Engineer + QA Agent
+Date: 2026-04-07 (evening audit)
+
+=== CRITICAL — App will crash or core features broken ===
+
+1. ROUTE ORDERING BUG — Booking routes
+   File: backend/src/services/booking/booking.routes.ts
+   Problem: GET /:id is defined BEFORE POST /confirm-payment and GET /earnings-summary
+   Impact: Payment confirmation, earnings, and rating endpoints are UNREACHABLE
+   Fix: Move GET /:id to the LAST position after all static routes
+
+2. ROUTE ORDERING BUG — Vehicle routes
+   File: backend/src/services/vehicle/vehicle.routes.ts
+   Problem: GET /:id (line 9) is defined BEFORE GET /owner/my-vehicles (line 20)
+   Impact: Owners cannot list their vehicles — Express matches "owner" as :id
+   Fix: Move GET /owner/my-vehicles BEFORE GET /:id
+
+3. ROUTE ORDERING BUG — Chauffeur routes
+   File: backend/src/services/chauffeur/chauffeur.routes.ts
+   Problem: GET /:id (line 9) catches /booking/:bookingId/location, /me/profile, /me/availability
+   Impact: Chauffeur location tracking, profile, availability all BROKEN
+   Fix: Move all static routes (/booking/*, /me/*) BEFORE GET /:id
+
+4. RATINGS TABLE — Column names wrong
+   File: backend/src/services/booking/booking.service.ts (rateBooking method)
+   Problem: Code uses columns (user_id, vehicle_id, rating, review) but schema has (rater_id, ratee_id, score, comment, type)
+   Impact: Rating a booking will CRASH with "column not found"
+   Fix: Update SQL to use correct column names from schema
+
+5. MISSING VEHICLE COLUMNS — rating, review_count
+   File: backend/src/services/booking/booking.service.ts (rateBooking method)
+   Problem: Code updates vehicles.rating and vehicles.review_count but columns don't exist in schema
+   Impact: Vehicle rating update CRASHES
+   Fix: Run migration to add rating DECIMAL(3,2) and review_count INTEGER to vehicles table
+
+6. KYC DOCUMENTS NOT STORED
+   File: backend/src/services/user/user.service.ts (submitKyc method)
+   Problem: Receives document images but only stores kyc_status and kyc_document_type — images lost
+   Impact: Admin cannot review KYC documents because they're never saved
+   Fix: Add columns kyc_document_front, kyc_document_back, kyc_selfie to users table and store them
+
+=== HIGH — Features broken but app loads ===
+
+7. OWNER CONFIRM BOOKING — Wrong endpoint call
+   File: mobile/src/api/bookings.ts (confirmBooking function)
+   Problem: Calls /bookings/confirm-payment with hardcoded 'owner-confirmed' as payment_intent_id
+   Impact: Owner cannot confirm pending bookings from dashboard
+   Fix: Create dedicated POST /bookings/:id/owner-confirm endpoint or handle the hardcoded string
+
+8. LOGIN vs REGISTER PASSWORD MISMATCH
+   File: mobile/src/screens/auth/LoginScreen.tsx
+   Problem: Login allows password >= 6 chars but Register requires >= 8 chars
+   Impact: User registers with 8-char password, confusion with validation
+   Fix: Change LoginScreen validation to require >= 8 chars
+
+9. REGISTER FORM GAP = 0
+   File: mobile/src/screens/auth/RegisterScreen.tsx (styles.form)
+   Problem: form: { gap: 0 } — fields have zero spacing between them
+   Impact: Form fields look squished/overlapping
+   Fix: Change to gap: 16 (SPACING.md)
+
+10. PRICE FILTER SENDS 0 INSTEAD OF UNDEFINED
+    File: mobile/src/screens/customer/VehicleListScreen.tsx
+    Problem: Number('') = 0, sent as minPrice: 0 to API — returns no vehicles
+    Impact: Price filter silently breaks the vehicle list
+    Fix: Check empty string before converting: minPrice && Number(minPrice) > 0 ? Number(minPrice) : undefined
+
+11. BOOKING HISTORY — Non-active bookings not clickable
+    File: mobile/src/screens/customer/BookingHistoryScreen.tsx (line 54)
+    Problem: Only active bookings navigate to ActiveTrip, all other statuses do nothing
+    Impact: User cannot view details of completed, cancelled, or pending bookings
+    Fix: Create BookingDetailScreen or show booking info in an alert/modal
+
+12. CHAUFFEUR SEARCH — No past date validation
+    File: mobile/src/screens/customer/ChauffeurSearchScreen.tsx
+    Problem: User can select pickup time in the past
+    Impact: Booking with past time will fail or create invalid booking
+    Fix: Add minimumDate={new Date()} to DateTimePicker (already has it, verify it works)
+
+13. RENTAL DEFAULT END DATE OFF BY 2 HOURS
+    File: mobile/src/screens/customer/RentalSearchScreen.tsx (line 31)
+    Problem: endDate = Date.now() + 26 hours (comment says "+1 day" but 26 ≠ 24)
+    Impact: Minor — default rental shows 26h instead of 24h
+    Fix: Change to 24 * 60 * 60 * 1000
+
+=== MEDIUM — UX issues and polish ===
+
+14. VEHICLE DETAIL — No image error fallback
+    File: mobile/src/screens/customer/VehicleDetailScreen.tsx
+    Problem: If image URL is broken, shows broken image with no fallback
+    Fix: Add onError handler to Image component to show placeholder
+
+15. PLACES AUTOCOMPLETE Z-INDEX — Booking screen
+    File: mobile/src/screens/customer/BookingScreen.tsx
+    Problem: Pickup dropdown (zIndex 20) overlaps dropoff dropdown (zIndex 10)
+    Fix: Close pickup predictions when dropoff is focused
+
+16. ACTIVE TRIP — No socket fallback polling
+    File: mobile/src/screens/customer/ActiveTripScreen.tsx
+    Problem: If WebSocket disconnects, driver location freezes with no recovery
+    Fix: Implement interval-based polling as fallback when socket disconnects
+
+17. HOME SCREEN — Route error silently ignored
+    File: mobile/src/screens/customer/HomeScreen.tsx
+    Problem: catch(() => {}) silently ignores Google Directions API failures
+    Fix: Show "Could not load route" message to user
+
+18. PAYMENT SCREEN — Card validation unclear
+    File: mobile/src/screens/customer/PaymentScreen.tsx
+    Problem: Shows "Card Incomplete" but doesn't explain what's wrong
+    Fix: Show Stripe's actual validation error messages
+
+19. CHAUFFEUR FEE CALCULATION — Division by 8 wrong
+    File: mobile/src/api/vehicles.ts (mapVehicle)
+    Problem: chauffeurFeePerHour = chauffeur_daily_rate / 8 — assumes 8h day
+    Fix: Use actual hourly rate if available, or document the assumption
+
+20. STRIPE FAILURE DOESN'T BLOCK BOOKING
+    File: backend/src/services/booking/booking.service.ts
+    Problem: If Stripe payment intent creation fails, booking still gets created
+    Fix: Either fail the booking or mark it as "payment_pending" clearly
+
+=== LOW — Nice to fix ===
+
+21. USER UPDATE SQL — Parameter index may be off by 1
+    File: backend/src/services/user/user.service.ts (update method)
+    Problem: Dynamic param building may misalign WHERE clause parameter
+    Fix: Verify paramIdx is incremented correctly before WHERE clause
+
+22. EDIT VEHICLE — Shows "coming soon" alert instead of working
+    File: mobile/src/screens/owner/MyVehiclesScreen.tsx
+    Fix: Create EditVehicleScreen or pre-fill AddVehicleScreen with existing data
+
+23. SILENT CATCH BLOCKS — Multiple files
+    Problem: catch {} silently swallows errors, makes debugging impossible
+    Fix: Add console.error() to all catch blocks at minimum
+
+24. HELMET CSP DISABLED
+    File: backend/src/app.ts
+    Problem: Content Security Policy disabled in production
+    Fix: Enable CSP with proper configuration before real launch
+
+25. RATINGS TABLE UNIQUE CONSTRAINT
+    File: backend/src/db/migrations/001_initial.sql
+    Problem: booking_id is UNIQUE — can't have separate vehicle + chauffeur ratings per booking
+    Fix: Change to composite unique on (booking_id, type) or remove UNIQUE
+
+=== SUMMARY ===
+
+CRITICAL (will crash):     6 items  (#1-6)
+HIGH (features broken):    7 items  (#7-13)
+MEDIUM (UX issues):        7 items  (#14-20)
+LOW (polish):              5 items  (#21-25)
+TOTAL:                    25 items
+
+=== RECOMMENDED FIX ORDER FOR TOMORROW ===
+
+Morning (1st priority — fixes that prevent crashes):
+  → Fix route ordering in booking, vehicle, chauffeur routes (#1, #2, #3)
+  → Fix ratings SQL column names (#4)
+  → Run DB migration for vehicle rating columns (#5)
+  → Fix register form gap (#9)
+  → Fix login password validation (#8)
+
+Afternoon (2nd priority — fix broken features):
+  → Fix owner booking confirmation (#7)
+  → Fix price filter logic (#10)
+  → Fix rental default end date (#13)
+  → KYC document storage (#6)
+  → Booking detail screen (#11)
+
+Evening (3rd priority — polish):
+  → Image fallbacks (#14)
+  → Socket fallback (#16)
+  → Error messages (#17, #18)
+  → Chauffeur fee calculation (#19)

@@ -41,6 +41,7 @@ const DURATION_PRESETS = [
 ];
 
 export function BookingScreen({ navigation, route }: BookingScreenProps) {
+  const styles = getStyles();
   const { vehicleId } = route.params;
   const { bookingDraft, updateBookingDraft, setPaymentClientSecret } = useBookingStore();
   const { data: vehicle, isLoading: vehicleLoading } = useVehicle(vehicleId);
@@ -316,7 +317,7 @@ function formatCurrency(amount: number) {
   return `AED ${amount.toFixed(0)}`;
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -522,4 +523,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 16,
   },
-});
+}); }

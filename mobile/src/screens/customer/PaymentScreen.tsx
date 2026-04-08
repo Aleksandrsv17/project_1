@@ -31,6 +31,7 @@ type PaymentScreenProps = {
 };
 
 export function PaymentScreen({ navigation, route }: PaymentScreenProps) {
+  const styles = getStyles();
   const { bookingId } = route.params;
   const { paymentClientSecret, setActiveBooking, setPaymentClientSecret } = useBookingStore();
   const { data: booking, isLoading } = useBooking(bookingId);
@@ -198,6 +199,7 @@ export function PaymentScreen({ navigation, route }: PaymentScreenProps) {
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
+  const styles = getStyles();
   return (
     <View style={styles.summaryRow}>
       <Text style={styles.summaryLabel}>{label}</Text>
@@ -215,7 +217,7 @@ const stripeCardStyle: CardFieldInput.Styles = {
   borderRadius: 8,
 };
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -386,4 +388,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 17,
   },
-});
+}); }
