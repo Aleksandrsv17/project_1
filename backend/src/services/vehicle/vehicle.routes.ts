@@ -4,18 +4,10 @@ import { authenticate, requireRole } from '../../middleware/auth';
 
 const router = Router();
 
-// Public routes
+// Public — list all vehicles
 router.get('/', vehicleController.list.bind(vehicleController));
-router.get('/:id', vehicleController.getById.bind(vehicleController));
 
-// Owner-only routes
-router.post(
-  '/',
-  authenticate,
-  requireRole('customer', 'owner', 'admin'),
-  vehicleController.create.bind(vehicleController)
-);
-
+// Authenticated — owner's vehicles (MUST be before /:id)
 router.get(
   '/owner/my-vehicles',
   authenticate,
@@ -23,11 +15,12 @@ router.get(
   vehicleController.getMyVehicles.bind(vehicleController)
 );
 
-router.patch(
-  '/:id',
+// Create vehicle
+router.post(
+  '/',
   authenticate,
   requireRole('customer', 'owner', 'admin'),
-  vehicleController.update.bind(vehicleController)
+  vehicleController.create.bind(vehicleController)
 );
 
 // Admin status update — accepts JWT auth OR x-admin-key header
@@ -43,6 +36,23 @@ router.patch(
   vehicleController.adminUpdateStatus.bind(vehicleController)
 );
 
+// Update vehicle
+router.patch(
+  '/:id',
+  authenticate,
+  requireRole('customer', 'owner', 'admin'),
+  vehicleController.update.bind(vehicleController)
+);
+
+// Add media
+router.post(
+  '/:id/media',
+  authenticate,
+  requireRole('customer', 'owner', 'admin'),
+  vehicleController.addMedia.bind(vehicleController)
+);
+
+// Delete vehicle
 router.delete(
   '/:id',
   authenticate,
@@ -50,11 +60,7 @@ router.delete(
   vehicleController.delete.bind(vehicleController)
 );
 
-router.post(
-  '/:id/media',
-  authenticate,
-  requireRole('customer', 'owner', 'admin'),
-  vehicleController.addMedia.bind(vehicleController)
-);
+// Public — get single vehicle (MUST be LAST)
+router.get('/:id', vehicleController.getById.bind(vehicleController));
 
 export default router;

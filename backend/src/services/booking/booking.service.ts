@@ -672,15 +672,15 @@ export class BookingService {
 
     // Insert or update rating
     await query(
-      `INSERT INTO ratings (booking_id, user_id, vehicle_id, rating, review, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
-       ON CONFLICT (booking_id) DO UPDATE SET rating = $4, review = $5`,
+      `INSERT INTO ratings (booking_id, rater_id, ratee_id, score, comment, type, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'vehicle', NOW())
+       ON CONFLICT (booking_id) DO UPDATE SET score = $4, comment = $5`,
       [bookingId, userId, booking.vehicle_id, rating, review ?? null]
     );
 
     // Update vehicle average rating
     const avgResult = await query<{ avg: string; count: string }>(
-      `SELECT AVG(rating)::text as avg, COUNT(*)::text as count FROM ratings WHERE vehicle_id = $1`,
+      `SELECT AVG(score)::text as avg, COUNT(*)::text as count FROM ratings WHERE ratee_id = $1 AND type = 'vehicle'`,
       [booking.vehicle_id]
     );
     if (avgResult.rows[0]) {

@@ -6,26 +6,12 @@ const router = Router();
 
 // Public routes
 router.get('/available', chauffeurController.listAvailable.bind(chauffeurController));
-router.get('/:id', chauffeurController.getById.bind(chauffeurController));
 
+// Authenticated routes — STATIC paths BEFORE dynamic /:id
 router.get(
   '/booking/:bookingId/location',
   authenticate,
   chauffeurController.getBookingLocation.bind(chauffeurController)
-);
-
-// Authenticated routes
-router.post(
-  '/register',
-  authenticate,
-  chauffeurController.register.bind(chauffeurController)
-);
-
-router.patch(
-  '/:id/approve',
-  authenticate,
-  requireRole('admin'),
-  chauffeurController.approve.bind(chauffeurController)
 );
 
 router.get(
@@ -48,5 +34,23 @@ router.patch(
   requireRole('chauffeur', 'admin'),
   chauffeurController.updateLocation.bind(chauffeurController)
 );
+
+// Register creates a PENDING chauffeur — admin must approve
+router.post(
+  '/register',
+  authenticate,
+  chauffeurController.register.bind(chauffeurController)
+);
+
+// Admin-only
+router.patch(
+  '/:id/approve',
+  authenticate,
+  requireRole('admin'),
+  chauffeurController.approve.bind(chauffeurController)
+);
+
+// Dynamic /:id route MUST be LAST
+router.get('/:id', chauffeurController.getById.bind(chauffeurController));
 
 export default router;
