@@ -311,7 +311,7 @@ function getStyles() { return StyleSheet.create({
   },
   backText: {
     fontSize: 16,
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   header: {
@@ -364,7 +364,7 @@ function getStyles() { return StyleSheet.create({
     textAlign: 'center',
   },
   roleOptionTitleSelected: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
   },
   roleOptionSubtitle: {
     fontSize: 11,
@@ -432,7 +432,7 @@ function getStyles() { return StyleSheet.create({
     lineHeight: 18,
   },
   termsLink: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   registerButton: {
@@ -461,7 +461,7 @@ function getStyles() { return StyleSheet.create({
     color: COLORS.textSecondary,
   },
   loginLinkBold: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
 }); }

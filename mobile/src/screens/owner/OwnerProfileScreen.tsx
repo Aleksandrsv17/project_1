@@ -120,7 +120,7 @@ function getStyles() { return StyleSheet.create({
   avatarText: { fontSize: 28, fontWeight: '800', color: COLORS.primary },
   userName: { fontSize: 20, fontWeight: '700', color: COLORS.white },
   userEmail: { fontSize: 13, color: COLORS.gray, marginTop: 4 },
-  userRole: { fontSize: 12, color: COLORS.accent, fontWeight: '600', marginTop: 4 },
+  userRole: { fontSize: 12, color: COLORS.textPrimary, fontWeight: '600', marginTop: 4 },
   section: { marginTop: SPACING.lg, paddingHorizontal: SPACING.md },
   sectionTitle: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: SPACING.sm, marginLeft: SPACING.xs },
   menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.xs, gap: SPACING.md },

@@ -970,7 +970,7 @@ function getStyles() { return StyleSheet.create({
     color: COLORS.textSecondary,
   },
   chipTextActive: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   // Photos
@@ -1202,8 +1202,8 @@ function getStyles() { return StyleSheet.create({
   },
   countryItemActive: { backgroundColor: COLORS.grayLight },
   countryItemText: { fontSize: 15, color: COLORS.textPrimary },
-  countryItemTextActive: { color: COLORS.accent, fontWeight: '700' },
-  countryCheck: { fontSize: 16, color: COLORS.accent, fontWeight: '700' },
+  countryItemTextActive: { color: COLORS.textPrimary, fontWeight: '700' },
+  countryCheck: { fontSize: 16, color: COLORS.textPrimary, fontWeight: '700' },
   addressInputCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1247,7 +1247,7 @@ function getStyles() { return StyleSheet.create({
   },
   uploadingText: {
     fontSize: 13,
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   libraryModal: {
@@ -1277,7 +1277,7 @@ function getStyles() { return StyleSheet.create({
   libraryDone: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
   },
   libraryFilterRow: {
     paddingHorizontal: SPACING.md,
@@ -1300,7 +1300,7 @@ function getStyles() { return StyleSheet.create({
     fontWeight: '500',
   },
   libraryFilterTextActive: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   libraryGrid: {

@@ -463,7 +463,7 @@ function getStyles() { return StyleSheet.create({
     fontWeight: '500',
   },
   durationChipTextActive: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   durationSummary: {

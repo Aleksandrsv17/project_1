@@ -376,12 +376,12 @@ function getStyles() { return StyleSheet.create({
     color: COLORS.textPrimary,
   },
   categoryPickerTextActive: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '700',
   },
   categoryCheck: {
     fontSize: 16,
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '700',
   },
   toggleRow: {

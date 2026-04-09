@@ -228,7 +228,7 @@ function getStyles() { return StyleSheet.create({
     backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.accent,
     borderRadius: BORDER_RADIUS.full, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
   },
-  topicChipText: { fontSize: 13, color: COLORS.accent, fontWeight: '500' },
+  topicChipText: { fontSize: 13, color: COLORS.textPrimary, fontWeight: '500' },
   inputContainer: {
     flexDirection: 'row', alignItems: 'flex-end', padding: SPACING.sm,
     backgroundColor: COLORS.white, borderTopWidth: 1, borderTopColor: COLORS.border, gap: SPACING.sm,

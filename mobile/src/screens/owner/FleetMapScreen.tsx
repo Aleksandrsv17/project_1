@@ -289,7 +289,7 @@ function getStyles() { return StyleSheet.create({
   },
   filterChipActive: { backgroundColor: COLORS.primary },
   filterChipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
-  filterChipTextActive: { color: COLORS.accent },
+  filterChipTextActive: { color: COLORS.textPrimary },
   vehicleMarker: {
     borderRadius: 22, padding: 6,
     shadowColor: COLORS.black,

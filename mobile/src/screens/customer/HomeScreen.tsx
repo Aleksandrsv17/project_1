@@ -301,26 +301,14 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             <View style={styles.quickActionsRow}>
               <TouchableOpacity
                 style={{
-                  width: '47%',
-                  backgroundColor: '#2C2A26',
-                  borderRadius: 2,
+                  width: '48%',
+                  backgroundColor: COLORS.grayLight,
+                  borderRadius: BORDER_RADIUS.md,
                   paddingVertical: SPACING.sm,
                   alignItems: 'center',
                   gap: 6,
-                  // Faceted edge highlight — subtle top-left border glow
-                  borderTopWidth: 1,
-                  borderLeftWidth: 1,
-                  borderTopColor: 'rgba(200,191,168,0.35)',
-                  borderLeftColor: 'rgba(200,191,168,0.2)',
-                  borderRightWidth: 1,
-                  borderBottomWidth: 1,
-                  borderRightColor: 'rgba(0,0,0,0.15)',
-                  borderBottomColor: 'rgba(0,0,0,0.2)',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 4, height: 6 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 10,
-                  elevation: 6,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
                 }}
                 activeOpacity={0.85}
                 onPress={handleStartSearch}
@@ -332,32 +320,21 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 <Text style={{
                   fontSize: 11,
                   fontWeight: '700',
-                  color: '#C8BFA8',
+                  color: COLORS.textPrimary,
                   letterSpacing: 4,
                   textTransform: 'uppercase',
                 }}>Ride</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
-                  width: '47%',
-                  backgroundColor: '#2C2A26',
-                  borderRadius: 2,
+                  width: '48%',
+                  backgroundColor: COLORS.grayLight,
+                  borderRadius: BORDER_RADIUS.md,
                   paddingVertical: SPACING.sm,
                   alignItems: 'center',
                   gap: 6,
-                  borderTopWidth: 1,
-                  borderLeftWidth: 1,
-                  borderTopColor: 'rgba(200,191,168,0.35)',
-                  borderLeftColor: 'rgba(200,191,168,0.2)',
-                  borderRightWidth: 1,
-                  borderBottomWidth: 1,
-                  borderRightColor: 'rgba(0,0,0,0.15)',
-                  borderBottomColor: 'rgba(0,0,0,0.2)',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 4, height: 6 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 10,
-                  elevation: 6,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
                 }}
                 activeOpacity={0.85}
                 onPress={() => (navigation as any).navigate('ChauffeurSearch')}
@@ -369,32 +346,21 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 <Text style={{
                   fontSize: 11,
                   fontWeight: '700',
-                  color: '#C8BFA8',
+                  color: COLORS.textPrimary,
                   letterSpacing: 4,
                   textTransform: 'uppercase',
                 }}>Chauffeur</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
-                  width: '47%',
-                  backgroundColor: '#2C2A26',
-                  borderRadius: 2,
+                  width: '48%',
+                  backgroundColor: COLORS.grayLight,
+                  borderRadius: BORDER_RADIUS.md,
                   paddingVertical: SPACING.sm,
                   alignItems: 'center',
                   gap: 6,
-                  borderTopWidth: 1,
-                  borderLeftWidth: 1,
-                  borderTopColor: 'rgba(200,191,168,0.35)',
-                  borderLeftColor: 'rgba(200,191,168,0.2)',
-                  borderRightWidth: 1,
-                  borderBottomWidth: 1,
-                  borderRightColor: 'rgba(0,0,0,0.15)',
-                  borderBottomColor: 'rgba(0,0,0,0.2)',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 4, height: 6 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 10,
-                  elevation: 6,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
                 }}
                 activeOpacity={0.85}
                 onPress={() => (navigation as any).navigate('RentalSearch')}
@@ -406,32 +372,21 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 <Text style={{
                   fontSize: 11,
                   fontWeight: '700',
-                  color: '#C8BFA8',
+                  color: COLORS.textPrimary,
                   letterSpacing: 4,
                   textTransform: 'uppercase',
                 }}>Rental</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
-                  width: '47%',
-                  backgroundColor: '#2C2A26',
-                  borderRadius: 2,
+                  width: '48%',
+                  backgroundColor: COLORS.grayLight,
+                  borderRadius: BORDER_RADIUS.md,
                   paddingVertical: SPACING.sm,
                   alignItems: 'center',
                   gap: 6,
-                  borderTopWidth: 1,
-                  borderLeftWidth: 1,
-                  borderTopColor: 'rgba(200,191,168,0.35)',
-                  borderLeftColor: 'rgba(200,191,168,0.2)',
-                  borderRightWidth: 1,
-                  borderBottomWidth: 1,
-                  borderRightColor: 'rgba(0,0,0,0.15)',
-                  borderBottomColor: 'rgba(0,0,0,0.2)',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 4, height: 6 },
-                  shadowOpacity: 0.25,
-                  shadowRadius: 10,
-                  elevation: 6,
+                  borderWidth: 1,
+                  borderColor: COLORS.border,
                 }}
                 activeOpacity={0.85}
                 onPress={() => Alert.alert('Coming Soon', 'Luxury services coming soon!')}
@@ -443,7 +398,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 <Text style={{
                   fontSize: 11,
                   fontWeight: '700',
-                  color: '#C8BFA8',
+                  color: COLORS.textPrimary,
                   letterSpacing: 4,
                   textTransform: 'uppercase',
                 }}>Luxury</Text>
@@ -665,7 +620,7 @@ function getStyles() { return StyleSheet.create({
     shadowColor: COLORS.black, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 16,
   },
   sheetHandle: { width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginBottom: SPACING.md },
-  quickActionsRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.md, marginBottom: SPACING.md, gap: SPACING.sm },
+  quickActionsRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.md, marginBottom: SPACING.md, gap: SPACING.sm, justifyContent: 'space-between' },
   quickAction: {
     width: '47%', backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.lg,
     paddingVertical: SPACING.md, alignItems: 'center', gap: 4,
@@ -674,11 +629,11 @@ function getStyles() { return StyleSheet.create({
   quickActionLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
   nearbyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
   nearbyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  seeAllText: { fontSize: 13, color: COLORS.accent, fontWeight: '600' },
+  seeAllText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '600' },
   nearbyList: { paddingHorizontal: SPACING.md },
   nearbyCard: { width: 200, marginRight: SPACING.sm, marginBottom: 0 },
   emptyNearby: { padding: SPACING.md, alignItems: 'center' },
-  emptyNearbyText: { color: COLORS.accent, fontWeight: '600', fontSize: 14 },
+  emptyNearbyText: { color: COLORS.textPrimary, fontWeight: '600', fontSize: 14 },
 
   // ── Search / Route mode ──
   searchOverlay: { paddingHorizontal: SPACING.md },
@@ -747,7 +702,7 @@ function getStyles() { return StyleSheet.create({
     backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md,
     paddingVertical: SPACING.md, alignItems: 'center',
   },
-  findVehiclesText: { color: COLORS.accent, fontWeight: '700', fontSize: 16 },
+  findVehiclesText: { color: COLORS.textPrimary, fontWeight: '700', fontSize: 16 },
 
   // ── Searching mode ──
   searchingHeader: { paddingHorizontal: SPACING.md },
@@ -780,7 +735,7 @@ function getStyles() { return StyleSheet.create({
   },
   pulseIcon: { fontSize: 30, color: COLORS.textPrimary },
   searchingTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.xs },
-  searchingTimer: { fontSize: 28, fontWeight: '800', color: COLORS.accent, marginBottom: SPACING.md },
+  searchingTimer: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.md },
   searchingRouteInfo: {
     backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, marginBottom: SPACING.sm,

@@ -109,6 +109,6 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
   },
 });

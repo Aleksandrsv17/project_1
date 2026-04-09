@@ -502,7 +502,7 @@ function getStyles() { return StyleSheet.create({
     fontSize: 16, color: COLORS.textPrimary,
   },
   etaText: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '700',
     fontSize: 15,
   },

@@ -425,7 +425,7 @@ function getStyles() { return StyleSheet.create({
   },
   seeAllText: {
     fontSize: 13,
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '600',
   },
   confirmButton: {
@@ -513,7 +513,7 @@ function getStyles() { return StyleSheet.create({
   },
   legendTap: {
     fontSize: 11,
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '600',
     marginLeft: 'auto',
   },

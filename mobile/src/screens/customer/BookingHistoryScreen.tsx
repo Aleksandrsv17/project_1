@@ -311,12 +311,12 @@ function getStyles() { return StyleSheet.create({
     color: COLORS.textPrimary,
   },
   statusPickerTextActive: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '700',
   },
   statusCheck: {
     fontSize: 16,
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '700',
   },
   listContent: {
@@ -412,7 +412,7 @@ function getStyles() { return StyleSheet.create({
   ratingLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
   },
   reviewInput: {
     width: '100%',

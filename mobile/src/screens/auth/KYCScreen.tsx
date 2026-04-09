@@ -224,7 +224,7 @@ function getStyles() { return StyleSheet.create({
   stepBadge: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginBottom: SPACING.xs,

@@ -389,7 +389,7 @@ function getStyles() { return StyleSheet.create({
     borderRadius: BORDER_RADIUS.sm,
   },
   categoryText: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -576,7 +576,7 @@ function getStyles() { return StyleSheet.create({
   modePrice: {
     fontSize: 17,
     fontWeight: '700',
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
   },
   modePriceUnit: {
     fontSize: 12,
@@ -603,7 +603,7 @@ function getStyles() { return StyleSheet.create({
     alignItems: 'center',
   },
   ownerAvatarText: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '700',
     fontSize: 18,
   },
@@ -641,7 +641,7 @@ function getStyles() { return StyleSheet.create({
   bottomPrice: {
     fontSize: 22,
     fontWeight: '800',
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
   },
   bottomPriceUnit: {
     fontSize: 14,

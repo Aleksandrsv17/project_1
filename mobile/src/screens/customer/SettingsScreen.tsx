@@ -103,7 +103,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                   <Text style={styles.settingLabel}>{m.lbl}</Text>
                   <Text style={styles.settingSubtitle}>{m.sub}</Text>
                 </View>
-                {themeName === t && <Text style={{ fontSize: 16, color: COLORS.accent, fontWeight: '700' }}>✓</Text>}
+                {themeName === t && <Text style={{ fontSize: 16, color: COLORS.textPrimary, fontWeight: '700' }}>✓</Text>}
               </TouchableOpacity>
             );
           })}

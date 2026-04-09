@@ -122,7 +122,7 @@ function getStyles() { return StyleSheet.create({
     borderRadius: BORDER_RADIUS.sm,
   },
   categoryText: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -194,7 +194,7 @@ function getStyles() { return StyleSheet.create({
   price: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
   },
   priceUnit: {
     fontSize: 13,
