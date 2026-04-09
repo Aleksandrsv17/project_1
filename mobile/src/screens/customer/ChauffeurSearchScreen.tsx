@@ -7,50 +7,68 @@ import {
   StyleSheet,
   ScrollView,
   Platform,
-  FlatList,
   Keyboard,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { searchPlaces, getPlaceDetails, PlacePrediction, LatLng } from '../../api/maps';
+import Slider from '@react-native-community/slider';
+import { searchPlaces, getPlaceDetails, reverseGeocode, PlacePrediction, LatLng } from '../../api/maps';
+import { getMapStyle } from '../../themes/mapStyles';
 import { useLocation } from '../../hooks/useLocation';
-import { COLORS, SPACING, BORDER_RADIUS, REGIONS } from '../../utils/constants';
-import { CustomerStackParamList } from '../../navigation/CustomerNavigator';
+import { useBookingStore } from '../../store/bookingStore';
+import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
+import { CustomerStackParamList } from '../../navigation/MainNavigator';
+import { addHours, addDays } from 'date-fns';
 
 type Props = {
   navigation: NativeStackNavigationProp<CustomerStackParamList, 'ChauffeurSearch'>;
 };
 
+const CHAUFFEUR_HOURLY = 35;
+const DELIVERY_FEE = 50;
+const PER_KM = 0.20;
+
 export function ChauffeurSearchScreen({ navigation }: Props) {
   const styles = getStyles();
-  const { location } = useLocation();
-  const [step, setStep] = useState(0); // 0: region, 1: details
+  const { location, address: userAddress } = useLocation();
+  const mapRef = useRef<MapView>(null);
 
-  // Selections
-  const [region, setRegion] = useState('');
+  // Step state
   const [pickupText, setPickupText] = useState('');
   const [pickupCoords, setPickupCoords] = useState<LatLng | null>(null);
-  const [dropoffText, setDropoffText] = useState('');
-  const [dropoffCoords, setDropoffCoords] = useState<LatLng | null>(null);
-  const [pickupTime, setPickupTime] = useState(new Date(Date.now() + 60 * 60 * 1000)); // +1h
-  const [approxHours, setApproxHours] = useState(3);
-  const [showTimePicker, setShowTimePicker] = useState(false);
-
-  // Search
-  const [activeField, setActiveField] = useState<'pickup' | 'dropoff'>('pickup');
+  const [city, setCity] = useState('');
+  const [activeInput, setActiveInput] = useState<'pickup'>('pickup');
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
+  const [dropPinFor, setDropPinFor] = useState<'pickup' | null>(null);
+  const [mapCenter, setMapCenter] = useState<LatLng | null>(null);
+
+  const [pickupTime, setPickupTime] = useState(new Date(Date.now() + 2 * 60 * 60 * 1000));
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+  const [tempPickupTime, setTempPickupTime] = useState(pickupTime);
+
+  const [rateType, setRateType] = useState<'hourly' | 'daily'>('hourly');
+  const [hours, setHours] = useState(3);
+  const [days, setDays] = useState(1);
+
+  const [carType, setCarType] = useState<'sedan' | 'suv' | 'van'>('sedan');
+
+  // Show bottom card when pickup is set
+  const showDetails = !!pickupCoords;
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const region = location
+    ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 }
+    : DEFAULT_REGION;
 
-  const handleSearch = useCallback((text: string, field: 'pickup' | 'dropoff') => {
-    if (field === 'pickup') setPickupText(text);
-    else setDropoffText(text);
-    setActiveField(field);
-
+  // ── Search ─────────────────────────────────────────────────────────────────
+  const handleSearchText = useCallback((text: string) => {
+    setPickupText(text);
+    setDropPinFor(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (text.trim().length < 3) { setPredictions([]); return; }
-
     debounceRef.current = setTimeout(async () => {
       try {
         const results = await searchPlaces(text, location ?? undefined);
@@ -61,179 +79,318 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
 
   async function handleSelectPlace(p: PlacePrediction) {
     setPredictions([]);
+    setDropPinFor(null);
     Keyboard.dismiss();
     try {
       const d = await getPlaceDetails(p.placeId);
       const coords = { latitude: d.latitude, longitude: d.longitude };
-      if (activeField === 'pickup') { setPickupText(p.mainText); setPickupCoords(coords); }
-      else { setDropoffText(p.mainText); setDropoffCoords(coords); }
+      setPickupText(p.mainText);
+      setPickupCoords(coords);
+      try { const geo = await reverseGeocode(coords.latitude, coords.longitude); setCity(geo.city || ''); } catch {}
+      mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
     } catch {}
   }
 
-  function handleFindChauffeurs() {
-    if (!pickupText.trim()) { Alert.alert('Required', 'Please enter a pickup location.'); return; }
-    navigation.navigate('VehicleList', { chauffeurAvailable: true, city: region } as never);
+  function handleUseMyLocation() {
+    if (location) {
+      setPickupText(userAddress ?? 'My Location');
+      setPickupCoords({ latitude: location.latitude, longitude: location.longitude });
+      try { reverseGeocode(location.latitude, location.longitude).then(g => setCity(g.city || '')); } catch {}
+    }
   }
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => step === 0 ? navigation.goBack() : setStep(0)} style={styles.backBtn}>
-          <Text style={styles.backText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Book a Chauffeur</Text>
-        <View style={{ width: 30 }} />
-      </View>
+  async function handleConfirmDropPin() {
+    if (!mapCenter) return;
+    try {
+      const geo = await reverseGeocode(mapCenter.latitude, mapCenter.longitude);
+      setPickupText(geo.formattedAddress || `${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`);
+      setPickupCoords(mapCenter);
+      setCity(geo.city || '');
+    } catch {
+      setPickupText(`${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`);
+      setPickupCoords(mapCenter);
+    }
+    setDropPinFor(null);
+  }
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Step 0: Region */}
-        {step === 0 && (
-          <>
-            <Text style={styles.sectionTitle}>Select Region</Text>
-            <View style={styles.regionGrid}>
-              {REGIONS.map(r => (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.regionChip, region === r && styles.regionChipActive]}
-                  onPress={() => { setRegion(r); setStep(1); }}
-                >
-                  <Text style={[styles.regionText, region === r && styles.regionTextActive]}>{r}</Text>
+  // ── Price ──────────────────────────────────────────────────────────────────
+  const duration = rateType === 'hourly' ? hours : days * 24;
+  const chauffeurCost = rateType === 'hourly' ? CHAUFFEUR_HOURLY * hours : CHAUFFEUR_HOURLY * 8 * days; // 8h/day rate
+  const totalPrice = chauffeurCost + DELIVERY_FEE;
+
+  function handleFindVehicles() {
+    Keyboard.dismiss();
+    navigation.navigate('ChauffeurVehicleList' as never, {
+      pickupCoords,
+      pickupText,
+      pickupTime: pickupTime.toISOString(),
+      durationHours: duration,
+      city,
+      carType,
+    } as never);
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  return (
+    <View style={styles.container}>
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        provider={PROVIDER_GOOGLE}
+        customMapStyle={getMapStyle()}
+        initialRegion={region}
+        showsUserLocation
+        showsMyLocationButton={false}
+        showsCompass={false}
+        onRegionChangeComplete={(r) => setMapCenter({ latitude: r.latitude, longitude: r.longitude })}
+      >
+        {pickupCoords && (
+          <Marker coordinate={pickupCoords}>
+            <View style={styles.pin}><View style={[styles.pinHead, { backgroundColor: '#FFFFFF' }]}><Text style={styles.pinIcon}>◆</Text></View><View style={[styles.pinNeedle, { backgroundColor: '#FFFFFF' }]} /></View>
+          </Marker>
+        )}
+      </MapView>
+
+      {/* Drop pin overlay */}
+      {dropPinFor && (
+        <>
+          <View style={styles.dropPinOverlay} pointerEvents="none">
+            <View style={{ alignItems: 'center', marginBottom: 46 }}>
+              <View style={[styles.pinHead, { backgroundColor: '#FFFFFF' }]}><Text style={styles.pinIcon}>◆</Text></View>
+              <View style={[styles.pinNeedle, { backgroundColor: '#FFFFFF' }]} />
+            </View>
+          </View>
+          <SafeAreaView style={styles.dropPinUI} edges={['top', 'bottom']} pointerEvents="box-none">
+            <View style={{ paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm }}>
+              <TouchableOpacity onPress={() => setDropPinFor(null)}><Text style={styles.cancelText}>Cancel</Text></TouchableOpacity>
+            </View>
+            <View style={{ paddingHorizontal: SPACING.md, paddingBottom: SPACING.lg }}>
+              <TouchableOpacity style={styles.goldButton} onPress={handleConfirmDropPin}>
+                <Text style={styles.goldButtonText}>CONFIRM LOCATION</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </>
+      )}
+
+      {/* Header + address input */}
+      {!dropPinFor && (
+        <SafeAreaView style={styles.headerOverlay} edges={['top']}>
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <Text style={styles.backText}>←</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>CHAUFFEUR</Text>
+            <View style={{ width: 40 }} />
+          </View>
+
+          {/* Pickup input */}
+          <View style={styles.inputCard}>
+            <View style={[styles.dot, { backgroundColor: '#FFFFFF' }]} />
+            <TextInput style={styles.inputField} value={pickupText} onChangeText={handleSearchText}
+              placeholder="Pickup address" placeholderTextColor={COLORS.gray} selectTextOnFocus />
+            <TouchableOpacity onPress={() => { Keyboard.dismiss(); setPredictions([]); setDropPinFor('pickup'); }} style={styles.pinBtn}>
+              <Text style={styles.pinBtnText}>PIN</Text>
+            </TouchableOpacity>
+            {!pickupText && (
+              <TouchableOpacity onPress={handleUseMyLocation} style={styles.pinBtn}>
+                <Text style={styles.pinBtnText}>GPS</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Predictions */}
+          {predictions.length > 0 && (
+            <View style={styles.predictions}>
+              {predictions.map(p => (
+                <TouchableOpacity key={p.placeId} style={styles.predRow} onPress={() => handleSelectPlace(p)}>
+                  <Text style={styles.predPin}>▼</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.predMain} numberOfLines={1}>{p.mainText}</Text>
+                    <Text style={styles.predSub} numberOfLines={1}>{p.secondaryText}</Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
-          </>
-        )}
+          )}
+        </SafeAreaView>
+      )}
 
-        {/* Step 1: Details */}
-        {step === 1 && (
-          <>
-            <View style={styles.selectedRegion}>
-              <Text style={styles.selectedRegionLabel}>Region</Text>
-              <TouchableOpacity onPress={() => setStep(0)}>
-                <Text style={styles.selectedRegionValue}>{region} ›</Text>
+      {/* Bottom card */}
+      {showDetails && !dropPinFor && (
+        <View style={styles.bottomCard}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* Pickup date & time */}
+            <Text style={styles.sectionLabel}>PICKUP DATE & TIME</Text>
+            <View style={styles.dateTimeRow}>
+              <TouchableOpacity style={styles.dateBox} onPress={() => { setTempPickupTime(pickupTime); setPickerMode('date'); setShowTimePicker(true); }}>
+                <Text style={styles.dateText}>{pickupTime.toLocaleDateString()}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.dateBox} onPress={() => { setTempPickupTime(pickupTime); setPickerMode('time'); setShowTimePicker(true); }}>
+                <Text style={styles.dateText}>{pickupTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Pickup */}
-            <Text style={styles.fieldLabel}>Pickup Point *</Text>
-            <View style={styles.inputBox}>
-              <Text style={styles.inputIcon}>▼</Text>
-              <TextInput
-                style={styles.input}
-                value={pickupText}
-                onChangeText={t => handleSearch(t, 'pickup')}
-                placeholder="Enter pickup address..."
-                placeholderTextColor={COLORS.gray}
-                onFocus={() => setActiveField('pickup')}
-              />
-            </View>
-
-            {/* Dropoff (optional) */}
-            <Text style={styles.fieldLabel}>Drop-off Point (optional)</Text>
-            <View style={styles.inputBox}>
-              <Text style={styles.inputIcon}>◻</Text>
-              <TextInput
-                style={styles.input}
-                value={dropoffText}
-                onChangeText={t => handleSearch(t, 'dropoff')}
-                placeholder="Enter drop-off address..."
-                placeholderTextColor={COLORS.gray}
-                onFocus={() => setActiveField('dropoff')}
-              />
-            </View>
-
-            {/* Predictions */}
-            {predictions.length > 0 && (
-              <View style={styles.predictions}>
-                {predictions.map(p => (
-                  <TouchableOpacity key={p.placeId} style={styles.predRow} onPress={() => handleSelectPlace(p)}>
-                    <Text style={styles.predPin}>▼</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.predMain} numberOfLines={1}>{p.mainText}</Text>
-                      <Text style={styles.predSub} numberOfLines={1}>{p.secondaryText}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+            {showTimePicker && (
+              <View style={styles.pickerContainer}>
+                <DateTimePicker value={tempPickupTime} mode={pickerMode} minimumDate={new Date()} display="spinner"
+                  textColor={COLORS.textPrimary} themeVariant="dark"
+                  onChange={(_, date) => { if (date) setTempPickupTime(date); }} />
+                <TouchableOpacity style={styles.confirmPickerBtn} onPress={() => { setPickupTime(tempPickupTime); setShowTimePicker(false); }}>
+                  <Text style={styles.confirmPickerText}>CONFIRM</Text>
+                </TouchableOpacity>
               </View>
             )}
 
-            {/* Pickup Time */}
-            <Text style={styles.fieldLabel}>Pickup Time</Text>
-            <TouchableOpacity style={styles.timeBox} onPress={() => setShowTimePicker(true)}>
-              <Text style={styles.timeIcon}>◔</Text>
-              <Text style={styles.timeText}>
-                {pickupTime.toLocaleDateString()} at {pickupTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-              <Text style={styles.timeChange}>Change</Text>
-            </TouchableOpacity>
-            {showTimePicker && (
-              <DateTimePicker
-                value={pickupTime}
-                mode="datetime"
-                minimumDate={new Date()}
-                onChange={(_, date) => { setShowTimePicker(Platform.OS === 'android' ? false : true); if (date) setPickupTime(date); }}
-              />
+            {/* Rate type toggle */}
+            <Text style={styles.sectionLabel}>RATE</Text>
+            <View style={styles.toggleRow}>
+              <TouchableOpacity style={[styles.toggleBtn, rateType === 'hourly' && styles.toggleBtnActive]} onPress={() => setRateType('hourly')}>
+                <Text style={[styles.toggleText, rateType === 'hourly' && styles.toggleTextActive]}>Hourly</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.toggleBtn, rateType === 'daily' && styles.toggleBtnActive]} onPress={() => setRateType('daily')}>
+                <Text style={[styles.toggleText, rateType === 'daily' && styles.toggleTextActive]}>Daily</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Slider */}
+            {rateType === 'hourly' ? (
+              <View style={styles.sliderBlock}>
+                <Text style={styles.sliderValue}>{hours} hour{hours !== 1 ? 's' : ''}</Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={1} maximumValue={10} step={1} value={hours}
+                  onValueChange={setHours}
+                  minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
+                  thumbTintColor="#d9c0a4"
+                />
+                <View style={styles.sliderLabels}>
+                  <Text style={styles.sliderLabel}>1h</Text>
+                  <Text style={styles.sliderLabel}>10h</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.sliderBlock}>
+                <Text style={styles.sliderValue}>{days} day{days !== 1 ? 's' : ''}</Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={1} maximumValue={10} step={1} value={days}
+                  onValueChange={setDays}
+                  minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
+                  thumbTintColor="#d9c0a4"
+                />
+                <View style={styles.sliderLabels}>
+                  <Text style={styles.sliderLabel}>1 day</Text>
+                  <Text style={styles.sliderLabel}>10 days</Text>
+                </View>
+              </View>
             )}
 
-            {/* Approx Duration */}
-            <Text style={styles.fieldLabel}>Approximate Duration</Text>
-            <View style={styles.durationRow}>
-              {[2, 3, 4, 6, 8, 12].map(h => (
-                <TouchableOpacity
-                  key={h}
-                  style={[styles.durChip, approxHours === h && styles.durChipActive]}
-                  onPress={() => setApproxHours(h)}
-                >
-                  <Text style={[styles.durText, approxHours === h && styles.durTextActive]}>{h}h</Text>
+            {/* Car type */}
+            <Text style={styles.sectionLabel}>VEHICLE TYPE</Text>
+            <View style={styles.carTypeRow}>
+              {(['sedan', 'suv', 'van'] as const).map(type => (
+                <TouchableOpacity key={type} style={[styles.carTypeItem, carType === type && styles.carTypeItemActive]} onPress={() => setCarType(type)}>
+                  <Text style={[styles.carTypeName, carType === type && styles.carTypeNameActive]}>
+                    {type === 'sedan' ? 'Sedan' : type === 'suv' ? 'SUV' : 'Van'}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            {/* Find button */}
-            <TouchableOpacity style={styles.findButton} onPress={handleFindChauffeurs}>
-              <Text style={styles.findButtonText}>Find Chauffeurs in {region}</Text>
+            {/* Price breakdown */}
+            <View style={styles.priceBlock}>
+              <Text style={styles.priceLabel}>starting from</Text>
+              <Text style={styles.priceValue}>${totalPrice}</Text>
+              <View style={styles.priceBreakdown}>
+                <Text style={styles.breakdownText}>Chauffeur: ${CHAUFFEUR_HOURLY}/hr {rateType === 'daily' ? `× 8h × ${days}d` : `× ${hours}h`}</Text>
+                <Text style={styles.breakdownText}>Delivery fee: ${DELIVERY_FEE}</Text>
+                <Text style={styles.breakdownText}>+ ${PER_KM}/km distance</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity style={styles.goldButton} onPress={handleFindVehicles}>
+              <Text style={styles.goldButtonText}>FIND VEHICLES</Text>
             </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 
 function getStyles() { return StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  backBtn: { padding: SPACING.xs },
+  container: { flex: 1 },
+  map: { ...StyleSheet.absoluteFillObject },
+  // Pins
+  pin: { alignItems: 'center' },
+  pinHead: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  pinIcon: { fontSize: 14, color: '#000000' },
+  pinNeedle: { width: 2, height: 14 },
+  // Drop pin
+  dropPinOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+  dropPinUI: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', zIndex: 101, pointerEvents: 'box-none' },
+  cancelText: { fontSize: 15, color: COLORS.textSecondary },
+  // Header
+  headerOverlay: { paddingHorizontal: SPACING.md },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm },
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
   backText: { fontSize: 22, color: COLORS.textPrimary },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: COLORS.textPrimary },
-  content: { padding: SPACING.md, paddingBottom: 100 },
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.md },
-  regionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
-  regionChip: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, borderRadius: BORDER_RADIUS.lg, backgroundColor: COLORS.white, borderWidth: 2, borderColor: COLORS.border, minWidth: '45%', alignItems: 'center' },
-  regionChipActive: { borderColor: COLORS.accent, backgroundColor: COLORS.grayLight },
-  regionText: { fontSize: 16, fontWeight: '600', color: COLORS.textSecondary },
-  regionTextActive: { color: COLORS.textPrimary },
-  selectedRegion: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md },
-  selectedRegionLabel: { fontSize: 12, color: COLORS.gray },
-  selectedRegionValue: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  fieldLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: SPACING.xs, marginTop: SPACING.md },
-  inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, gap: SPACING.sm },
-  inputIcon: { fontSize: 16, color: COLORS.textPrimary },
-  input: { flex: 1, fontSize: 15, color: COLORS.textPrimary, paddingVertical: 12 },
-  predictions: { backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.md, marginTop: SPACING.xs, borderWidth: 1, borderColor: COLORS.border },
-  predRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight, gap: SPACING.sm },
-  predPin: { fontSize: 14, color: COLORS.textPrimary },
+  headerTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: 3 },
+  // Input
+  inputCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md, gap: SPACING.sm,
+  },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  inputField: { flex: 1, fontSize: 15, color: COLORS.textPrimary, paddingVertical: 14 },
+  pinBtn: { paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: COLORS.border, borderRadius: 4 },
+  pinBtnText: { fontSize: 9, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 1 },
+  // Predictions
+  predictions: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, marginTop: SPACING.xs },
+  predRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight, gap: SPACING.sm },
+  predPin: { fontSize: 16, color: COLORS.textPrimary },
   predMain: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
-  predSub: { fontSize: 12, color: COLORS.textSecondary },
-  timeBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
-  timeIcon: { fontSize: 16, color: COLORS.textPrimary },
-  timeText: { flex: 1, fontSize: 15, color: COLORS.textPrimary },
-  timeChange: { fontSize: 13, color: COLORS.textPrimary, fontWeight: '600' },
-  durationRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
-  durChip: { paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: BORDER_RADIUS.full, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.white },
-  durChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  durText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
-  durTextActive: { color: COLORS.textPrimary },
-  findButton: { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center', marginTop: SPACING.lg },
-  findButtonText: { color: COLORS.textPrimary, fontWeight: '700', fontSize: 16 },
+  predSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+  // Bottom card
+  bottomCard: {
+    position: 'absolute', bottom: 12, left: SPACING.md, right: SPACING.md,
+    backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md,
+    borderWidth: 1, borderColor: COLORS.border, maxHeight: '55%',
+  },
+  sectionLabel: { fontSize: 10, fontWeight: '600', color: COLORS.textSecondary, letterSpacing: 2, marginBottom: SPACING.xs, marginTop: SPACING.md },
+  // Date & Time
+  dateTimeRow: { flexDirection: 'row', gap: SPACING.sm },
+  dateBox: { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' },
+  dateText: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
+  pickerContainer: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', marginTop: SPACING.xs },
+  confirmPickerBtn: { backgroundColor: '#d9c0a4', paddingVertical: SPACING.sm + 2, alignItems: 'center' },
+  confirmPickerText: { fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 2 },
+  // Toggle
+  toggleRow: { flexDirection: 'row', gap: SPACING.sm },
+  toggleBtn: { flex: 1, paddingVertical: SPACING.sm + 2, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, alignItems: 'center' },
+  toggleBtnActive: { backgroundColor: '#d9c0a4', borderColor: '#d9c0a4' },
+  toggleText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  toggleTextActive: { color: '#000000' },
+  // Slider
+  sliderBlock: { marginTop: SPACING.sm },
+  sliderValue: { fontSize: 22, fontWeight: '700', color: '#d9c0a4', textAlign: 'center' },
+  slider: { width: '100%', height: 40 },
+  sliderLabels: { flexDirection: 'row', justifyContent: 'space-between' },
+  sliderLabel: { fontSize: 11, color: COLORS.textSecondary },
+  // Car type
+  carTypeRow: { flexDirection: 'row', gap: SPACING.sm },
+  carTypeItem: { flex: 1, paddingVertical: SPACING.sm + 2, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, alignItems: 'center' },
+  carTypeItemActive: { borderColor: '#d9c0a4', backgroundColor: COLORS.grayLight },
+  carTypeName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
+  carTypeNameActive: { color: '#d9c0a4' },
+  // Price
+  priceBlock: { alignItems: 'center', marginVertical: SPACING.md },
+  priceLabel: { fontSize: 11, color: COLORS.textSecondary, letterSpacing: 1, textTransform: 'uppercase' },
+  priceValue: { fontSize: 32, fontWeight: '700', color: '#d9c0a4', marginTop: 2 },
+  priceBreakdown: { marginTop: SPACING.xs, alignItems: 'center' },
+  breakdownText: { fontSize: 11, color: COLORS.textSecondary },
+  // CTA
+  goldButton: { backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' },
+  goldButtonText: { fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 3 },
 }); }
