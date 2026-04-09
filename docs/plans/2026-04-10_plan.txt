@@ -1,0 +1,16 @@
+VIP Mobility — Plan for 2026-04-10
+====================================
+
+COMPLETED TODAY:
+- Bug fixes from bugs-report.md (route ordering, ratings SQL, cancellation)
+- Chauffeur booking flow redesigned (map-based, slider, car types, vehicle list)
+- Luxury Flat theme refinements (pins, routes, date picker dark mode)
+- Sandbox theme synced with layout toggle system
+
+CONTINUE TOMORROW:
+1. Rental flow — redesign similar to chauffeur (map-based, date range, car types)
+2. Test chauffeur flow end-to-end on real phone (APK build)
+3. Landing page for 109.120.133.113
+4. Driver-customer connection (driver sees orders, accepts, customer sees driver info)
+5. Polish vehicle cards in browse section
+6. Test payment flow with Stripe
