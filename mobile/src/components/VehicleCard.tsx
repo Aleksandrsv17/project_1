@@ -18,6 +18,7 @@ interface VehicleCardProps {
 }
 
 export function VehicleCard({ vehicle, onPress, style }: VehicleCardProps) {
+  const styles = getStyles();
   const thumbnailUri = vehicle.images[0] ?? 'https://via.placeholder.com/300x200?text=No+Image';
 
   return (
@@ -83,6 +84,7 @@ export function VehicleCard({ vehicle, onPress, style }: VehicleCardProps) {
 }
 
 function SpecItem({ label }: { label: string }) {
+  const styles = getStyles();
   return (
     <View style={styles.specItem}>
       <Text style={styles.specText}>{label}</Text>
@@ -90,7 +92,7 @@ function SpecItem({ label }: { label: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   card: {
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.lg,
@@ -153,14 +155,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   chauffeurBadge: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: COLORS.grayLight,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 2,
     borderRadius: BORDER_RADIUS.sm,
   },
   chauffeurText: {
     fontSize: 11,
-    color: '#92400e',
+    color: COLORS.textSecondary,
     fontWeight: '600',
   },
   location: {
@@ -211,4 +213,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.textSecondary,
   },
-});
+}); }

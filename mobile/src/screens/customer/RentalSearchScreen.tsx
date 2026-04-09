@@ -109,7 +109,7 @@ export function RentalSearchScreen({ navigation }: Props) {
             {/* Start Date */}
             <Text style={styles.fieldLabel}>Rental Start</Text>
             <TouchableOpacity style={styles.timeBox} onPress={() => setShowStartPicker(true)}>
-              <Text style={styles.timeIcon}>📅</Text>
+              <Text style={styles.timeIcon}>□</Text>
               <Text style={styles.timeText}>
                 {startDate.toLocaleDateString()} at {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
@@ -127,7 +127,7 @@ export function RentalSearchScreen({ navigation }: Props) {
             {/* End Date */}
             <Text style={styles.fieldLabel}>Rental End</Text>
             <TouchableOpacity style={styles.timeBox} onPress={() => setShowEndPicker(true)}>
-              <Text style={styles.timeIcon}>📅</Text>
+              <Text style={styles.timeIcon}>□</Text>
               <Text style={styles.timeText}>
                 {endDate.toLocaleDateString()} at {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </Text>
@@ -144,14 +144,14 @@ export function RentalSearchScreen({ navigation }: Props) {
 
             {/* Duration summary */}
             <View style={styles.durationBox}>
-              <Text style={styles.durationIcon}>🕐</Text>
+              <Text style={styles.durationIcon}>◔</Text>
               <Text style={styles.durationText}>Duration: {durationText}</Text>
             </View>
 
             {/* Drop-off location */}
             <Text style={styles.fieldLabel}>Drop-off Location</Text>
             <View style={styles.inputBox}>
-              <Text style={styles.inputIcon}>📍</Text>
+              <Text style={styles.inputIcon}>▼</Text>
               <TextInput
                 style={styles.input}
                 value={dropoffText}
@@ -165,7 +165,7 @@ export function RentalSearchScreen({ navigation }: Props) {
               <View style={styles.predictions}>
                 {predictions.map(p => (
                   <TouchableOpacity key={p.placeId} style={styles.predRow} onPress={() => handleSelectPlace(p)}>
-                    <Text style={styles.predPin}>📍</Text>
+                    <Text style={styles.predPin}>▼</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.predMain} numberOfLines={1}>{p.mainText}</Text>
                       <Text style={styles.predSub} numberOfLines={1}>{p.secondaryText}</Text>
@@ -196,7 +196,7 @@ function getStyles() { return StyleSheet.create({
   sectionTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.md },
   regionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   regionChip: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, borderRadius: BORDER_RADIUS.lg, backgroundColor: COLORS.white, borderWidth: 2, borderColor: COLORS.border, minWidth: '45%', alignItems: 'center' },
-  regionChipActive: { borderColor: COLORS.accent, backgroundColor: '#fefce8' },
+  regionChipActive: { borderColor: COLORS.accent, backgroundColor: COLORS.grayLight },
   regionText: { fontSize: 16, fontWeight: '600', color: COLORS.textSecondary },
   regionTextActive: { color: COLORS.accent },
   selectedRegion: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md },
@@ -204,20 +204,20 @@ function getStyles() { return StyleSheet.create({
   selectedRegionValue: { fontSize: 16, fontWeight: '700', color: COLORS.accent },
   fieldLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginBottom: SPACING.xs, marginTop: SPACING.md },
   inputBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, gap: SPACING.sm },
-  inputIcon: { fontSize: 16 },
+  inputIcon: { fontSize: 16, color: COLORS.textPrimary },
   input: { flex: 1, fontSize: 15, color: COLORS.textPrimary, paddingVertical: 12 },
   predictions: { backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.md, marginTop: SPACING.xs, borderWidth: 1, borderColor: COLORS.border },
   predRow: { flexDirection: 'row', alignItems: 'center', padding: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.grayLight, gap: SPACING.sm },
-  predPin: { fontSize: 14 },
+  predPin: { fontSize: 14, color: COLORS.textPrimary },
   predMain: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   predSub: { fontSize: 12, color: COLORS.textSecondary },
   timeBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
-  timeIcon: { fontSize: 16 },
+  timeIcon: { fontSize: 16, color: COLORS.textPrimary },
   timeText: { flex: 1, fontSize: 15, color: COLORS.textPrimary },
   timeChange: { fontSize: 13, color: COLORS.accent, fontWeight: '600' },
-  durationBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0fdf4', borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, marginTop: SPACING.sm, gap: SPACING.sm },
-  durationIcon: { fontSize: 14 },
-  durationText: { fontSize: 14, fontWeight: '600', color: '#065f46' },
+  durationBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, marginTop: SPACING.sm, gap: SPACING.sm },
+  durationIcon: { fontSize: 14, color: COLORS.textPrimary },
+  durationText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   findButton: { backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center', marginTop: SPACING.lg },
   findButtonText: { color: COLORS.accent, fontWeight: '700', fontSize: 16 },
 }); }

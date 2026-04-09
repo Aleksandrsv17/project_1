@@ -68,10 +68,11 @@ const OwnerTab = createBottomTabNavigator<OwnerTabParamList>();
 // ── Tab Icon ─────────────────────────────────────────────────────────────────
 
 function TabIcon({ icon, focused, label }: { icon: string; focused: boolean; label: string }) {
+  const ts = getTabStyles();
   return (
-    <View style={[tabStyles.tabItem, focused && tabStyles.tabItemFocused]}>
-      <Text style={tabStyles.tabIcon}>{icon}</Text>
-      <Text style={[tabStyles.tabLabel, focused && tabStyles.tabLabelFocused]}>{label}</Text>
+    <View style={[ts.tabItem, focused && ts.tabItemFocused]}>
+      <Text style={ts.tabIcon}>{icon}</Text>
+      <Text style={[ts.tabLabel, focused && ts.tabLabelFocused]}>{label}</Text>
     </View>
   );
 }
@@ -80,15 +81,15 @@ function TabIcon({ icon, focused, label }: { icon: string; focused: boolean; lab
 
 function CustomerTabs() {
   return (
-    <CustomerTab.Navigator screenOptions={{ headerShown: false, tabBarShowLabel: false, tabBarStyle: tabStyles.tabBar }}>
+    <CustomerTab.Navigator screenOptions={{ headerShown: false, tabBarShowLabel: false, tabBarStyle: getTabStyles().tabBar }}>
       <CustomerTab.Screen name="Home" component={HomeScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🏠" focused={focused} label="Home" /> }} />
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⌂" focused={focused} label="Home" /> }} />
       <CustomerTab.Screen name="VehicleList" component={VehicleListScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🔍" focused={focused} label="Browse" /> }} />
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="⌕" focused={focused} label="Browse" /> }} />
       <CustomerTab.Screen name="BookingHistory" component={BookingHistoryScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="📋" focused={focused} label="Bookings" /> }} />
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="☰" focused={focused} label="Bookings" /> }} />
       <CustomerTab.Screen name="Profile" component={ProfileScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="👤" focused={focused} label="Profile" /> }} />
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="○" focused={focused} label="Profile" /> }} />
     </CustomerTab.Navigator>
   );
 }
@@ -97,17 +98,17 @@ function CustomerTabs() {
 
 function OwnerTabs() {
   return (
-    <OwnerTab.Navigator screenOptions={{ headerShown: false, tabBarShowLabel: false, tabBarStyle: tabStyles.tabBar }}>
+    <OwnerTab.Navigator screenOptions={{ headerShown: false, tabBarShowLabel: false, tabBarStyle: getTabStyles().tabBar }}>
       <OwnerTab.Screen name="OwnerDashboard" component={OwnerDashboardScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="📊" focused={focused} label="Dashboard" /> }} />
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="≡" focused={focused} label="Dashboard" /> }} />
       <OwnerTab.Screen name="FleetMap" component={FleetMapScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🗺️" focused={focused} label="Map" /> }} />
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="◎" focused={focused} label="Map" /> }} />
       <OwnerTab.Screen name="MyVehicles" component={MyVehiclesScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="🚗" focused={focused} label="My Fleet" /> }} />
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="◆" focused={focused} label="My Fleet" /> }} />
       <OwnerTab.Screen name="AddVehicle" component={AddVehicleScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="➕" focused={focused} label="Add" /> }} />
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="+" focused={focused} label="Add" /> }} />
       <OwnerTab.Screen name="OwnerProfile" component={OwnerProfileScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="👤" focused={focused} label="Profile" /> }} />
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="○" focused={focused} label="Profile" /> }} />
     </OwnerTab.Navigator>
   );
 }
@@ -142,9 +143,9 @@ export function MainNavigator() {
 
 // ── Tab Styles ───────────────────────────────────────────────────────────────
 
-const tabStyles = StyleSheet.create({
+function getTabStyles() { return StyleSheet.create({
   tabBar: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     height: 68,
@@ -160,10 +161,10 @@ const tabStyles = StyleSheet.create({
     minWidth: 60,
   },
   tabItemFocused: {
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
   },
   tabIcon: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textSecondary,
   },
   tabLabel: {
     fontSize: 10,
@@ -172,7 +173,7 @@ const tabStyles = StyleSheet.create({
     fontWeight: '500',
   },
   tabLabelFocused: {
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
     fontWeight: '700',
   },
-});
+}); }

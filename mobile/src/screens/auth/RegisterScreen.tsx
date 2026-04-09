@@ -165,7 +165,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
                   style={styles.eyeButton}
                   onPress={() => setShowPassword((v) => !v)}
                 >
-                  <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁️'}</Text>
+                  <Text style={styles.eyeIcon}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
                 </TouchableOpacity>
               </View>
               {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
@@ -187,7 +187,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
                   style={styles.eyeButton}
                   onPress={() => setShowConfirmPassword((v) => !v)}
                 >
-                  <Text style={styles.eyeIcon}>{showConfirmPassword ? '🙈' : '👁️'}</Text>
+                  <Text style={styles.eyeIcon}>{showConfirmPassword ? 'HIDE' : 'SHOW'}</Text>
                 </TouchableOpacity>
               </View>
               {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
@@ -351,11 +351,11 @@ function getStyles() { return StyleSheet.create({
   },
   roleOptionSelected: {
     borderColor: COLORS.accent,
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
   },
   roleOptionIcon: {
     fontSize: 28,
-    marginBottom: 4,
+    marginBottom: 4, color: COLORS.textPrimary,
   },
   roleOptionTitle: {
     fontSize: 13,
@@ -373,7 +373,7 @@ function getStyles() { return StyleSheet.create({
     marginTop: 2,
   },
   roleOptionSubtitleSelected: {
-    color: '#78350f',
+    color: COLORS.textSecondary,
   },
   form: {
     gap: 0,
@@ -414,7 +414,10 @@ function getStyles() { return StyleSheet.create({
     justifyContent: 'center',
   },
   eyeIcon: {
-    fontSize: 18,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
   errorText: {
     fontSize: 12,

@@ -74,7 +74,7 @@ export function PaymentScreen({ navigation, route }: PaymentScreenProps) {
 
         // 4. Navigate to success
         Alert.alert(
-          'Payment Successful! 🎉',
+          'Payment Successful! !',
           'Your booking has been confirmed. You can track your vehicle in the Active Trip screen.',
           [
             {
@@ -115,7 +115,7 @@ export function PaymentScreen({ navigation, route }: PaymentScreenProps) {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {/* Secure Payment Banner */}
         <View style={styles.secureBanner}>
-          <Text style={styles.secureIcon}>🔒</Text>
+          <Text style={styles.secureIcon}>▪</Text>
           <Text style={styles.secureText}>Secured by Stripe · 256-bit SSL encryption</Text>
         </View>
 
@@ -257,17 +257,17 @@ function getStyles() { return StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#d1fae5',
+    backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.sm,
     gap: SPACING.sm,
   },
   secureIcon: {
-    fontSize: 16,
+    fontSize: 16, color: COLORS.textPrimary,
   },
   secureText: {
     fontSize: 13,
-    color: '#065f46',
+    color: COLORS.textPrimary,
     fontWeight: '500',
   },
   bookingSummary: {

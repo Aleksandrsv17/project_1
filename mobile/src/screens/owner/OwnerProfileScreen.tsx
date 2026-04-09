@@ -34,7 +34,7 @@ export function OwnerProfileScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity style={styles.modeSwitch} onPress={() => setMode('customer')}>
-            <Text style={styles.modeSwitchIcon}>🏠</Text>
+            <Text style={styles.modeSwitchIcon}>⌂</Text>
             <Text style={styles.modeSwitchText}>Customer</Text>
           </TouchableOpacity>
         </View>
@@ -52,33 +52,33 @@ export function OwnerProfileScreen() {
         {/* Menu */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
-          <MenuItem icon="👤" label="Personal Information" subtitle="Name, email, phone"
+          <MenuItem icon="○" label="Personal Information" subtitle="Name, email, phone"
             onPress={() => Alert.alert('Profile', `Name: ${user?.fullName}\nEmail: ${user?.email}\nPhone: ${user?.phone}`)} />
-          <MenuItem icon="💰" label="Earnings & Payouts" subtitle="View your earnings history"
+          <MenuItem icon="¤" label="Earnings & Payouts" subtitle="View your earnings history"
             onPress={() => Alert.alert('Earnings', 'Earnings details available on the dashboard.')} />
-          <MenuItem icon="🏦" label="Bank Account" subtitle="Manage payout methods"
+          <MenuItem icon="▬" label="Bank Account" subtitle="Manage payout methods"
             onPress={() => Alert.alert('Coming Soon', 'Bank account management will be available soon.')} />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Fleet</Text>
-          <MenuItem icon="🚗" label="My Vehicles" subtitle="Manage your fleet"
+          <MenuItem icon="◆" label="My Vehicles" subtitle="Manage your fleet"
             onPress={() => Alert.alert('Fleet', 'Go to the My Fleet tab to manage vehicles.')} />
-          <MenuItem icon="📊" label="Analytics" subtitle="Booking stats & performance"
+          <MenuItem icon="≡" label="Analytics" subtitle="Booking stats & performance"
             onPress={() => Alert.alert('Coming Soon', 'Analytics will be available soon.')} />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
-          <MenuItem icon="💬" label="Contact Support" subtitle="Get help from our team"
+          <MenuItem icon="⊟" label="Contact Support" subtitle="Get help from our team"
             onPress={() => Alert.alert('Support', 'Email: support@vipmobility.com\nPhone: +971 800 VIP')} />
-          <MenuItem icon="📄" label="Terms & Conditions" subtitle="Legal information"
+          <MenuItem icon="≡" label="Terms & Conditions" subtitle="Legal information"
             onPress={() => Alert.alert('Terms', 'Terms & Conditions — coming soon.')} />
         </View>
 
         {/* Logout */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutIcon}>🚪</Text>
+          <Text style={styles.logoutIcon}>→</Text>
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
@@ -109,9 +109,9 @@ function getStyles() { return StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: COLORS.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: SPACING.md, backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary },
-  modeSwitch: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.primary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: BORDER_RADIUS.full },
-  modeSwitchIcon: { fontSize: 14 },
-  modeSwitchText: { fontSize: 13, fontWeight: '700', color: COLORS.accent },
+  modeSwitch: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'transparent', borderWidth: 1, borderColor: COLORS.textPrimary, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: BORDER_RADIUS.full },
+  modeSwitchIcon: { fontSize: 14, color: COLORS.textPrimary },
+  modeSwitchText: { fontSize: 13, fontWeight: '700', color: COLORS.textPrimary },
   userCard: {
     backgroundColor: COLORS.primary, marginHorizontal: SPACING.md, marginTop: SPACING.md,
     borderRadius: BORDER_RADIUS.xl, padding: SPACING.lg, alignItems: 'center',
@@ -124,7 +124,7 @@ function getStyles() { return StyleSheet.create({
   section: { marginTop: SPACING.lg, paddingHorizontal: SPACING.md },
   sectionTitle: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: SPACING.sm, marginLeft: SPACING.xs },
   menuItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.xs, gap: SPACING.md },
-  menuIcon: { fontSize: 22, width: 30, textAlign: 'center' },
+  menuIcon: { fontSize: 22, width: 30, textAlign: 'center', color: COLORS.textPrimary },
   menuContent: { flex: 1 },
   menuLabel: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
   menuSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
@@ -132,9 +132,9 @@ function getStyles() { return StyleSheet.create({
   logoutButton: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.sm,
     marginHorizontal: SPACING.md, marginTop: SPACING.lg, paddingVertical: SPACING.md,
-    borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: '#fee2e2', backgroundColor: '#fff5f5',
+    borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.grayLight, backgroundColor: COLORS.grayLight,
   },
-  logoutIcon: { fontSize: 18 },
-  logoutText: { fontSize: 15, fontWeight: '600', color: '#ef4444' },
+  logoutIcon: { fontSize: 18, color: COLORS.textPrimary },
+  logoutText: { fontSize: 15, fontWeight: '600', color: COLORS.error },
   versionText: { textAlign: 'center', fontSize: 12, color: COLORS.gray, marginTop: SPACING.md },
 }); }

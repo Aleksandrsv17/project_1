@@ -26,6 +26,7 @@ import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/cons
 import { useAuthStore } from '../../store/authStore';
 import { Vehicle } from '../../api/vehicles';
 import { CustomerTabParamList } from '../../navigation/CustomerNavigator';
+import { getMapStyle } from '../../themes/mapStyles';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -216,7 +217,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapView
+      <MapView customMapStyle={getMapStyle()}
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
@@ -233,7 +234,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             onPress={() => handleVehiclePress(vehicle)}
           >
             <View style={styles.vehicleMarker}>
-              <Text style={styles.vehicleMarkerText}>🚗</Text>
+              <Text style={styles.vehicleMarkerText}>◆</Text>
             </View>
           </Marker>
         ))}
@@ -273,12 +274,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             <View style={styles.greetingRow}>
               <View>
                 <Text style={styles.greetingText}>
-                  Hello, {user?.fullName?.split(' ')[0] ?? 'there'} 👋
+                  Hello, {user?.fullName?.split(' ')[0] ?? 'there'} 
                 </Text>
                 <Text style={styles.greetingSubtitle}>Where to today?</Text>
               </View>
               <TouchableOpacity style={styles.notifButton}>
-                <Text style={styles.notifIcon}>🔔</Text>
+                <Text style={styles.notifIcon}>●</Text>
               </TouchableOpacity>
             </View>
 
@@ -291,7 +292,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
           {/* Center button */}
           <TouchableOpacity style={styles.myLocationButton} onPress={handleCenterMap}>
-            <Text style={styles.myLocationIcon}>📍</Text>
+            <Text style={styles.myLocationIcon}>▼</Text>
           </TouchableOpacity>
 
           {/* Bottom sheet */}
@@ -512,7 +513,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   />
                   {!pickupText && (
                     <TouchableOpacity onPress={handleUseMyLocation} style={styles.myLocBtn}>
-                      <Text style={styles.myLocText}>📍</Text>
+                      <Text style={styles.myLocText}>▼</Text>
                     </TouchableOpacity>
                   )}
                 </TouchableOpacity>
@@ -547,7 +548,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               <View style={styles.predictionsCard}>
                 {predictions.map((p) => (
                   <TouchableOpacity key={p.placeId} style={styles.predictionRow} onPress={() => handleSelectPlace(p)}>
-                    <Text style={styles.predictionPin}>📍</Text>
+                    <Text style={styles.predictionPin}>▼</Text>
                     <View style={styles.predictionText}>
                       <Text style={styles.predictionMain} numberOfLines={1}>{p.mainText}</Text>
                       <Text style={styles.predictionSub} numberOfLines={1}>{p.secondaryText}</Text>
@@ -563,9 +564,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             <View style={styles.routeBottomCard}>
               {routeInfo && (
                 <View style={styles.routeInfoRow}>
-                  <Text style={styles.routeInfoText}>🕐 {routeInfo.duration}</Text>
+                  <Text style={styles.routeInfoText}>◔ {routeInfo.duration}</Text>
                   <Text style={styles.routeInfoDot}>·</Text>
-                  <Text style={styles.routeInfoText}>📍 {routeInfo.distance}</Text>
+                  <Text style={styles.routeInfoText}>▼ {routeInfo.distance}</Text>
                 </View>
               )}
               <TouchableOpacity style={styles.findVehiclesButton} onPress={handleRequestRide}>
@@ -593,7 +594,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             {/* Pulsing circle */}
             <Animated.View style={[styles.pulseCircleOuter, { transform: [{ scale: pulseAnim }] }]}>
               <View style={styles.pulseCircleInner}>
-                <Text style={styles.pulseIcon}>🚗</Text>
+                <Text style={styles.pulseIcon}>◆</Text>
               </View>
             </Animated.View>
 
@@ -604,7 +605,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
             {routeInfo && (
               <View style={styles.searchingRouteInfo}>
-                <Text style={styles.searchingRouteText}>🕐 {routeInfo.duration}  ·  📍 {routeInfo.distance}</Text>
+                <Text style={styles.searchingRouteText}>◔ {routeInfo.duration}  ·  ▼ {routeInfo.distance}</Text>
               </View>
             )}
 
@@ -630,14 +631,14 @@ function getStyles() { return StyleSheet.create({
   headerOverlay: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm },
   greetingRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)', paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+    backgroundColor: COLORS.grayLight, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.lg, marginBottom: SPACING.sm,
     shadowColor: COLORS.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
   },
   greetingText: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
   greetingSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   notifButton: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center' },
-  notifIcon: { fontSize: 18 },
+  notifIcon: { fontSize: 18, color: COLORS.textPrimary },
 
   searchBar: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white,
@@ -648,13 +649,13 @@ function getStyles() { return StyleSheet.create({
   searchPlaceholder: { fontSize: 16, color: COLORS.gray, flex: 1 },
 
   vehicleMarker: { backgroundColor: COLORS.white, borderRadius: 20, padding: 6, shadowColor: COLORS.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 4 },
-  vehicleMarkerText: { fontSize: 20 },
+  vehicleMarkerText: { fontSize: 20, color: COLORS.textPrimary },
   myLocationButton: {
     position: 'absolute', right: SPACING.md, top: SCREEN_HEIGHT * 0.28,
     backgroundColor: COLORS.white, width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center',
     shadowColor: COLORS.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.15, shadowRadius: 6, elevation: 4,
   },
-  myLocationIcon: { fontSize: 20 },
+  myLocationIcon: { fontSize: 20, color: COLORS.textPrimary },
 
   bottomSheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.white,
@@ -669,7 +670,7 @@ function getStyles() { return StyleSheet.create({
     width: '47%', backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.lg,
     paddingVertical: SPACING.md, alignItems: 'center', gap: 4,
   },
-  quickActionIcon: { fontSize: 28 },
+  quickActionIcon: { fontSize: 28, color: COLORS.textPrimary },
   quickActionLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
   nearbyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.md, marginBottom: SPACING.sm },
   nearbyTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
@@ -707,7 +708,7 @@ function getStyles() { return StyleSheet.create({
   inputField: { flex: 1, fontSize: 15, color: COLORS.textPrimary },
   inputDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: 2, marginLeft: SPACING.sm },
   myLocBtn: { padding: 4 },
-  myLocText: { fontSize: 18 },
+  myLocText: { fontSize: 18 , color: COLORS.textPrimary },
   clearBtn: { fontSize: 14, color: COLORS.gray, padding: 4 },
 
   predictionsCard: {
@@ -719,7 +720,7 @@ function getStyles() { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.sm, paddingHorizontal: SPACING.md,
     borderBottomWidth: 1, borderBottomColor: COLORS.grayLight, gap: SPACING.sm,
   },
-  predictionPin: { fontSize: 16 },
+  predictionPin: { fontSize: 16, color: COLORS.textPrimary },
   predictionText: { flex: 1 },
   predictionMain: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   predictionSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
@@ -751,7 +752,7 @@ function getStyles() { return StyleSheet.create({
   // ── Searching mode ──
   searchingHeader: { paddingHorizontal: SPACING.md },
   searchingHeaderCard: {
-    backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: BORDER_RADIUS.lg,
+    backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.lg,
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
     shadowColor: COLORS.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
   },
@@ -777,7 +778,7 @@ function getStyles() { return StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center', alignItems: 'center',
   },
-  pulseIcon: { fontSize: 30 },
+  pulseIcon: { fontSize: 30, color: COLORS.textPrimary },
   searchingTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.xs },
   searchingTimer: { fontSize: 28, fontWeight: '800', color: COLORS.accent, marginBottom: SPACING.md },
   searchingRouteInfo: {
@@ -787,8 +788,8 @@ function getStyles() { return StyleSheet.create({
   searchingRouteText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
   searchingHint: { fontSize: 13, color: COLORS.gray, marginBottom: SPACING.lg },
   cancelSearchButton: {
-    borderWidth: 1, borderColor: '#fee2e2', backgroundColor: '#fff5f5',
+    borderWidth: 1, borderColor: COLORS.grayLight, backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xxl,
   },
-  cancelSearchText: { fontSize: 15, fontWeight: '600', color: '#ef4444' },
+  cancelSearchText: { fontSize: 15, fontWeight: '600', color: COLORS.error },
 }); }

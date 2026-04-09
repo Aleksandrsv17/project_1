@@ -19,6 +19,7 @@ import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/cons
 import { formatCurrency } from '../../utils/formatters';
 import { Vehicle } from '../../api/vehicles';
 import { OwnerTabParamList } from '../../navigation/OwnerNavigator';
+import { getMapStyle } from '../../themes/mapStyles';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -78,7 +79,7 @@ export function FleetMapScreen({ navigation }: FleetMapScreenProps) {
 
   return (
     <View style={styles.container}>
-      <MapView
+      <MapView customMapStyle={getMapStyle()}
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
@@ -103,7 +104,7 @@ export function FleetMapScreen({ navigation }: FleetMapScreenProps) {
                 selectedVehicle?.id === vehicle.id && styles.markerSelected,
               ]}
             >
-              <Text style={styles.vehicleMarkerText}>🚗</Text>
+              <Text style={styles.vehicleMarkerText}>◆</Text>
             </View>
           </Marker>
         ))}
@@ -117,7 +118,7 @@ export function FleetMapScreen({ navigation }: FleetMapScreenProps) {
                 anchor={{ x: 0.5, y: 0.5 }}
               >
                 <View style={styles.bookingMarker}>
-                  <Text style={styles.bookingMarkerText}>📍</Text>
+                  <Text style={styles.bookingMarkerText}>▼</Text>
                 </View>
               </Marker>
             )}
@@ -127,7 +128,7 @@ export function FleetMapScreen({ navigation }: FleetMapScreenProps) {
                 anchor={{ x: 0.5, y: 0.5 }}
               >
                 <View style={styles.bookingMarker}>
-                  <Text style={styles.bookingMarkerText}>🏁</Text>
+                  <Text style={styles.bookingMarkerText}>◻</Text>
                 </View>
               </Marker>
             )}
@@ -159,7 +160,7 @@ export function FleetMapScreen({ navigation }: FleetMapScreenProps) {
             </Text>
           </View>
           <TouchableOpacity style={styles.centerButton} onPress={handleCenterOnFleet}>
-            <Text style={styles.centerButtonText}>📍</Text>
+            <Text style={styles.centerButtonText}>▼</Text>
           </TouchableOpacity>
         </View>
 
@@ -251,7 +252,7 @@ function getStyles() { return StyleSheet.create({
   headerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.97)',
+    backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -269,14 +270,14 @@ function getStyles() { return StyleSheet.create({
     backgroundColor: COLORS.grayLight,
     justifyContent: 'center', alignItems: 'center',
   },
-  centerButtonText: { fontSize: 18 },
+  centerButtonText: { fontSize: 18 , color: COLORS.textPrimary },
   filterRow: {
     flexDirection: 'row',
     gap: SPACING.xs,
     marginTop: SPACING.sm,
   },
   filterChip: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: COLORS.grayLight,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs + 2,
     borderRadius: BORDER_RADIUS.full,
@@ -295,18 +296,18 @@ function getStyles() { return StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2, shadowRadius: 4, elevation: 4,
   },
-  markerAvailable: { backgroundColor: '#d1fae5' },
-  markerBooked: { backgroundColor: '#fee2e2' },
+  markerAvailable: { backgroundColor: COLORS.grayLight },
+  markerBooked: { backgroundColor: COLORS.grayLight },
   markerSelected: {
     borderWidth: 3, borderColor: COLORS.accent,
     transform: [{ scale: 1.2 }],
   },
-  vehicleMarkerText: { fontSize: 20 },
+  vehicleMarkerText: { fontSize: 20, color: COLORS.textPrimary },
   bookingMarker: {
     backgroundColor: 'rgba(201,168,76,0.2)',
     borderRadius: 12, padding: 4,
   },
-  bookingMarkerText: { fontSize: 14 },
+  bookingMarkerText: { fontSize: 14, color: COLORS.textPrimary },
   detailCard: {
     position: 'absolute',
     bottom: 0, left: 0, right: 0,
@@ -334,9 +335,9 @@ function getStyles() { return StyleSheet.create({
     paddingHorizontal: SPACING.sm, paddingVertical: 4,
     borderRadius: BORDER_RADIUS.sm,
   },
-  statusAvailable: { backgroundColor: '#d1fae5' },
-  statusBooked: { backgroundColor: '#fee2e2' },
-  statusText: { fontSize: 11, fontWeight: '700' },
+  statusAvailable: { backgroundColor: COLORS.grayLight },
+  statusBooked: { backgroundColor: COLORS.grayLight },
+  statusText: { fontSize: 11, fontWeight: '700' , color: COLORS.textPrimary },
   detailCardStats: {
     flexDirection: 'row', marginTop: SPACING.md,
     backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md,

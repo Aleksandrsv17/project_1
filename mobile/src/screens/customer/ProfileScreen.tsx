@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,9 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CustomerTabParamList } from '../../navigation/MainNavigator';
@@ -23,9 +25,36 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { user, logout } = useAuthStore();
   const { setMode } = useAppModeStore();
 
+  const [avatarUri, setAvatarUri] = useState<string | null>(user?.avatarUrl ?? null);
+
   const initials = user?.fullName
     ? user.fullName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     : '?';
+
+  async function handlePickAvatar() {
+    Alert.alert('Profile Photo', 'Choose an option', [
+      {
+        text: 'Take Photo',
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perm.granted) { Alert.alert('Permission Required', 'Camera access is needed.'); return; }
+          const result = await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true, aspect: [1, 1] });
+          if (!result.canceled && result.assets[0]) setAvatarUri(result.assets[0].uri);
+        },
+      },
+      {
+        text: 'Choose from Library',
+        onPress: async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+          if (!perm.granted) { Alert.alert('Permission Required', 'Photo library access is needed.'); return; }
+          const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: true, aspect: [1, 1] });
+          if (!result.canceled && result.assets[0]) setAvatarUri(result.assets[0].uri);
+        },
+      },
+      ...(avatarUri ? [{ text: 'Remove Photo', style: 'destructive' as const, onPress: () => setAvatarUri(null) }] : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }
 
   function handleLogout() {
     Alert.alert('Logout', 'Are you sure you want to log out?', [
@@ -47,16 +76,28 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
           <TouchableOpacity style={styles.modeSwitch} onPress={() => setMode('owner')}>
-            <Text style={styles.modeSwitchIcon}>🚗</Text>
+            <Text style={styles.modeSwitchIcon}>◆</Text>
             <Text style={styles.modeSwitchText}>Rent Out</Text>
           </TouchableOpacity>
         </View>
 
         {/* User card */}
         <View style={styles.userCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
+          <TouchableOpacity style={styles.avatarContainer} onPress={handlePickAvatar} activeOpacity={0.8}>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+            )}
+            <View style={styles.avatarEditBadge}>
+              <Text style={styles.avatarEditIcon}>+</Text>
+            </View>
+            {!avatarUri && (
+              <Text style={styles.avatarHint}>Add photo</Text>
+            )}
+          </TouchableOpacity>
           <Text style={styles.userName}>{user?.fullName || 'User'}</Text>
           <Text style={styles.userEmail}>{user?.email || ''}</Text>
           <Text style={styles.userPhone}>{user?.phone || ''}</Text>
@@ -64,7 +105,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           {/* KYC Status */}
           <View style={[styles.kycBadge, user?.kycVerified ? styles.kycVerified : styles.kycPending]}>
             <Text style={[styles.kycText, user?.kycVerified ? styles.kycTextVerified : styles.kycTextPending]}>
-              {user?.kycVerified ? '✓ KYC Verified' : '⏳ KYC Pending'}
+              {user?.kycVerified ? '✓ KYC Verified' : '◌ KYC Pending'}
             </Text>
           </View>
         </View>
@@ -74,20 +115,20 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           <Text style={styles.sectionTitle}>Account</Text>
 
           <MenuItem
-            icon="👤"
+            icon="○"
             label="Personal Information"
             subtitle="Name, email, phone"
             onPress={() => Alert.alert('Profile', `Name: ${user?.fullName}\nEmail: ${user?.email}\nPhone: ${user?.phone}`)}
           />
           <MenuItem
-            icon="🪪"
+            icon="▫"
             label="KYC Verification"
             subtitle={user?.kycVerified ? 'Verified' : 'Complete your verification'}
             onPress={() => Alert.alert('KYC', user?.kycVerified ? 'Your identity is verified.' : 'Please complete KYC from the registration flow or contact support.')}
             badge={!user?.kycVerified ? 'Required' : undefined}
           />
           <MenuItem
-            icon="💳"
+            icon="▬"
             label="Payment Methods"
             subtitle="Manage cards & wallets"
             onPress={() => Alert.alert('Coming Soon', 'Payment methods management will be available soon.')}
@@ -98,19 +139,19 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           <Text style={styles.sectionTitle}>Activity</Text>
 
           <MenuItem
-            icon="📋"
+            icon="☰"
             label="Order History"
             subtitle="View past bookings & trips"
             onPress={() => navigation.navigate('BookingHistory' as never)}
           />
           <MenuItem
-            icon="⭐"
+            icon="★"
             label="My Reviews"
             subtitle="Reviews you've given"
             onPress={() => Alert.alert('Coming Soon', 'Reviews section will be available soon.')}
           />
           <MenuItem
-            icon="❤️"
+            icon="♡"
             label="Saved Vehicles"
             subtitle="Your favorites"
             onPress={() => Alert.alert('Coming Soon', 'Favorites will be available soon.')}
@@ -121,19 +162,19 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           <Text style={styles.sectionTitle}>Support</Text>
 
           <MenuItem
-            icon="💬"
+            icon="⊟"
             label="Chat with Support"
             subtitle="Get help from our team"
             onPress={() => navigation.navigate('Support' as never)}
           />
           <MenuItem
-            icon="❓"
+            icon="?"
             label="FAQ"
             subtitle="Frequently asked questions"
             onPress={() => Alert.alert('FAQ', 'FAQ section coming soon.')}
           />
           <MenuItem
-            icon="📞"
+            icon="↗"
             label="Call Us"
             subtitle="+971 800 VIP (847)"
             onPress={() => Alert.alert('Call Support', 'Phone support: +971 800 VIP (847)')}
@@ -144,19 +185,19 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           <Text style={styles.sectionTitle}>Settings</Text>
 
           <MenuItem
-            icon="⚙️"
+            icon="⊕"
             label="App Settings"
             subtitle="Notifications, language, theme"
             onPress={() => navigation.navigate('Settings' as never)}
           />
           <MenuItem
-            icon="🔒"
+            icon="▪"
             label="Privacy & Security"
             subtitle="Password, data, permissions"
             onPress={() => Alert.alert('Coming Soon', 'Privacy settings will be available soon.')}
           />
           <MenuItem
-            icon="📄"
+            icon="≡"
             label="Terms & Conditions"
             subtitle="Legal information"
             onPress={() => Alert.alert('Terms', 'Terms & Conditions — coming soon.')}
@@ -165,7 +206,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
 
         {/* Logout */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutIcon}>🚪</Text>
+          <Text style={styles.logoutIcon}>→</Text>
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
@@ -235,18 +276,20 @@ function getStyles() { return StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: COLORS.primary,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: COLORS.textPrimary,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     borderRadius: BORDER_RADIUS.full,
   },
   modeSwitchIcon: {
-    fontSize: 14,
+    fontSize: 14, color: COLORS.textPrimary,
   },
   modeSwitchText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.accent,
+    color: COLORS.textPrimary,
   },
   userCard: {
     backgroundColor: COLORS.primary,
@@ -256,24 +299,65 @@ function getStyles() { return StyleSheet.create({
     padding: SPACING.lg,
     alignItems: 'center',
   },
-  avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: COLORS.accent,
-    justifyContent: 'center',
+  avatarContainer: {
     alignItems: 'center',
     marginBottom: SPACING.sm,
+    position: 'relative',
+  },
+  avatarImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  avatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: COLORS.grayDark,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.gray,
+    borderStyle: 'dashed',
+  },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: '50%',
+    marginRight: -44,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.textPrimary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.background,
+  },
+  avatarEditIcon: {
+    color: COLORS.background,
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  avatarHint: {
+    fontSize: 11,
+    color: COLORS.gray,
+    marginTop: 6,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
   },
   avatarText: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: COLORS.primary,
+    fontSize: 32,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
   userName: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.textPrimary,
   },
   userEmail: {
     fontSize: 13,
@@ -292,20 +376,20 @@ function getStyles() { return StyleSheet.create({
     borderRadius: BORDER_RADIUS.full,
   },
   kycVerified: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: COLORS.grayLight,
   },
   kycPending: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: COLORS.grayLight,
   },
   kycText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '700', color: COLORS.textPrimary,
   },
   kycTextVerified: {
-    color: '#065f46',
+    color: COLORS.textPrimary,
   },
   kycTextPending: {
-    color: '#92400e',
+    color: COLORS.textSecondary,
   },
   section: {
     marginTop: SPACING.lg,
@@ -332,7 +416,7 @@ function getStyles() { return StyleSheet.create({
   menuIcon: {
     fontSize: 22,
     width: 30,
-    textAlign: 'center',
+    textAlign: 'center', color: COLORS.textPrimary,
   },
   menuContent: {
     flex: 1,
@@ -353,7 +437,7 @@ function getStyles() { return StyleSheet.create({
     marginTop: 2,
   },
   menuBadge: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: COLORS.grayLight,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: BORDER_RADIUS.sm,
@@ -361,7 +445,7 @@ function getStyles() { return StyleSheet.create({
   menuBadgeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#991b1b',
+    color: COLORS.error,
   },
   menuArrow: {
     fontSize: 22,
@@ -378,16 +462,16 @@ function getStyles() { return StyleSheet.create({
     paddingVertical: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
-    borderColor: '#fee2e2',
-    backgroundColor: '#fff5f5',
+    borderColor: COLORS.grayLight,
+    backgroundColor: COLORS.grayLight,
   },
   logoutIcon: {
-    fontSize: 18,
+    fontSize: 18, color: COLORS.textPrimary,
   },
   logoutText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#ef4444',
+    color: COLORS.error,
   },
   versionText: {
     textAlign: 'center',

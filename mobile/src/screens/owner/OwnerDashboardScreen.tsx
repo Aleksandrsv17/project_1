@@ -23,6 +23,7 @@ import { Booking } from '../../api/bookings';
 import { useAuthStore } from '../../store/authStore';
 import { OwnerTabParamList } from '../../navigation/OwnerNavigator';
 import { Alert } from 'react-native';
+import { getMapStyle } from '../../themes/mapStyles';
 
 type OwnerDashboardProps = {
   navigation: BottomTabNavigationProp<OwnerTabParamList, 'OwnerDashboard'>;
@@ -91,7 +92,7 @@ export function OwnerDashboardScreen({ navigation }: OwnerDashboardProps) {
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>
-              Hello, {user?.fullName.split(' ')[0] ?? 'Owner'} 👋
+              Hello, {user?.fullName.split(' ')[0] ?? 'Owner'} 
             </Text>
             <Text style={styles.headerSubtitle}>Your fleet overview</Text>
           </View>
@@ -115,31 +116,31 @@ export function OwnerDashboardScreen({ navigation }: OwnerDashboardProps) {
             <EarningsCard
               label="Total Earnings"
               value={formatCurrencyCompact(earnings.totalEarnings)}
-              icon="💰"
+              icon="¤"
               color="#1a1a2e"
             />
             <EarningsCard
               label="This Month"
               value={formatCurrencyCompact(earnings.thisMonthEarnings)}
-              icon="📈"
+              icon="↗"
               color="#065f46"
             />
             <EarningsCard
               label="Total Bookings"
               value={`${earnings.totalBookings}`}
-              icon="📋"
+              icon="☰"
               color="#1e40af"
             />
             <EarningsCard
               label="Active Now"
               value={`${earnings.activeBookings}`}
-              icon="🚗"
+              icon="◆"
               color="#7c3aed"
             />
             <EarningsCard
               label="Pending Payout"
               value={formatCurrencyCompact(earnings.pendingPayouts)}
-              icon="⏳"
+              icon="◌"
               color="#92400e"
             />
           </ScrollView>
@@ -191,17 +192,17 @@ export function OwnerDashboardScreen({ navigation }: OwnerDashboardProps) {
             <VehicleStat
               label="Total Vehicles"
               value={`${vehicles?.length ?? 0}`}
-              icon="🚗"
+              icon="◆"
             />
             <VehicleStat
               label="Available"
               value={`${vehicles?.filter((v) => v.isAvailable).length ?? 0}`}
-              icon="✅"
+              icon="✓"
             />
             <VehicleStat
               label="Booked"
               value={`${vehicles?.filter((v) => !v.isAvailable).length ?? 0}`}
-              icon="🔒"
+              icon="▪"
             />
           </View>
         </View>
@@ -216,7 +217,7 @@ export function OwnerDashboardScreen({ navigation }: OwnerDashboardProps) {
               </TouchableOpacity>
             </View>
             <View style={styles.miniMapContainer}>
-              <MapView
+              <MapView customMapStyle={getMapStyle()}
                 style={styles.miniMap}
                 provider={PROVIDER_GOOGLE}
                 initialRegion={
@@ -246,10 +247,10 @@ export function OwnerDashboardScreen({ navigation }: OwnerDashboardProps) {
                     <View
                       style={[
                         styles.miniMapMarker,
-                        { backgroundColor: v.isAvailable ? '#d1fae5' : '#fee2e2' },
+                        { backgroundColor: v.isAvailable ? COLORS.grayLight : COLORS.grayLight },
                       ]}
                     >
-                      <Text style={{ fontSize: 14 }}>🚗</Text>
+                      <Text style={{ fontSize: 14 }}>◆</Text>
                     </View>
                   </Marker>
                 ))}
@@ -260,7 +261,7 @@ export function OwnerDashboardScreen({ navigation }: OwnerDashboardProps) {
                   <Text style={styles.legendText}>Available</Text>
                 </View>
                 <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
+                  <View style={[styles.legendDot, { backgroundColor: COLORS.error }]} />
                   <Text style={styles.legendText}>Booked</Text>
                 </View>
                 <Text style={styles.legendTap}>Tap to expand</Text>
@@ -381,7 +382,7 @@ function getStyles() { return StyleSheet.create({
     gap: 4,
   },
   earningsIcon: {
-    fontSize: 24,
+    fontSize: 24, color: COLORS.textPrimary,
   },
   earningsValue: {
     fontSize: 20,
@@ -428,7 +429,7 @@ function getStyles() { return StyleSheet.create({
     fontWeight: '600',
   },
   confirmButton: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: COLORS.grayLight,
     borderWidth: 1,
     borderColor: '#10b981',
     borderRadius: BORDER_RADIUS.md,
@@ -438,7 +439,7 @@ function getStyles() { return StyleSheet.create({
     marginBottom: SPACING.md,
   },
   confirmButtonText: {
-    color: '#065f46',
+    color: COLORS.textPrimary,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -457,7 +458,7 @@ function getStyles() { return StyleSheet.create({
     borderColor: COLORS.border,
   },
   vehicleStatIcon: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textPrimary,
   },
   vehicleStatValue: {
     fontSize: 22,

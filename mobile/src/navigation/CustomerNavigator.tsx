@@ -74,7 +74,7 @@ function CustomerTabs() {
         component={HomeScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="🏠" focused={focused} label="Home" />
+            <TabIcon icon="⌂" focused={focused} label="Home" />
           ),
         }}
       />
@@ -83,7 +83,7 @@ function CustomerTabs() {
         component={VehicleListScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="🚗" focused={focused} label="Browse" />
+            <TabIcon icon="◆" focused={focused} label="Browse" />
           ),
         }}
       />
@@ -92,7 +92,7 @@ function CustomerTabs() {
         component={BookingHistoryScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="📋" focused={focused} label="Bookings" />
+            <TabIcon icon="☰" focused={focused} label="Bookings" />
           ),
         }}
       />
@@ -101,7 +101,7 @@ function CustomerTabs() {
         component={ProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="👤" focused={focused} label="Profile" />
+            <TabIcon icon="○" focused={focused} label="Profile" />
           ),
         }}
       />
@@ -185,13 +185,13 @@ const tabStyles = StyleSheet.create({
     minWidth: 60,
   },
   tabItemFocused: {
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
   },
   tabIcon: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textSecondary,
   },
   tabIconFocused: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textPrimary,
   },
   tabLabel: {
     fontSize: 10,

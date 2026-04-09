@@ -56,7 +56,7 @@ function OwnerTabs() {
         component={OwnerDashboardScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="📊" focused={focused} label="Dashboard" />
+            <TabIcon icon="≡" focused={focused} label="Dashboard" />
           ),
         }}
       />
@@ -65,7 +65,7 @@ function OwnerTabs() {
         component={FleetMapScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="🗺️" focused={focused} label="Map" />
+            <TabIcon icon="◎" focused={focused} label="Map" />
           ),
         }}
       />
@@ -74,7 +74,7 @@ function OwnerTabs() {
         component={MyVehiclesScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="🚗" focused={focused} label="My Fleet" />
+            <TabIcon icon="◆" focused={focused} label="My Fleet" />
           ),
         }}
       />
@@ -83,7 +83,7 @@ function OwnerTabs() {
         component={AddVehicleScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="➕" focused={focused} label="Add" />
+            <TabIcon icon="+" focused={focused} label="Add" />
           ),
         }}
       />
@@ -92,7 +92,7 @@ function OwnerTabs() {
         component={OwnerProfileScreen}
         options={{
           tabBarIcon: ({ focused }) => (
-            <TabIcon icon="👤" focused={focused} label="Profile" />
+            <TabIcon icon="○" focused={focused} label="Profile" />
           ),
         }}
       />
@@ -131,10 +131,10 @@ const tabStyles = StyleSheet.create({
     minWidth: 60,
   },
   tabItemFocused: {
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
   },
   tabIcon: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textSecondary,
   },
   tabLabel: {
     fontSize: 10,

@@ -43,7 +43,9 @@ function ShineButton({ title, onPress, disabled, loading, theme }: {
       disabled={disabled}
       activeOpacity={0.85}
       style={{
-        backgroundColor: theme.colors.accent,
+        backgroundColor: theme.colors.accent === '#000000' ? 'transparent' : theme.colors.accent,
+        borderWidth: theme.colors.accent === '#000000' ? 1 : 0,
+        borderColor: '#FFFFFF',
         borderRadius: theme.button.borderRadius,
         paddingVertical: theme.button.paddingVertical,
         alignItems: 'center',
@@ -187,7 +189,7 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
                   style={{ position: 'absolute', right: SPACING.md, top: 0, bottom: 0, justifyContent: 'center' }}
                   onPress={() => setShowPassword(v => !v)}
                 >
-                  <Text style={{ fontSize: 18 }}>{showPassword ? '🙈' : '👁️'}</Text>
+                  <Text style={{ fontSize: 12, color: theme.colors.textSecondary, fontWeight: '500', letterSpacing: 0.5 }}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
                 </TouchableOpacity>
               </View>
               {passwordError ? <Text style={{ fontSize: 12, color: theme.colors.error, marginTop: 4 }}>{passwordError}</Text> : null}

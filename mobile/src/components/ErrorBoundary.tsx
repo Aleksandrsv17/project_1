@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: 48,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.md, color: COLORS.textPrimary,
   },
   title: {
     fontSize: 20,
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
   },
   inlineContainer: {
     padding: SPACING.md,
-    backgroundColor: '#fee2e2',
+    backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.md,
     margin: SPACING.md,
     alignItems: 'center',

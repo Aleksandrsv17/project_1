@@ -24,6 +24,7 @@ import { uploadVehicleImages, getLibraryImages, LibraryImage } from '../../api/u
 import { COLORS, SPACING, BORDER_RADIUS, VEHICLE_CATEGORIES, DEFAULT_REGION } from '../../utils/constants';
 import { AddVehiclePayload } from '../../api/vehicles';
 import { OwnerStackParamList } from '../../navigation/OwnerNavigator';
+import { getMapStyle } from '../../themes/mapStyles';
 
 type AddVehicleScreenProps = {
   navigation: NativeStackNavigationProp<OwnerStackParamList, 'AddVehicle'>;
@@ -301,7 +302,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
       setSelectedFeatures([]); setPickupAddress(detectedAddress ?? ''); setPickupCity('Dubai');
 
       Alert.alert(
-        'Vehicle Added! 🎉',
+        'Vehicle Added! !',
         'Your vehicle has been listed and is now visible to customers.',
         [{ text: 'View My Fleet', onPress: () => navigation.goBack() }]
       );
@@ -446,7 +447,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
               ))}
               {images.length < 8 && (
                 <TouchableOpacity style={styles.addPhotoButton} onPress={handleAddPhoto}>
-                  <Text style={styles.addPhotoIcon}>📷</Text>
+                  <Text style={styles.addPhotoIcon}>⊞</Text>
                   <Text style={styles.addPhotoText}>Add Photo</Text>
                 </TouchableOpacity>
               )}
@@ -505,7 +506,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
 
             {libraryImages.length === 0 ? (
               <View style={styles.libraryEmpty}>
-                <Text style={styles.libraryEmptyIcon}>📷</Text>
+                <Text style={styles.libraryEmptyIcon}>⊞</Text>
                 <Text style={styles.libraryEmptyText}>No library images yet</Text>
                 <Text style={styles.libraryEmptySubtext}>
                   The admin will upload car photos to the library soon.
@@ -591,7 +592,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
 
             {/* Pricing tips */}
             <View style={styles.tipsCard}>
-              <Text style={styles.tipsTitle}>💡 Pricing Tips</Text>
+              <Text style={styles.tipsTitle}>• Pricing Tips</Text>
               <Text style={styles.tipsText}>
                 • Daily rate is usually 6-8× the hourly rate{'\n'}
                 • Compare with similar vehicles in your area{'\n'}
@@ -625,14 +626,14 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
               style={styles.locationDropdown}
               onPress={() => setShowCountryPicker(!showCountryPicker)}
             >
-              <Text style={styles.locationDropdownIcon}>🌐</Text>
+              <Text style={styles.locationDropdownIcon}>◯</Text>
               <Text style={styles.locationDropdownText}>{pickupCountry}</Text>
               <Text style={styles.locationDropdownArrow}>{showCountryPicker ? '▲' : '▼'}</Text>
             </TouchableOpacity>
             {showCountryPicker && (
               <View style={styles.countryPickerContainer}>
                 <View style={styles.countrySearchBox}>
-                  <Text style={{ fontSize: 14 }}>🔍</Text>
+                  <Text style={{ fontSize: 14 }}>⌕</Text>
                   <TextInput
                     style={styles.countrySearchInput}
                     value={countrySearch}
@@ -684,7 +685,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
               <View style={styles.addressPredictions}>
                 {addressPredictions.map((p: PlacePrediction) => (
                   <TouchableOpacity key={p.placeId} style={styles.addressPredRow} onPress={() => handleSelectAddress(p)}>
-                    <Text style={styles.addressPredPin}>📍</Text>
+                    <Text style={styles.addressPredPin}>▼</Text>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.addressPredMain} numberOfLines={1}>{p.mainText}</Text>
                       <Text style={styles.addressPredSub} numberOfLines={1}>{p.secondaryText}</Text>
@@ -703,13 +704,13 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
                   setPinCoords({ latitude: location.latitude, longitude: location.longitude });
                 }}
               >
-                <Text style={styles.useLocationText}>📍 Use my current location</Text>
+                <Text style={styles.useLocationText}>▼ Use my current location</Text>
               </TouchableOpacity>
             )}
 
             {/* Map with pin */}
             <View style={[styles.mapPickerContainer, { marginTop: SPACING.md }]}>
-              <MapView
+              <MapView customMapStyle={getMapStyle()}
                 style={styles.mapPicker}
                 provider={PROVIDER_GOOGLE}
                 region={{
@@ -729,7 +730,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
               >
                 <Marker coordinate={pinCoords}>
                   <View style={styles.mapPinMarker}>
-                    <Text style={styles.mapPinText}>📍</Text>
+                    <Text style={styles.mapPinText}>▼</Text>
                   </View>
                 </Marker>
               </MapView>
@@ -765,7 +766,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
                 <ActivityIndicator color={COLORS.primary} size="small" />
               ) : (
                 <Text style={styles.nextButtonText}>
-                  {currentStep === STEPS.length - 1 ? 'List Vehicle 🚀' : 'Next →'}
+                  {currentStep === STEPS.length - 1 ? 'List Vehicle →' : 'Next →'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -1031,7 +1032,7 @@ function getStyles() { return StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   addPhotoIcon: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textPrimary,
   },
   addPhotoText: {
     fontSize: 10,
@@ -1094,7 +1095,7 @@ function getStyles() { return StyleSheet.create({
     transform: [{ translateX: 22 }],
   },
   tipsCard: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginTop: SPACING.sm,
@@ -1102,23 +1103,23 @@ function getStyles() { return StyleSheet.create({
   tipsTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1e40af',
+    color: COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
   tipsText: {
     fontSize: 13,
-    color: '#1e40af',
+    color: COLORS.textPrimary,
     lineHeight: 20,
   },
   useLocationButton: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',
     marginTop: SPACING.sm,
   },
   useLocationText: {
-    color: '#1e40af',
+    color: COLORS.textPrimary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -1145,7 +1146,7 @@ function getStyles() { return StyleSheet.create({
     elevation: 4,
   },
   mapPinText: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textPrimary,
   },
   mapAddressBar: {
     backgroundColor: COLORS.white,
@@ -1167,7 +1168,7 @@ function getStyles() { return StyleSheet.create({
     paddingVertical: 12,
     gap: SPACING.sm,
   },
-  locationDropdownIcon: { fontSize: 16 },
+  locationDropdownIcon: { fontSize: 16, color: COLORS.textPrimary },
   locationDropdownText: { flex: 1, fontSize: 15, color: COLORS.textPrimary, fontWeight: '500' },
   locationDropdownArrow: { fontSize: 12, color: COLORS.textSecondary },
   countryPickerContainer: {
@@ -1199,7 +1200,7 @@ function getStyles() { return StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.grayLight,
   },
-  countryItemActive: { backgroundColor: '#fefce8' },
+  countryItemActive: { backgroundColor: COLORS.grayLight },
   countryItemText: { fontSize: 15, color: COLORS.textPrimary },
   countryItemTextActive: { color: COLORS.accent, fontWeight: '700' },
   countryCheck: { fontSize: 16, color: COLORS.accent, fontWeight: '700' },
@@ -1234,7 +1235,7 @@ function getStyles() { return StyleSheet.create({
     borderBottomColor: COLORS.grayLight,
     gap: SPACING.sm,
   },
-  addressPredPin: { fontSize: 14 },
+  addressPredPin: { fontSize: 14, color: COLORS.textPrimary },
   addressPredMain: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   addressPredSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
   uploadingRow: {
@@ -1352,7 +1353,7 @@ function getStyles() { return StyleSheet.create({
     padding: SPACING.xl,
   },
   libraryEmptyIcon: {
-    fontSize: 48,
+    fontSize: 48, color: COLORS.textPrimary,
   },
   libraryEmptyText: {
     fontSize: 16,

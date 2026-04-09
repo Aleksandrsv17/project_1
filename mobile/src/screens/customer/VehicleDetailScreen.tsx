@@ -22,6 +22,7 @@ import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
 import { formatCurrency, formatVehicleName } from '../../utils/formatters';
 import { CustomerStackParamList } from '../../navigation/CustomerNavigator';
 import { useBookingStore } from '../../store/bookingStore';
+import { getMapStyle } from '../../themes/mapStyles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -162,10 +163,10 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
 
           {/* Specs Grid */}
           <View style={styles.specsGrid}>
-            <SpecCard icon="💺" label="Seats" value={`${vehicle.seats}`} />
-            <SpecCard icon="⚙️" label="Transmission" value={vehicle.transmission} />
-            <SpecCard icon="⛽" label="Fuel" value={vehicle.fuelType} />
-            <SpecCard icon="📅" label="Year" value={`${vehicle.year}`} />
+            <SpecCard icon="⊡" label="Seats" value={`${vehicle.seats}`} />
+            <SpecCard icon="⊕" label="Transmission" value={vehicle.transmission} />
+            <SpecCard icon="◈" label="Fuel" value={vehicle.fuelType} />
+            <SpecCard icon="□" label="Year" value={`${vehicle.year}`} />
           </View>
 
           {/* Description */}
@@ -192,7 +193,7 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Vehicle Location</Text>
             <View style={styles.mapContainer}>
-              <MapView
+              <MapView customMapStyle={getMapStyle()}
                 style={styles.miniMap}
                 provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
                 initialRegion={{
@@ -213,7 +214,7 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
                   }}
                 >
                   <View style={styles.mapMarker}>
-                    <Text style={styles.mapMarkerText}>🚗</Text>
+                    <Text style={styles.mapMarkerText}>◆</Text>
                   </View>
                 </Marker>
               </MapView>
@@ -230,7 +231,7 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
               onPress={() => setSelectedMode('self_drive')}
             >
               <View style={styles.modeLeft}>
-                <Text style={styles.modeIcon}>🔑</Text>
+                <Text style={styles.modeIcon}>—</Text>
                 <View>
                   <Text style={styles.modeTitle}>Self Drive</Text>
                   <Text style={styles.modeSubtitle}>Drive it yourself</Text>
@@ -247,7 +248,7 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
                 onPress={() => setSelectedMode('chauffeur')}
               >
                 <View style={styles.modeLeft}>
-                  <Text style={styles.modeIcon}>🎩</Text>
+                  <Text style={styles.modeIcon}>∧</Text>
                   <View>
                     <Text style={styles.modeTitle}>With Chauffeur</Text>
                     <Text style={styles.modeSubtitle}>Professional driver included</Text>
@@ -348,7 +349,7 @@ function getStyles() { return StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: COLORS.grayLight,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -418,24 +419,24 @@ function getStyles() { return StyleSheet.create({
     textTransform: 'capitalize',
   },
   availableBadge: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: COLORS.grayLight,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.sm,
   },
   availableText: {
-    color: '#065f46',
+    color: COLORS.textPrimary,
     fontSize: 12,
     fontWeight: '700',
   },
   unavailableBadge: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: COLORS.grayLight,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.sm,
   },
   unavailableText: {
-    color: '#991b1b',
+    color: COLORS.error,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -470,7 +471,7 @@ function getStyles() { return StyleSheet.create({
     borderColor: COLORS.border,
   },
   specIcon: {
-    fontSize: 20,
+    fontSize: 20, color: COLORS.textPrimary,
   },
   specValue: {
     fontSize: 13,
@@ -532,7 +533,7 @@ function getStyles() { return StyleSheet.create({
     elevation: 4,
   },
   mapMarkerText: {
-    fontSize: 20,
+    fontSize: 20, color: COLORS.textPrimary,
   },
   mapAddress: {
     fontSize: 12,
@@ -553,7 +554,7 @@ function getStyles() { return StyleSheet.create({
   },
   modeOptionActive: {
     borderColor: COLORS.accent,
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
   },
   modeLeft: {
     flexDirection: 'row',
@@ -561,7 +562,7 @@ function getStyles() { return StyleSheet.create({
     gap: SPACING.md,
   },
   modeIcon: {
-    fontSize: 24,
+    fontSize: 24, color: COLORS.textPrimary,
   },
   modeTitle: {
     fontSize: 15,

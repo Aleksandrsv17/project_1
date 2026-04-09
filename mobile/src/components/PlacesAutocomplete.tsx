@@ -99,7 +99,7 @@ export function PlacesAutocomplete({
   return (
     <View style={styles.container}>
       <View style={styles.inputRow}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Text style={styles.searchIcon}>⌕</Text>
         <TextInput
           style={styles.input}
           value={value}
@@ -139,7 +139,7 @@ export function PlacesAutocomplete({
                 style={styles.predictionRow}
                 onPress={() => handleSelectPrediction(item)}
               >
-                <Text style={styles.predictionPin}>📍</Text>
+                <Text style={styles.predictionPin}>▼</Text>
                 <View style={styles.predictionTextContainer}>
                   <Text style={styles.predictionMain} numberOfLines={1}>
                     {item.mainText}
@@ -176,7 +176,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   searchIcon: {
-    fontSize: 14,
+    fontSize: 14, color: COLORS.textPrimary,
   },
   input: {
     flex: 1,
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   predictionPin: {
-    fontSize: 14,
+    fontSize: 14, color: COLORS.textPrimary,
   },
   predictionTextContainer: {
     flex: 1,

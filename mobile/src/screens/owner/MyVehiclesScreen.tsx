@@ -104,7 +104,7 @@ export function MyVehiclesScreen({ navigation }: MyVehiclesScreenProps) {
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>🚗</Text>
+              <Text style={styles.emptyIcon}>◆</Text>
               <Text style={styles.emptyTitle}>No vehicles listed</Text>
               <Text style={styles.emptySubtitle}>
                 Add your first vehicle to start earning.
@@ -173,10 +173,10 @@ function VehicleManageCard({
             style={styles.deleteButton}
             onPress={onDelete}
           >
-            <Text style={styles.deleteButtonText}>🗑 Delete</Text>
+            <Text style={styles.deleteButtonText}>✕ Delete</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.editButton} onPress={() => Alert.alert('Edit Vehicle', 'Vehicle editing will be available in the next update.')}>
-            <Text style={styles.editButtonText}>✏️ Edit</Text>
+            <Text style={styles.editButtonText}>/ Edit</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -312,8 +312,8 @@ function getStyles() { return StyleSheet.create({
   deleteButton: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#fee2e2',
-    backgroundColor: '#fff5f5',
+    borderColor: COLORS.grayLight,
+    backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.md,
     paddingVertical: SPACING.sm,
     alignItems: 'center',
@@ -343,7 +343,7 @@ function getStyles() { return StyleSheet.create({
     gap: SPACING.sm,
   },
   emptyIcon: {
-    fontSize: 48,
+    fontSize: 48, color: COLORS.textPrimary,
   },
   emptyTitle: {
     fontSize: 18,

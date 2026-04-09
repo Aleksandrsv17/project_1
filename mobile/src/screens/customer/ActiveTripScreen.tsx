@@ -22,6 +22,7 @@ import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { COLORS, SPACING, BORDER_RADIUS, SOCKET_URL } from '../../utils/constants';
 import { formatETA, formatDateTime } from '../../utils/formatters';
 import { CustomerStackParamList } from '../../navigation/CustomerNavigator';
+import { getMapStyle } from '../../themes/mapStyles';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -195,7 +196,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
   return (
     <View style={styles.container}>
       {/* Map */}
-      <MapView
+      <MapView customMapStyle={getMapStyle()}
         ref={mapRef}
         style={styles.map}
         provider={PROVIDER_GOOGLE}
@@ -209,7 +210,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
           title="Pickup"
         >
           <View style={styles.pickupMarker}>
-            <Text style={styles.markerText}>📍</Text>
+            <Text style={styles.markerText}>▼</Text>
           </View>
         </Marker>
 
@@ -220,7 +221,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
             title="Drop-off"
           >
             <View style={styles.dropoffMarker}>
-              <Text style={styles.markerText}>🏁</Text>
+              <Text style={styles.markerText}>◻</Text>
             </View>
           </Marker>
         )}
@@ -232,7 +233,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
             title="Your Vehicle"
           >
             <View style={styles.vehicleMarker}>
-              <Text style={styles.vehicleMarkerText}>🚗</Text>
+              <Text style={styles.vehicleMarkerText}>◆</Text>
             </View>
           </Marker>
         )}
@@ -283,7 +284,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
         {/* ETA */}
         {(eta !== null || routeInfo) && (
           <View style={styles.etaBar}>
-            <Text style={styles.etaIcon}>🕐</Text>
+            <Text style={styles.etaIcon}>◔</Text>
             <Text style={styles.etaText}>
               {routeInfo
                 ? `${routeInfo.durationText} · ${routeInfo.distanceText}`
@@ -295,18 +296,18 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
         {/* Trip Info */}
         <View style={styles.tripInfo}>
           <TripInfoRow
-            icon="🚗"
+            icon="◆"
             label="Vehicle"
             value={`${booking.vehicle.year} ${booking.vehicle.make} ${booking.vehicle.model}`}
           />
           <TripInfoRow
-            icon="📍"
+            icon="▼"
             label="Pickup"
             value={booking.pickupLocation.address}
           />
           {booking.dropoffLocation && (
             <TripInfoRow
-              icon="🏁"
+              icon="◻"
               label="Drop-off"
               value={booking.dropoffLocation.address}
             />
@@ -317,7 +318,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
             value={formatDateTime(booking.endTime)}
           />
           <TripInfoRow
-            icon="💳"
+            icon="▬"
             label="Payment"
             value={booking.paymentStatus === 'paid' ? 'Paid ✓' : 'Pending'}
           />
@@ -343,7 +344,7 @@ export function ActiveTripScreen({ navigation, route }: ActiveTripScreenProps) {
         {booking.status === 'confirmed' && (
           <SafeAreaView edges={['bottom']}>
             <View style={styles.waitingBanner}>
-              <Text style={styles.waitingText}>⏳ Waiting for your vehicle to depart...</Text>
+              <Text style={styles.waitingText}>◌ Waiting for your vehicle to depart...</Text>
             </View>
           </SafeAreaView>
         )}
@@ -381,7 +382,7 @@ function getStyles() { return StyleSheet.create({
   headerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.97)',
+    backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
@@ -429,7 +430,7 @@ function getStyles() { return StyleSheet.create({
     color: COLORS.textSecondary,
   },
   statusBadge: {
-    backgroundColor: '#d1fae5',
+    backgroundColor: COLORS.grayLight,
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
     borderRadius: BORDER_RADIUS.sm,
@@ -437,7 +438,7 @@ function getStyles() { return StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#065f46',
+    color: COLORS.textPrimary,
   },
   pickupMarker: {
     backgroundColor: COLORS.white,
@@ -465,10 +466,10 @@ function getStyles() { return StyleSheet.create({
     elevation: 6,
   },
   vehicleMarkerText: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textPrimary,
   },
   markerText: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textPrimary,
   },
   bottomPanel: {
     position: 'absolute',
@@ -498,7 +499,7 @@ function getStyles() { return StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   etaIcon: {
-    fontSize: 16,
+    fontSize: 16, color: COLORS.textPrimary,
   },
   etaText: {
     color: COLORS.accent,
@@ -517,7 +518,7 @@ function getStyles() { return StyleSheet.create({
   },
   tripInfoIcon: {
     fontSize: 14,
-    width: 20,
+    width: 20, color: COLORS.textPrimary,
   },
   tripInfoLabel: {
     fontSize: 12,
@@ -548,14 +549,14 @@ function getStyles() { return StyleSheet.create({
     fontSize: 16,
   },
   waitingBanner: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',
     marginBottom: SPACING.md,
   },
   waitingText: {
-    color: '#92400e',
+    color: COLORS.textSecondary,
     fontWeight: '600',
     fontSize: 14,
   },

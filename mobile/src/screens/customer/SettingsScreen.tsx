@@ -41,7 +41,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         <Text style={styles.sectionTitle}>Notifications</Text>
         <View style={styles.card}>
           <SettingToggle
-            icon="🔔"
+            icon="●"
             label="Push Notifications"
             subtitle="Booking updates, promotions"
             value={pushNotifications}
@@ -49,7 +49,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           />
           <View style={styles.divider} />
           <SettingToggle
-            icon="📧"
+            icon="✉"
             label="Email Notifications"
             subtitle="Receipts, account updates"
             value={emailNotifications}
@@ -57,7 +57,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           />
           <View style={styles.divider} />
           <SettingToggle
-            icon="📱"
+            icon="▯"
             label="SMS Notifications"
             subtitle="Trip alerts, OTP codes"
             value={smsNotifications}
@@ -69,7 +69,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         <Text style={styles.sectionTitle}>Location</Text>
         <View style={styles.card}>
           <SettingToggle
-            icon="📍"
+            icon="▼"
             label="Background Location"
             subtitle="Track trips when app is in background"
             value={locationAlways}
@@ -90,7 +90,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             return (
               <TouchableOpacity
                 key={t}
-                style={[styles.settingRow, themeName === t && { backgroundColor: t === 'concept-car' ? '#F0EBE3' : '#fefce8' }]}
+                style={[styles.settingRow, themeName === t && { backgroundColor: t === 'concept-car' ? '#F0EBE3' : COLORS.grayLight }]}
                 onPress={() => setThemeName(t)}
               >
                 <View style={{ width: 48, height: 32, backgroundColor: m.bg, borderRadius: m.br, justifyContent: 'center', alignItems: 'center' }}>
@@ -111,18 +111,18 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         {/* Language */}
         <Text style={styles.sectionTitle}>Preferences</Text>
         <View style={styles.card}>
-          <SettingRow icon="🌐" label="Language" value="English" />
+          <SettingRow icon="◯" label="Language" value="English" />
           <View style={styles.divider} />
-          <SettingRow icon="💰" label="Currency" value="AED" />
+          <SettingRow icon="¤" label="Currency" value="AED" />
           <View style={styles.divider} />
-          <SettingRow icon="📏" label="Distance Unit" value="Kilometers" />
+          <SettingRow icon="⊡" label="Distance Unit" value="Kilometers" />
         </View>
 
         {/* Data */}
         <Text style={styles.sectionTitle}>Data & Storage</Text>
         <View style={styles.card}>
           <TouchableOpacity style={styles.settingRow}>
-            <Text style={styles.settingIcon}>🗑️</Text>
+            <Text style={styles.settingIcon}>✕️</Text>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Clear Cache</Text>
               <Text style={styles.settingSubtitle}>Free up storage space</Text>
@@ -206,7 +206,7 @@ function getStyles() { return StyleSheet.create({
   settingRow: {
     flexDirection: 'row', alignItems: 'center', padding: SPACING.md, gap: SPACING.md,
   },
-  settingIcon: { fontSize: 20, width: 26, textAlign: 'center' },
+  settingIcon: { fontSize: 20, width: 26, textAlign: 'center', color: COLORS.textPrimary },
   settingContent: { flex: 1 },
   settingLabel: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
   settingSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },

@@ -23,9 +23,9 @@ type KYCScreenProps = {
 type DocType = 'passport' | 'national_id' | 'drivers_license';
 
 const DOC_TYPES: { value: DocType; label: string; icon: string }[] = [
-  { value: 'passport', label: 'Passport', icon: '📘' },
-  { value: 'national_id', label: 'National ID', icon: '🪪' },
-  { value: 'drivers_license', label: "Driver's License", icon: '🚗' },
+  { value: 'passport', label: 'Passport', icon: '▫' },
+  { value: 'national_id', label: 'National ID', icon: '▫' },
+  { value: 'drivers_license', label: "Driver's License", icon: '◆' },
 ];
 
 export function KYCScreen({ navigation }: KYCScreenProps) {
@@ -144,7 +144,7 @@ export function KYCScreen({ navigation }: KYCScreenProps) {
             <Image source={{ uri: frontImage }} style={styles.uploadedImage} resizeMode="cover" />
           ) : (
             <View style={styles.uploadPlaceholder}>
-              <Text style={styles.uploadIcon}>📄</Text>
+              <Text style={styles.uploadIcon}>≡</Text>
               <Text style={styles.uploadText}>Tap to upload front of document</Text>
             </View>
           )}
@@ -159,7 +159,7 @@ export function KYCScreen({ navigation }: KYCScreenProps) {
                 <Image source={{ uri: backImage }} style={styles.uploadedImage} resizeMode="cover" />
               ) : (
                 <View style={styles.uploadPlaceholder}>
-                  <Text style={styles.uploadIcon}>📄</Text>
+                  <Text style={styles.uploadIcon}>≡</Text>
                   <Text style={styles.uploadText}>Tap to upload back of document</Text>
                 </View>
               )}
@@ -174,7 +174,7 @@ export function KYCScreen({ navigation }: KYCScreenProps) {
             <Image source={{ uri: selfieImage }} style={styles.selfieImage} resizeMode="cover" />
           ) : (
             <View style={styles.uploadPlaceholder}>
-              <Text style={styles.uploadIcon}>🤳</Text>
+              <Text style={styles.uploadIcon}>○</Text>
               <Text style={styles.uploadText}>Tap to take a selfie</Text>
             </View>
           )}
@@ -183,7 +183,7 @@ export function KYCScreen({ navigation }: KYCScreenProps) {
         {/* Info Box */}
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
-            🔒 Your documents are encrypted and stored securely. We only use them for identity verification.
+            ▪ Your documents are encrypted and stored securely. We only use them for identity verification.
           </Text>
         </View>
 
@@ -262,11 +262,11 @@ function getStyles() { return StyleSheet.create({
   },
   docTypeSelected: {
     borderColor: COLORS.accent,
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
   },
   docTypeIcon: {
     fontSize: 22,
-    marginBottom: 4,
+    marginBottom: 4, color: COLORS.textPrimary,
   },
   docTypeLabel: {
     fontSize: 11,
@@ -275,7 +275,7 @@ function getStyles() { return StyleSheet.create({
     fontWeight: '500',
   },
   docTypeLabelSelected: {
-    color: '#78350f',
+    color: COLORS.textSecondary,
     fontWeight: '700',
   },
   uploadBox: {
@@ -297,7 +297,7 @@ function getStyles() { return StyleSheet.create({
     gap: SPACING.sm,
   },
   uploadIcon: {
-    fontSize: 32,
+    fontSize: 32, color: COLORS.textPrimary,
   },
   uploadText: {
     fontSize: 13,
@@ -313,14 +313,14 @@ function getStyles() { return StyleSheet.create({
     height: '100%',
   },
   infoBox: {
-    backgroundColor: '#dbeafe',
+    backgroundColor: COLORS.grayLight,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     marginTop: SPACING.md,
   },
   infoText: {
     fontSize: 13,
-    color: '#1e40af',
+    color: COLORS.textPrimary,
     lineHeight: 20,
   },
   submitButton: {

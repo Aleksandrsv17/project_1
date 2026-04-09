@@ -13,6 +13,7 @@ interface BookingCardProps {
 }
 
 export function BookingCard({ booking, onPress, showActions, onCancel }: BookingCardProps) {
+  const styles = getStyles();
   const statusConfig = getBookingStatusConfig(booking.status);
   const startTime = booking.startTime || booking.createdAt || new Date().toISOString();
   const endTime = booking.endTime || startTime;
@@ -47,12 +48,12 @@ export function BookingCard({ booking, onPress, showActions, onCancel }: Booking
 
       <View style={styles.details}>
         <DetailRow
-          icon="📅"
+          icon="□"
           label="From"
           value={formatDateTime(startTime)}
         />
         <DetailRow
-          icon="🏁"
+          icon="◻"
           label="To"
           value={formatDateTime(endTime)}
         />
@@ -62,7 +63,7 @@ export function BookingCard({ booking, onPress, showActions, onCancel }: Booking
           value={formatDuration(durationHours)}
         />
         <DetailRow
-          icon="🚗"
+          icon="◆"
           label="Mode"
           value={booking.mode === 'chauffeur' ? 'With Chauffeur' : 'Self Drive'}
         />
@@ -88,6 +89,7 @@ export function BookingCard({ booking, onPress, showActions, onCancel }: Booking
 }
 
 function DetailRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  const styles = getStyles();
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailIcon}>{icon}</Text>
@@ -97,7 +99,7 @@ function DetailRow({ icon, label, value }: { icon: string; label: string; value:
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   card: {
     backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.lg,
@@ -141,7 +143,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '600', color: COLORS.textPrimary,
   },
   divider: {
     height: 1,
@@ -159,7 +161,7 @@ const styles = StyleSheet.create({
   },
   detailIcon: {
     fontSize: 14,
-    width: 20,
+    width: 20, color: COLORS.textPrimary,
   },
   detailLabel: {
     fontSize: 13,
@@ -204,4 +206,4 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-});
+}); }

@@ -167,7 +167,7 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
               style={[styles.modeButton, mode === 'self_drive' && styles.modeButtonActive]}
               onPress={() => setMode('self_drive')}
             >
-              <Text style={styles.modeButtonIcon}>🔑</Text>
+              <Text style={styles.modeButtonIcon}>—</Text>
               <Text style={[styles.modeButtonText, mode === 'self_drive' && styles.modeButtonTextActive]}>
                 Self Drive
               </Text>
@@ -177,7 +177,7 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
                 style={[styles.modeButton, mode === 'chauffeur' && styles.modeButtonActive]}
                 onPress={() => setMode('chauffeur')}
               >
-                <Text style={styles.modeButtonIcon}>🎩</Text>
+                <Text style={styles.modeButtonIcon}>∧</Text>
                 <Text style={[styles.modeButtonText, mode === 'chauffeur' && styles.modeButtonTextActive]}>
                   Chauffeur
                 </Text>
@@ -395,10 +395,10 @@ function getStyles() { return StyleSheet.create({
   },
   modeButtonActive: {
     borderColor: COLORS.accent,
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
   },
   modeButtonIcon: {
-    fontSize: 20,
+    fontSize: 20, color: COLORS.textPrimary,
   },
   modeButtonText: {
     fontSize: 14,
@@ -406,7 +406,7 @@ function getStyles() { return StyleSheet.create({
     color: COLORS.textSecondary,
   },
   modeButtonTextActive: {
-    color: '#78350f',
+    color: COLORS.textSecondary,
   },
   timeControl: {
     flexDirection: 'row',

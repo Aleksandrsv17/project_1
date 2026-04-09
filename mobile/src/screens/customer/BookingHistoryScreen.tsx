@@ -164,14 +164,14 @@ export function BookingHistoryScreen({ navigation }: BookingHistoryScreenProps) 
                   style={styles.rateButton}
                   onPress={() => openRatingModal(item)}
                 >
-                  <Text style={styles.rateButtonText}>⭐ Rate this booking</Text>
+                  <Text style={styles.rateButtonText}>★ Rate this booking</Text>
                 </TouchableOpacity>
               )}
             </View>
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>📋</Text>
+              <Text style={styles.emptyIcon}>☰</Text>
               <Text style={styles.emptyTitle}>No bookings yet</Text>
               <Text style={styles.emptySubtitle}>
                 Your booking history will appear here.
@@ -304,7 +304,7 @@ function getStyles() { return StyleSheet.create({
     borderBottomColor: COLORS.grayLight,
   },
   statusPickerItemActive: {
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
   },
   statusPickerText: {
     fontSize: 15,
@@ -324,7 +324,7 @@ function getStyles() { return StyleSheet.create({
     paddingBottom: SPACING.xxl,
   },
   rateButton: {
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
     borderWidth: 1,
     borderColor: '#f59e0b',
     borderRadius: BORDER_RADIUS.md,
@@ -335,7 +335,7 @@ function getStyles() { return StyleSheet.create({
     marginHorizontal: 0,
   },
   rateButtonText: {
-    color: '#92400e',
+    color: COLORS.textSecondary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -345,7 +345,7 @@ function getStyles() { return StyleSheet.create({
     gap: SPACING.sm,
   },
   emptyIcon: {
-    fontSize: 48,
+    fontSize: 48, color: COLORS.textPrimary,
   },
   emptyTitle: {
     fontSize: 18,

@@ -76,7 +76,7 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
           style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
           onPress={() => setShowFilters(true)}
         >
-          <Text style={styles.filterIcon}>⚙️</Text>
+          <Text style={styles.filterIcon}>⊕</Text>
           {activeFilterCount > 0 && (
             <View style={styles.filterBadge}>
               <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
@@ -87,7 +87,7 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
 
       {/* Search by City */}
       <View style={styles.searchContainer}>
-        <Text style={styles.searchIcon}>🔍</Text>
+        <Text style={styles.searchIcon}>⌕</Text>
         <TextInput
           style={styles.searchInput}
           value={citySearch}
@@ -177,7 +177,7 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
           )}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyIcon}>🚗</Text>
+              <Text style={styles.emptyIcon}>◆</Text>
               <Text style={styles.emptyTitle}>No vehicles found</Text>
               <Text style={styles.emptySubtitle}>Try adjusting your filters or search.</Text>
             </View>
@@ -290,7 +290,7 @@ function getStyles() { return StyleSheet.create({
     // Indicator handled by badge
   },
   filterIcon: {
-    fontSize: 22,
+    fontSize: 22, color: COLORS.textPrimary,
   },
   filterBadge: {
     position: 'absolute',
@@ -321,7 +321,7 @@ function getStyles() { return StyleSheet.create({
     gap: SPACING.sm,
   },
   searchIcon: {
-    fontSize: 15,
+    fontSize: 15, color: COLORS.textPrimary,
   },
   searchInput: {
     flex: 1,
@@ -369,7 +369,7 @@ function getStyles() { return StyleSheet.create({
     borderBottomColor: COLORS.grayLight,
   },
   categoryPickerItemActive: {
-    backgroundColor: '#fefce8',
+    backgroundColor: COLORS.grayLight,
   },
   categoryPickerText: {
     fontSize: 15,
@@ -441,7 +441,7 @@ function getStyles() { return StyleSheet.create({
     gap: SPACING.sm,
   },
   emptyIcon: {
-    fontSize: 48,
+    fontSize: 48, color: COLORS.textPrimary,
   },
   emptyTitle: {
     fontSize: 18,
