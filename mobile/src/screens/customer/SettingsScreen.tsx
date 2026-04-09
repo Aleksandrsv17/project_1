@@ -85,6 +85,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
               'default':      { bg: '#c9a84c', br: 8, lbl: 'VIP Classic',  sub: 'Rounded, gold accents, classic',        preview: 'Btn', ls: 0 },
               'luxury-flat':  { bg: '#1E1E1E', br: 0, lbl: 'Luxury Flat',  sub: 'Sharp corners, monochrome, uppercase',  preview: 'BTN', ls: 1 },
               'concept-car':  { bg: '#2C2A26', br: 2, lbl: 'Concept Car',  sub: 'Angular, warm sand tones, geometric',   preview: 'RIDE', ls: 2 },
+              'sandbox':      { bg: '#000000', br: 0, lbl: 'Sandbox',      sub: 'Testing new designs (copy of Luxury)',  preview: 'TEST', ls: 1 },
             };
             const m = meta[t] ?? meta['default'];
             return (

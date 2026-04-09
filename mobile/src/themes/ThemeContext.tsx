@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState } from 'react';
 import { defaultTheme } from './default/theme';
 import { luxuryFlatTheme } from './luxury-flat/theme';
 import { conceptCarTheme } from './concept-car/theme';
+import { sandboxTheme } from './sandbox/theme';
 import { COLORS, BORDER_RADIUS } from '../utils/constants';
 
 export interface AppTheme {
@@ -81,6 +82,7 @@ const THEMES: Record<string, AppTheme> = {
   default: defaultTheme,
   'luxury-flat': luxuryFlatTheme,
   'concept-car': conceptCarTheme,
+  'sandbox': sandboxTheme,
 };
 
 interface ThemeContextType {
