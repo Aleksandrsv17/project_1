@@ -102,7 +102,7 @@ export const completeBookingSchema = Joi.object({
 });
 
 export const cancelBookingSchema = Joi.object({
-  cancellation_reason: Joi.string().max(500).required(),
+  cancellation_reason: Joi.string().max(500).allow('').default('Cancelled by user'),
 });
 
 export const bookingQuerySchema = Joi.object({

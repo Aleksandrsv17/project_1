@@ -195,7 +195,7 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
             <View style={styles.mapContainer}>
               <MapView customMapStyle={getMapStyle()}
                 style={styles.miniMap}
-                provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+                provider={PROVIDER_GOOGLE}
                 initialRegion={{
                   latitude: vehicle.location.latitude,
                   longitude: vehicle.location.longitude,
@@ -213,8 +213,11 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
                     longitude: vehicle.location.longitude,
                   }}
                 >
-                  <View style={styles.mapMarker}>
-                    <Text style={styles.mapMarkerText}>◆</Text>
+                  <View style={styles.mapPin}>
+                    <View style={styles.mapPinHead}>
+                      <Text style={styles.mapPinIcon}>◆</Text>
+                    </View>
+                    <View style={styles.mapPinNeedle} />
                   </View>
                 </Marker>
               </MapView>
@@ -522,18 +525,25 @@ function getStyles() { return StyleSheet.create({
     width: '100%',
     height: 160,
   },
-  mapMarker: {
-    backgroundColor: COLORS.white,
-    borderRadius: 20,
-    padding: 6,
-    shadowColor: COLORS.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+  mapPin: {
+    alignItems: 'center',
   },
-  mapMarkerText: {
-    fontSize: 20, color: COLORS.textPrimary,
+  mapPinHead: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#d9c0a4',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mapPinIcon: {
+    fontSize: 14,
+    color: '#000000',
+  },
+  mapPinNeedle: {
+    width: 2,
+    height: 14,
+    backgroundColor: '#d9c0a4',
   },
   mapAddress: {
     fontSize: 12,

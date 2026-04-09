@@ -76,6 +76,26 @@ export interface AppTheme {
     lg: number;
     xl: number;
   };
+  layout?: {
+    // Home screen
+    showNearbySection?: boolean;
+    showGreetingBar?: boolean;
+    showSearchBar?: boolean;
+    showQuickActions?: boolean;
+    showVehicleMarkers?: boolean;
+    // Profile screen
+    showKycBadge?: boolean;
+    showModeSwitch?: boolean;
+    showProfilePhoto?: boolean;
+    // Browse screen
+    showCategoryDropdown?: boolean;
+    showChauffeurToggle?: boolean;
+    // Vehicle detail
+    showMiniMap?: boolean;
+    showSpecsGrid?: boolean;
+    // Booking
+    showRouteInfo?: boolean;
+  };
 }
 
 const THEMES: Record<string, AppTheme> = {

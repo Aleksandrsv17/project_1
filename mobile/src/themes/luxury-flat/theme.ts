@@ -8,7 +8,7 @@ export const luxuryFlatTheme: AppTheme = {
     accent: '#000000',
     accentLight: '#1A1A1A',
     background: '#000000',
-    surface: '#0A0A0A',
+    surface: '#000000',
     surfaceBorder: '#222222',
     textPrimary: '#FFFFFF',
     textSecondary: '#888888',
@@ -70,5 +70,8 @@ export const luxuryFlatTheme: AppTheme = {
     md: 16,
     lg: 24,
     xl: 32,
+  },
+  layout: {
+    showNearbySection: false,
   },
 };

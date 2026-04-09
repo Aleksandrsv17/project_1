@@ -17,9 +17,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useLayout } from '../../themes/useLayout';
 import { useLocation } from '../../hooks/useLocation';
 import { useNearbyVehicles } from '../../hooks/useVehicles';
-import { searchPlaces, getPlaceDetails, getDirections, decodePolyline, PlacePrediction, LatLng } from '../../api/maps';
+import { searchPlaces, getPlaceDetails, getDirections, decodePolyline, reverseGeocode, PlacePrediction, LatLng } from '../../api/maps';
 import { VehicleCard } from '../../components/VehicleCard';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
@@ -38,6 +39,7 @@ type ViewMode = 'idle' | 'search' | 'route' | 'searching';
 
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const styles = getStyles();
+  const layout = useLayout();
   const { user } = useAuthStore();
   const { location, address: userAddress } = useLocation();
   const mapRef = useRef<MapView>(null);
@@ -53,6 +55,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [routeCoords, setRouteCoords] = useState<LatLng[]>([]);
   const [routeInfo, setRouteInfo] = useState<{ distance: string; duration: string } | null>(null);
   const [searchingSeconds, setSearchingSeconds] = useState(0);
+  const [dropPinFor, setDropPinFor] = useState<'pickup' | 'dest' | null>(null);
+  const [rideType, setRideType] = useState<'sedan' | 'suv' | 'van'>('sedan');
+  const [mapCenter, setMapCenter] = useState<LatLng | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const region = location
@@ -72,6 +77,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     if (field === 'pickup') setPickupText(text);
     else setDestText(text);
     setActiveInput(field);
+    setDropPinFor(null);
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (text.trim().length < 3) { setPredictions([]); return; }
@@ -90,6 +96,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     setPredictions([]);
     Keyboard.dismiss();
 
+    setDropPinFor(null);
     try {
       const details = await getPlaceDetails(prediction.placeId);
       const coords = { latitude: details.latitude, longitude: details.longitude };
@@ -164,6 +171,40 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     setPredictions([]);
   }
 
+  function handleDropPin(field: 'pickup' | 'dest') {
+    Keyboard.dismiss();
+    setPredictions([]);
+    setDropPinFor(field);
+  }
+
+  async function handleConfirmDropPin() {
+    if (!mapCenter || !dropPinFor) return;
+    try {
+      const geo = await reverseGeocode(mapCenter.latitude, mapCenter.longitude);
+      if (dropPinFor === 'pickup') {
+        setPickupCoords(mapCenter);
+        setPickupText(geo.formattedAddress || `${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`);
+      } else {
+        setDestCoords(mapCenter);
+        setDestText(geo.formattedAddress || `${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`);
+      }
+    } catch {
+      if (dropPinFor === 'pickup') {
+        setPickupCoords(mapCenter);
+        setPickupText(`${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`);
+      } else {
+        setDestCoords(mapCenter);
+        setDestText(`${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`);
+      }
+    }
+    setDropPinFor(null);
+
+    // Check if both set → show route
+    const pickup = dropPinFor === 'pickup' ? mapCenter : pickupCoords;
+    const dest = dropPinFor === 'dest' ? mapCenter : destCoords;
+    if (pickup && dest) showRoute(pickup, dest);
+  }
+
   function handleRequestRide() {
     Keyboard.dismiss();
     setViewMode('searching');
@@ -225,9 +266,10 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         showsUserLocation
         showsMyLocationButton={false}
         showsCompass={false}
+        onRegionChangeComplete={(r) => setMapCenter({ latitude: r.latitude, longitude: r.longitude })}
       >
         {/* Vehicle markers (idle mode) */}
-        {viewMode === 'idle' && nearbyVehicles?.map((vehicle) => (
+        {viewMode === 'idle' && layout.showVehicleMarkers && nearbyVehicles?.map((vehicle) => (
           <Marker
             key={vehicle.id}
             coordinate={{ latitude: vehicle.location.latitude, longitude: vehicle.location.longitude }}
@@ -242,8 +284,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         {/* Pickup marker */}
         {pickupCoords && (
           <Marker coordinate={pickupCoords}>
-            <View style={styles.pickupMarker}>
-              <View style={styles.pickupDot} />
+            <View style={styles.pickupPin}>
+              <View style={styles.pickupPinHead}>
+                <Text style={styles.pickupPinIcon}>◆</Text>
+              </View>
+              <View style={styles.pickupPinNeedle} />
             </View>
           </Marker>
         )}
@@ -251,8 +296,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         {/* Destination marker */}
         {destCoords && (
           <Marker coordinate={destCoords}>
-            <View style={styles.destMarker}>
-              <View style={styles.destDot} />
+            <View style={styles.destPin}>
+              <View style={styles.destPinHead}>
+                <Text style={styles.destPinIcon}>◆</Text>
+              </View>
+              <View style={styles.destPinNeedle} />
             </View>
           </Marker>
         )}
@@ -261,33 +309,64 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         {routeCoords.length > 0 && (
           <Polyline
             coordinates={routeCoords}
-            strokeColor={COLORS.primary}
+            strokeColor={'#d9c0a4'}
             strokeWidth={4}
           />
         )}
       </MapView>
 
+      {/* Drop pin mode — fixed center pin */}
+      {dropPinFor && (
+        <>
+          <View style={styles.dropPinOverlay} pointerEvents="none">
+            <View style={styles.dropPinCenter}>
+              <View style={[styles.dropPinCenterHead, dropPinFor === 'pickup' ? { backgroundColor: '#FFFFFF' } : { backgroundColor: '#d9c0a4' }]}>
+                <Text style={styles.dropPinCenterIcon}>◆</Text>
+              </View>
+              <View style={[styles.dropPinCenterNeedle, dropPinFor === 'pickup' ? { backgroundColor: '#FFFFFF' } : { backgroundColor: '#d9c0a4' }]} />
+              <View style={styles.dropPinShadow} />
+            </View>
+          </View>
+          <SafeAreaView style={styles.dropPinUI} edges={['top', 'bottom']} pointerEvents="box-none">
+            <View style={styles.dropPinHeader}>
+              <TouchableOpacity onPress={() => setDropPinFor(null)} style={styles.dropPinCancel}>
+                <Text style={styles.dropPinCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.dropPinFooter}>
+              <TouchableOpacity style={styles.dropPinConfirm} onPress={handleConfirmDropPin}>
+                <Text style={styles.dropPinConfirmText}>CONFIRM LOCATION</Text>
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+        </>
+      )}
+
       {/* ── IDLE MODE: Uber-style search card ── */}
       {viewMode === 'idle' && (
         <>
           <SafeAreaView style={styles.headerOverlay} edges={['top']}>
-            <View style={styles.greetingRow}>
-              <View>
-                <Text style={styles.greetingText}>
-                  Hello, {user?.fullName?.split(' ')[0] ?? 'there'} 
-                </Text>
-                <Text style={styles.greetingSubtitle}>Where to today?</Text>
+            {layout.showGreetingBar && (
+              <View style={styles.greetingRow}>
+                <View>
+                  <Text style={styles.greetingText}>
+                    Hello, {user?.fullName?.split(' ')[0] ?? 'there'}
+                  </Text>
+                  <Text style={styles.greetingSubtitle}>Where to today?</Text>
+                </View>
+                <TouchableOpacity style={styles.notifButton}>
+                  <Text style={styles.notifIcon}>●</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.notifButton}>
-                <Text style={styles.notifIcon}>●</Text>
-              </TouchableOpacity>
-            </View>
+            )}
 
             {/* Destination search bar — tap to expand */}
-            <TouchableOpacity style={styles.searchBar} onPress={handleStartSearch} activeOpacity={0.9}>
-              <View style={styles.searchDot} />
-              <Text style={styles.searchPlaceholder}>Where are you going?</Text>
-            </TouchableOpacity>
+            {layout.showSearchBar && (
+              <TouchableOpacity style={styles.searchBar} onPress={handleStartSearch} activeOpacity={0.9}>
+                <View style={styles.searchDot} />
+                <Text style={styles.searchPlaceholder}>Where are you going?</Text>
+              </TouchableOpacity>
+            )}
           </SafeAreaView>
 
           {/* Center button */}
@@ -298,7 +377,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           {/* Bottom sheet */}
           <View style={styles.bottomSheet}>
             <View style={styles.sheetHandle} />
-            <View style={styles.quickActionsRow}>
+            {layout.showQuickActions && (<View style={styles.quickActionsRow}>
               <TouchableOpacity
                 style={{
                   width: '48%',
@@ -403,31 +482,48 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   textTransform: 'uppercase',
                 }}>Luxury</Text>
               </TouchableOpacity>
-            </View>
+            </View>)}
 
             {/* Nearby */}
-            <View style={styles.nearbyHeader}>
-              <Text style={styles.nearbyTitle}>Nearby</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('VehicleList')}>
-                <Text style={styles.seeAllText}>See all</Text>
-              </TouchableOpacity>
-            </View>
-            {loadingNearby ? (
-              <LoadingSpinner size="small" message="Finding vehicles..." />
-            ) : nearbyVehicles && nearbyVehicles.length > 0 ? (
-              <FlatList
-                data={nearbyVehicles.slice(0, 5)}
-                keyExtractor={(item) => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.nearbyList}
-                renderItem={({ item }) => (
-                  <VehicleCard vehicle={item} onPress={handleVehiclePress} style={styles.nearbyCard} />
-                )}
-              />
-            ) : (
-              <TouchableOpacity style={styles.emptyNearby} onPress={() => navigation.navigate('VehicleList')}>
-                <Text style={styles.emptyNearbyText}>Browse all vehicles →</Text>
+            {layout.showNearbySection && (<>
+              <View style={styles.nearbyHeader}>
+                <Text style={styles.nearbyTitle}>Nearby</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('VehicleList')}>
+                  <Text style={styles.seeAllText}>See all</Text>
+                </TouchableOpacity>
+              </View>
+              {loadingNearby ? (
+                <LoadingSpinner size="small" message="Finding vehicles..." />
+              ) : nearbyVehicles && nearbyVehicles.length > 0 ? (
+                <FlatList
+                  data={nearbyVehicles.slice(0, 5)}
+                  keyExtractor={(item) => item.id}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.nearbyList}
+                  renderItem={({ item }) => (
+                    <VehicleCard vehicle={item} onPress={handleVehiclePress} style={styles.nearbyCard} />
+                  )}
+                />
+              ) : (
+                <TouchableOpacity style={styles.emptyNearby} onPress={() => navigation.navigate('VehicleList')}>
+                  <Text style={styles.emptyNearbyText}>Browse all vehicles →</Text>
+                </TouchableOpacity>
+              )}
+            </>)}
+
+            {/* Sphere button — replaces nearby in sandbox */}
+            {!layout.showNearbySection && (
+              <TouchableOpacity
+                style={styles.sphereButton}
+                onPress={() => navigation.navigate('VehicleList')}
+                activeOpacity={0.9}
+              >
+                <Image
+                  source={require('../../../assets/sphere.gif')}
+                  style={styles.sphereImage}
+                />
+                <Text style={styles.sphereText}>CONCIERGE</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -465,7 +561,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     placeholder="Pickup location"
                     placeholderTextColor={COLORS.gray}
                     onFocus={() => setActiveInput('pickup')}
+                    selectTextOnFocus
                   />
+                  <TouchableOpacity onPress={() => handleDropPin('pickup')} style={styles.dropPinBtn}>
+                    <Text style={styles.dropPinText}>PIN</Text>
+                  </TouchableOpacity>
                   {!pickupText && (
                     <TouchableOpacity onPress={handleUseMyLocation} style={styles.myLocBtn}>
                       <Text style={styles.myLocText}>▼</Text>
@@ -488,7 +588,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     placeholderTextColor={COLORS.gray}
                     onFocus={() => setActiveInput('dest')}
                     autoFocus={viewMode === 'search'}
+                    selectTextOnFocus
                   />
+                  <TouchableOpacity onPress={() => handleDropPin('dest')} style={styles.dropPinBtn}>
+                    <Text style={styles.dropPinText}>PIN</Text>
+                  </TouchableOpacity>
                   {destText.length > 0 && (
                     <TouchableOpacity onPress={() => { setDestText(''); setDestCoords(null); setRouteCoords([]); setRouteInfo(null); }}>
                       <Text style={styles.clearBtn}>✕</Text>
@@ -514,7 +618,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             )}
           </SafeAreaView>
 
-          {/* Route info + request ride button */}
+          {/* Route info + car type + request ride button */}
           {viewMode === 'route' && destCoords && (
             <View style={styles.routeBottomCard}>
               {routeInfo && (
@@ -524,8 +628,39 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   <Text style={styles.routeInfoText}>▼ {routeInfo.distance}</Text>
                 </View>
               )}
+
+              {/* Price estimate */}
+              {routeInfo && (
+                <View style={styles.priceEstimate}>
+                  <Text style={styles.priceEstimateLabel}>starting from</Text>
+                  <Text style={styles.priceEstimateValue}>
+                    ${(parseFloat(routeInfo.distance.replace(/[^0-9.]/g, '')) * 2.5 * (rideType === 'van' ? 1.6 : rideType === 'suv' ? 1.3 : 1)).toFixed(0)}
+                  </Text>
+                </View>
+              )}
+
+              {/* Car type selector */}
+              <View style={styles.carTypeRow}>
+                {([
+                  { key: 'sedan', label: 'Sedan', sub: '1-3' },
+                  { key: 'suv', label: 'SUV', sub: '1-5' },
+                  { key: 'van', label: 'Van', sub: '1-7' },
+                ] as const).map((type) => (
+                  <TouchableOpacity
+                    key={type.key}
+                    style={[styles.carTypeItem, rideType === type.key && styles.carTypeItemActive]}
+                    onPress={() => setRideType(type.key)}
+                  >
+                    <Text style={[styles.carTypeIcon, rideType === type.key && styles.carTypeIconActive]}>
+                      {type.key === 'sedan' ? '◆' : type.key === 'suv' ? '◆◆' : '◆◆◆'}
+                    </Text>
+                    <Text style={[styles.carTypeName, rideType === type.key && styles.carTypeNameActive]}>{type.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
               <TouchableOpacity style={styles.findVehiclesButton} onPress={handleRequestRide}>
-                <Text style={styles.findVehiclesText}>Request Ride</Text>
+                <Text style={styles.findVehiclesText}>Request {rideType === 'sedan' ? 'Sedan' : rideType === 'suv' ? 'SUV' : 'Van'}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -634,6 +769,49 @@ function getStyles() { return StyleSheet.create({
   nearbyCard: { width: 200, marginRight: SPACING.sm, marginBottom: 0 },
   emptyNearby: { padding: SPACING.md, alignItems: 'center' },
   emptyNearbyText: { color: COLORS.textPrimary, fontWeight: '600', fontSize: 14 },
+  dropPinBtn: { paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: COLORS.border, borderRadius: 4 },
+  dropPinText: { fontSize: 9, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 1 },
+  dropPinOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  dropPinCenter: { alignItems: 'center', marginBottom: 46 },
+  dropPinCenterHead: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  dropPinCenterIcon: { fontSize: 16, color: '#000000' },
+  dropPinCenterNeedle: { width: 2, height: 18 },
+  dropPinShadow: { width: 12, height: 4, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.3)', marginTop: 2 },
+  dropPinUI: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', zIndex: 101, pointerEvents: 'box-none' },
+  dropPinHeader: {
+    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
+  },
+  dropPinCancel: { padding: SPACING.xs },
+  dropPinCancelText: { fontSize: 15, color: COLORS.textSecondary },
+  dropPinFooter: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.lg },
+  dropPinConfirm: {
+    backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md,
+    paddingVertical: SPACING.md, alignItems: 'center',
+  },
+  dropPinConfirmText: { fontSize: 14, fontWeight: '700', color: '#000000', letterSpacing: 2 },
+  sphereButton: {
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+  },
+  sphereImage: {
+    width: 120,
+    height: 120,
+    resizeMode: 'cover',
+    borderRadius: 60,
+  },
+  sphereText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    letterSpacing: 4,
+    textTransform: 'uppercase',
+    marginTop: SPACING.xs,
+  },
 
   // ── Search / Route mode ──
   searchOverlay: { paddingHorizontal: SPACING.md },
@@ -652,7 +830,7 @@ function getStyles() { return StyleSheet.create({
   dotsColumn: { width: 20, alignItems: 'center', paddingTop: 14, paddingBottom: 14 },
   greenDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981' },
   dotsLine: { flex: 1, width: 2, backgroundColor: COLORS.border, marginVertical: 4 },
-  redSquare: { width: 10, height: 10, borderRadius: 2, backgroundColor: COLORS.primary },
+  redSquare: { width: 10, height: 10, borderRadius: 2, backgroundColor: '#d9c0a4' },
 
   inputsColumn: { flex: 1 },
   inputRow: {
@@ -681,14 +859,18 @@ function getStyles() { return StyleSheet.create({
   predictionSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
 
   // Markers
-  pickupMarker: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(16,185,129,0.2)', justifyContent: 'center', alignItems: 'center' },
-  pickupDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#10b981', borderWidth: 2, borderColor: COLORS.white },
-  destMarker: { width: 24, height: 24, borderRadius: 4, backgroundColor: 'rgba(26,26,46,0.2)', justifyContent: 'center', alignItems: 'center' },
-  destDot: { width: 12, height: 12, borderRadius: 2, backgroundColor: COLORS.primary, borderWidth: 2, borderColor: COLORS.white },
+  pickupPin: { alignItems: 'center' },
+  pickupPinHead: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
+  pickupPinIcon: { fontSize: 14, color: '#000000' },
+  pickupPinNeedle: { width: 2, height: 14, backgroundColor: '#FFFFFF' },
+  destPin: { alignItems: 'center' },
+  destPinHead: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#d9c0a4', justifyContent: 'center', alignItems: 'center' },
+  destPinIcon: { fontSize: 14, color: '#000000' },
+  destPinNeedle: { width: 2, height: 14, backgroundColor: '#d9c0a4' },
 
   // Route bottom
   routeBottomCard: {
-    position: 'absolute', bottom: 68 + SPACING.md, left: SPACING.md, right: SPACING.md,
+    position: 'absolute', bottom: 12, left: SPACING.md, right: SPACING.md,
     backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md,
     shadowColor: COLORS.black, shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 6,
   },
@@ -698,11 +880,39 @@ function getStyles() { return StyleSheet.create({
   },
   routeInfoText: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
   routeInfoDot: { fontSize: 15, color: COLORS.gray },
+  priceEstimate: {
+    alignItems: 'center', marginBottom: SPACING.md,
+  },
+  priceEstimateLabel: {
+    fontSize: 11, color: COLORS.textSecondary, letterSpacing: 1, textTransform: 'uppercase',
+  },
+  priceEstimateValue: {
+    fontSize: 28, fontWeight: '700', color: '#d9c0a4', marginTop: 2,
+  },
+  carTypeRow: {
+    flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md,
+  },
+  carTypeItem: {
+    flex: 1, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.sm,
+    alignItems: 'center', gap: 2,
+  },
+  carTypeItemActive: {
+    borderColor: '#d9c0a4', backgroundColor: COLORS.grayLight,
+  },
+  carTypeIcon: { fontSize: 10, color: COLORS.textSecondary, letterSpacing: -2 },
+  carTypeIconActive: { color: '#d9c0a4' },
+  carTypeName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
+  carTypeNameActive: { color: '#d9c0a4' },
+  carTypeSub: { fontSize: 11, color: COLORS.textSecondary },
+  carTypeSubActive: { color: COLORS.textPrimary },
+  carTypePrice: { fontSize: 11, color: COLORS.textSecondary, fontWeight: '600' },
+  carTypePriceActive: { color: '#d9c0a4' },
   findVehiclesButton: {
-    backgroundColor: COLORS.primary, borderRadius: BORDER_RADIUS.md,
+    backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md,
     paddingVertical: SPACING.md, alignItems: 'center',
   },
-  findVehiclesText: { color: COLORS.textPrimary, fontWeight: '700', fontSize: 16 },
+  findVehiclesText: { color: '#000000', fontWeight: '700', fontSize: 15, letterSpacing: 1 },
 
   // ── Searching mode ──
   searchingHeader: { paddingHorizontal: SPACING.md },

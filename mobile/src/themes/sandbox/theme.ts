@@ -8,7 +8,7 @@ export const sandboxTheme: AppTheme = {
     accent: '#000000',
     accentLight: '#1A1A1A',
     background: '#000000',
-    surface: '#0A0A0A',
+    surface: '#000000',
     surfaceBorder: '#222222',
     textPrimary: '#FFFFFF',
     textSecondary: '#888888',
@@ -70,5 +70,26 @@ export const sandboxTheme: AppTheme = {
     md: 16,
     lg: 24,
     xl: 32,
+  },
+  // Toggle any section on/off — all default to true if not set
+  layout: {
+    // Home screen
+    showNearbySection: false,
+    showGreetingBar: true,
+    showSearchBar: true,
+    showQuickActions: true,
+    showVehicleMarkers: true,
+    // Profile screen
+    showKycBadge: true,
+    showModeSwitch: true,
+    showProfilePhoto: true,
+    // Browse screen
+    showCategoryDropdown: true,
+    showChauffeurToggle: true,
+    // Vehicle detail
+    showMiniMap: true,
+    showSpecsGrid: true,
+    // Booking
+    showRouteInfo: true,
   },
 };
