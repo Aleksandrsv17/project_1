@@ -17,6 +17,7 @@ export interface Vehicle {
   pricePerDay: number;
   chauffeurAvailable: boolean;
   chauffeurFeePerHour: number;
+  depositAmount: number;
   images: string[];
   description: string;
   location: {
@@ -96,6 +97,7 @@ function mapVehicle(raw: any): Vehicle {
     pricePerDay: parseFloat(raw.daily_rate) || 0,
     chauffeurAvailable: raw.chauffeur_available || false,
     chauffeurFeePerHour: parseFloat(raw.chauffeur_daily_rate) / 8 || 0,
+    depositAmount: parseFloat(raw.deposit_amount) || 500,
     images: raw.media?.map((m: any) => m.url) ?? [],
     description: raw.description || '',
     location: {
@@ -113,7 +115,13 @@ function mapVehicle(raw: any): Vehicle {
 }
 
 export async function getVehicles(filters?: VehicleFilters): Promise<VehicleListResponse> {
-  const response = await apiClient.get('/vehicles', { params: filters });
+  const params: Record<string, any> = { ...filters };
+  // Map camelCase to backend snake_case param names
+  if (params.chauffeurAvailable !== undefined) {
+    params.chauffeur = params.chauffeurAvailable;
+    delete params.chauffeurAvailable;
+  }
+  const response = await apiClient.get('/vehicles', { params });
   const data = response.data?.data ?? response.data;
   const rawVehicles = data?.vehicles ?? [];
   return {

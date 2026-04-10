@@ -34,14 +34,13 @@ export function ChauffeurVehicleListScreen({ navigation, route }: Props) {
 
   const { data, isLoading, refetch, isFetching } = useVehicles({
     chauffeurAvailable: true,
+    city: params.city || undefined,
   });
 
   const vehicles = (data?.vehicles ?? []).filter(v => {
     if (!v.chauffeurAvailable) return false;
-    if (category === 'sedan' && v.category !== 'sedan') return false;
-    if (category === 'suv' && v.category !== 'suv') return false;
-    if (category === 'van' && v.category !== 'van') return false;
-    if (category !== 'all' && category !== 'sedan' && category !== 'suv' && category !== 'van' && v.category !== category) return false;
+    if (params.city && v.location.city.toLowerCase() !== params.city.toLowerCase()) return false;
+    if (category !== 'all' && v.category !== category) return false;
     return true;
   });
 

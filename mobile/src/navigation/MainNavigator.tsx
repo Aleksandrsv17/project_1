@@ -25,6 +25,7 @@ import { MyVehiclesScreen } from '../screens/owner/MyVehiclesScreen';
 import { AddVehicleScreen } from '../screens/owner/AddVehicleScreen';
 import { OwnerProfileScreen } from '../screens/owner/OwnerProfileScreen';
 import { ChauffeurVehicleListScreen } from '../screens/customer/ChauffeurVehicleListScreen';
+import { RentalVehicleListScreen } from '../screens/customer/RentalVehicleListScreen';
 
 import { COLORS, BORDER_RADIUS } from '../utils/constants';
 
@@ -53,6 +54,14 @@ export type MainStackParamList = {
     city?: string;
   };
   RentalSearch: undefined;
+  RentalVehicleList: {
+    pickupCoords?: { latitude: number; longitude: number };
+    pickupText?: string;
+    startDate?: string;
+    endDate?: string;
+    city?: string;
+    carType?: string;
+  };
   AddVehicle: undefined;
 };
 
@@ -147,6 +156,7 @@ export function MainNavigator() {
       <Stack.Screen name="ChauffeurSearch" component={ChauffeurSearchScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="ChauffeurVehicleList" component={ChauffeurVehicleListScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="RentalSearch" component={RentalSearchScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="RentalVehicleList" component={RentalVehicleListScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="AddVehicle" component={AddVehicleScreen} options={{ animation: 'slide_from_bottom' }} />
     </Stack.Navigator>
   );

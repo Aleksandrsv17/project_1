@@ -73,15 +73,10 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Browse Vehicles</Text>
         <TouchableOpacity
-          style={[styles.filterButton, activeFilterCount > 0 && styles.filterButtonActive]}
+          style={styles.filterButton}
           onPress={() => setShowFilters(true)}
         >
           <Text style={styles.filterIcon}>⊕</Text>
-          {activeFilterCount > 0 && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-            </View>
-          )}
         </TouchableOpacity>
       </View>
 
@@ -409,7 +404,7 @@ function getStyles() { return StyleSheet.create({
     justifyContent: 'center',
   },
   toggleActive: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: '#d9c0a4',
   },
   toggleThumb: {
     width: 22,

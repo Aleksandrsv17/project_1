@@ -197,12 +197,16 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         setDestText(`${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`);
       }
     }
+    const newPickup = dropPinFor === 'pickup' ? mapCenter : pickupCoords;
+    const newDest = dropPinFor === 'dest' ? mapCenter : destCoords;
     setDropPinFor(null);
 
-    // Check if both set → show route
-    const pickup = dropPinFor === 'pickup' ? mapCenter : pickupCoords;
-    const dest = dropPinFor === 'dest' ? mapCenter : destCoords;
-    if (pickup && dest) showRoute(pickup, dest);
+    // Redraw route with new coordinates
+    if (newPickup && newDest) {
+      setRouteCoords([]);
+      setRouteInfo(null);
+      showRoute(newPickup, newDest);
+    }
   }
 
   function handleRequestRide() {
@@ -531,7 +535,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       )}
 
       {/* ── SEARCH / ROUTE MODE: Pickup + Destination inputs ── */}
-      {(viewMode === 'search' || viewMode === 'route') && (
+      {(viewMode === 'search' || viewMode === 'route') && !dropPinFor && (
         <>
           <SafeAreaView style={styles.searchOverlay} edges={['top']}>
             {/* Back button */}
