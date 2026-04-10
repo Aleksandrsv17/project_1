@@ -20,6 +20,7 @@ export function PriceBreakdown({
   total,
   currency = 'AED',
 }: PriceBreakdownProps) {
+  const styles = getStyles();
   const fmt = (amount: number) => formatCurrency(amount, currency);
 
   return (
@@ -52,6 +53,7 @@ function Row({
   value: string;
   valueColor?: string;
 }) {
+  const styles = getStyles();
   return (
     <View style={styles.row}>
       <Text style={styles.label}>{label}</Text>
@@ -60,9 +62,9 @@ function Row({
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     borderWidth: 1,
@@ -109,6 +111,6 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: '#d9c0a4',
   },
-});
+}); }

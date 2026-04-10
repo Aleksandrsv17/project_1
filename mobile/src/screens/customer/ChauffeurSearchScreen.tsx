@@ -49,9 +49,8 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
   const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
   const [tempPickupTime, setTempPickupTime] = useState(pickupTime);
 
-  const [rateType, setRateType] = useState<'hourly' | 'daily'>('hourly');
+  const [days, setDays] = useState(0);
   const [hours, setHours] = useState(3);
-  const [days, setDays] = useState(1);
 
   const [carType, setCarType] = useState<'sedan' | 'suv' | 'van'>('sedan');
 
@@ -114,9 +113,11 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
   }
 
   // ── Price ──────────────────────────────────────────────────────────────────
-  const duration = rateType === 'hourly' ? hours : days * 24;
-  const chauffeurCost = rateType === 'hourly' ? CHAUFFEUR_HOURLY * hours : CHAUFFEUR_HOURLY * 8 * days; // 8h/day rate
+  const totalHours = days * 24 + hours;
+  const duration = totalHours;
+  const chauffeurCost = CHAUFFEUR_HOURLY * Math.max(1, totalHours);
   const totalPrice = chauffeurCost + DELIVERY_FEE;
+  const durationText = days > 0 && hours > 0 ? `${days}d ${hours}h` : days > 0 ? `${days} day${days !== 1 ? 's' : ''}` : `${Math.max(1, hours)} hour${hours !== 1 ? 's' : ''}`;
 
   function handleFindVehicles() {
     Keyboard.dismiss();
@@ -241,49 +242,39 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
               </View>
             )}
 
-            {/* Rate type toggle */}
-            <Text style={styles.sectionLabel}>RATE</Text>
-            <View style={styles.toggleRow}>
-              <TouchableOpacity style={[styles.toggleBtn, rateType === 'hourly' && styles.toggleBtnActive]} onPress={() => setRateType('hourly')}>
-                <Text style={[styles.toggleText, rateType === 'hourly' && styles.toggleTextActive]}>Hourly</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.toggleBtn, rateType === 'daily' && styles.toggleBtnActive]} onPress={() => setRateType('daily')}>
-                <Text style={[styles.toggleText, rateType === 'daily' && styles.toggleTextActive]}>Daily</Text>
-              </TouchableOpacity>
+            {/* Duration */}
+            <Text style={styles.sectionLabel}>DURATION</Text>
+            <Text style={styles.durationDisplay}>{durationText}</Text>
+
+            <View style={styles.sliderBlock}>
+              <Text style={styles.sliderSubLabel}>Days</Text>
+              <Slider
+                style={styles.slider}
+                minimumValue={0} maximumValue={10} step={1} value={days}
+                onValueChange={(v: number) => setDays(v)}
+                minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
+                thumbTintColor="#d9c0a4"
+              />
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderLabel}>0</Text>
+                <Text style={styles.sliderLabel}>10</Text>
+              </View>
             </View>
 
-            {/* Slider */}
-            {rateType === 'hourly' ? (
-              <View style={styles.sliderBlock}>
-                <Text style={styles.sliderValue}>{hours} hour{hours !== 1 ? 's' : ''}</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={1} maximumValue={10} step={1} value={hours}
-                  onValueChange={setHours}
-                  minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
-                  thumbTintColor="#d9c0a4"
-                />
-                <View style={styles.sliderLabels}>
-                  <Text style={styles.sliderLabel}>1h</Text>
-                  <Text style={styles.sliderLabel}>10h</Text>
-                </View>
+            <View style={styles.sliderBlock}>
+              <Text style={styles.sliderSubLabel}>Hours</Text>
+              <Slider
+                style={styles.slider}
+                minimumValue={0} maximumValue={23} step={1} value={hours}
+                onValueChange={(v: number) => setHours(v)}
+                minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
+                thumbTintColor="#d9c0a4"
+              />
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderLabel}>0</Text>
+                <Text style={styles.sliderLabel}>23</Text>
               </View>
-            ) : (
-              <View style={styles.sliderBlock}>
-                <Text style={styles.sliderValue}>{days} day{days !== 1 ? 's' : ''}</Text>
-                <Slider
-                  style={styles.slider}
-                  minimumValue={1} maximumValue={10} step={1} value={days}
-                  onValueChange={setDays}
-                  minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
-                  thumbTintColor="#d9c0a4"
-                />
-                <View style={styles.sliderLabels}>
-                  <Text style={styles.sliderLabel}>1 day</Text>
-                  <Text style={styles.sliderLabel}>10 days</Text>
-                </View>
-              </View>
-            )}
+            </View>
 
             {/* Car type */}
             <Text style={styles.sectionLabel}>VEHICLE TYPE</Text>
@@ -302,7 +293,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
               <Text style={styles.priceLabel}>starting from</Text>
               <Text style={styles.priceValue}>${totalPrice}</Text>
               <View style={styles.priceBreakdown}>
-                <Text style={styles.breakdownText}>Chauffeur: ${CHAUFFEUR_HOURLY}/hr {rateType === 'daily' ? `× 8h × ${days}d` : `× ${hours}h`}</Text>
+                <Text style={styles.breakdownText}>Chauffeur: ${CHAUFFEUR_HOURLY}/hr × {durationText}</Text>
                 <Text style={styles.breakdownText}>Delivery fee: ${DELIVERY_FEE}</Text>
                 <Text style={styles.breakdownText}>+ ${PER_KM}/km distance</Text>
               </View>
@@ -367,6 +358,8 @@ function getStyles() { return StyleSheet.create({
   confirmPickerBtn: { backgroundColor: '#d9c0a4', paddingVertical: SPACING.sm + 2, alignItems: 'center' },
   confirmPickerText: { fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 2 },
   // Toggle
+  durationDisplay: { fontSize: 26, fontWeight: '700', color: '#d9c0a4', textAlign: 'center', marginBottom: SPACING.xs },
+  sliderSubLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, letterSpacing: 1, marginBottom: 2 },
   toggleRow: { flexDirection: 'row', gap: SPACING.sm },
   toggleBtn: { flex: 1, paddingVertical: SPACING.sm + 2, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, alignItems: 'center' },
   toggleBtnActive: { backgroundColor: '#d9c0a4', borderColor: '#d9c0a4' },

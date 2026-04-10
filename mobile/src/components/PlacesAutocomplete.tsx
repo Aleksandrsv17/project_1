@@ -32,6 +32,7 @@ export function PlacesAutocomplete({
   onPlaceSelected,
   biasLocation,
 }: PlacesAutocompleteProps) {
+  const styles = getStyles();
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -160,7 +161,7 @@ export function PlacesAutocomplete({
   );
 }
 
-const styles = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   container: {
     position: 'relative',
     zIndex: 10,
@@ -168,7 +169,7 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: BORDER_RADIUS.md,
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderTopWidth: 0,
@@ -241,4 +242,4 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: COLORS.gray,
   },
-});
+}); }

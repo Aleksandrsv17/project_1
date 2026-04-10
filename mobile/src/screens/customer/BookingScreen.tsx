@@ -10,6 +10,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -63,6 +64,14 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
   const { location: userLocation } = useLocation();
 
   const durationHours = Math.max(1, differenceInHours(endTime, startTime));
+  const [sliderDays, setSliderDays] = useState(Math.floor(durationHours / 24));
+  const [sliderHours, setSliderHours] = useState(durationHours % 24 || (durationHours < 24 ? durationHours : 0));
+
+  const durationText = sliderDays > 0 && sliderHours > 0
+    ? `${sliderDays}d ${sliderHours}h`
+    : sliderDays > 0
+    ? `${sliderDays} day${sliderDays !== 1 ? 's' : ''}`
+    : `${Math.max(1, sliderHours)} hour${sliderHours !== 1 ? 's' : ''}`;
 
   const pricing = vehicle
     ? calculateBookingTotal(
@@ -72,9 +81,11 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
       )
     : null;
 
-  function handleDurationPreset(hours: number) {
-    const newEnd = addHours(startTime, hours);
-    setEndTime(newEnd);
+  function handleSliderChange(newDays: number, newHours: number) {
+    setSliderDays(newDays);
+    setSliderHours(newHours);
+    const totalH = newDays * 24 + Math.max(newDays === 0 ? 1 : 0, newHours);
+    setEndTime(addHours(startTime, totalH));
   }
 
   function adjustStartTime(direction: 1 | -1) {
@@ -205,30 +216,37 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
         {/* Duration */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Duration</Text>
-          <View style={styles.durationPresets}>
-            {DURATION_PRESETS.map((preset) => (
-              <TouchableOpacity
-                key={preset.label}
-                style={[
-                  styles.durationChip,
-                  durationHours === preset.hours && styles.durationChipActive,
-                ]}
-                onPress={() => handleDurationPreset(preset.hours)}
-              >
-                <Text
-                  style={[
-                    styles.durationChipText,
-                    durationHours === preset.hours && styles.durationChipTextActive,
-                  ]}
-                >
-                  {preset.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <Text style={styles.durationDisplay}>{durationText}</Text>
+
+          <Text style={styles.sliderSubLabel}>Days</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0} maximumValue={10} step={1} value={sliderDays}
+            onValueChange={(v: number) => handleSliderChange(v, sliderHours)}
+            minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
+            thumbTintColor="#d9c0a4"
+          />
+          <View style={styles.sliderLabels}>
+            <Text style={styles.sliderLabel}>0</Text>
+            <Text style={styles.sliderLabel}>10</Text>
           </View>
+
+          <Text style={styles.sliderSubLabel}>Hours</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0} maximumValue={23} step={1} value={sliderHours}
+            onValueChange={(v: number) => handleSliderChange(sliderDays, v)}
+            minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
+            thumbTintColor="#d9c0a4"
+          />
+          <View style={styles.sliderLabels}>
+            <Text style={styles.sliderLabel}>0</Text>
+            <Text style={styles.sliderLabel}>23</Text>
+          </View>
+
           <View style={styles.durationSummary}>
             <Text style={styles.durationSummaryText}>
-              Return: {formatDateTime(endTime)} · {formatDuration(durationHours)}
+              Return: {formatDateTime(endTime)}
             </Text>
           </View>
         </View>
@@ -327,7 +345,7 @@ function getStyles() { return StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
   },
@@ -391,7 +409,7 @@ function getStyles() { return StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: BORDER_RADIUS.md,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
   },
   modeButtonActive: {
     borderColor: COLORS.accent,
@@ -411,7 +429,7 @@ function getStyles() { return StyleSheet.create({
   timeControl: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -439,32 +457,32 @@ function getStyles() { return StyleSheet.create({
     fontWeight: '600',
     color: COLORS.textPrimary,
   },
-  durationPresets: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.sm,
+  durationDisplay: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: '#d9c0a4',
+    textAlign: 'center',
     marginBottom: SPACING.sm,
   },
-  durationChip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: BORDER_RADIUS.full,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
-  },
-  durationChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  durationChipText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    fontWeight: '500',
-  },
-  durationChipTextActive: {
-    color: COLORS.textPrimary,
+  sliderSubLabel: {
+    fontSize: 12,
     fontWeight: '600',
+    color: COLORS.textSecondary,
+    letterSpacing: 1,
+    marginBottom: 2,
+    marginTop: SPACING.xs,
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sliderLabel: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
   },
   durationSummary: {
     backgroundColor: COLORS.grayLight,
@@ -477,11 +495,12 @@ function getStyles() { return StyleSheet.create({
     textAlign: 'center',
   },
   textInput: {
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
+    color: COLORS.textPrimary,
     paddingVertical: Platform.OS === 'ios' ? 12 : 8,
     fontSize: 14,
     color: COLORS.textPrimary,
@@ -495,7 +514,7 @@ function getStyles() { return StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: COLORS.white,
+    backgroundColor: COLORS.background,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     paddingTop: SPACING.md,
@@ -507,7 +526,7 @@ function getStyles() { return StyleSheet.create({
     elevation: 8,
   },
   proceedButton: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: '#d9c0a4',
     borderRadius: BORDER_RADIUS.md,
     paddingVertical: SPACING.md,
     alignItems: 'center',
@@ -519,8 +538,9 @@ function getStyles() { return StyleSheet.create({
     opacity: 0.7,
   },
   proceedButtonText: {
-    color: COLORS.primary,
+    color: '#000000',
     fontWeight: '700',
     fontSize: 16,
+    letterSpacing: 2,
   },
 }); }
