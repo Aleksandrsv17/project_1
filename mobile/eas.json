@@ -6,6 +6,14 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "env": {
+        "API_BASE_URL": "http://109.120.133.113/v1",
+        "WS_URL": "ws://109.120.133.113"
+      }
+    },
+    "development-simulator": {
+      "developmentClient": true,
+      "distribution": "internal",
       "ios": {
         "simulator": true
       },
