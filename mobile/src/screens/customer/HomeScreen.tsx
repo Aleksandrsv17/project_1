@@ -387,7 +387,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   width: '48%',
                   backgroundColor: COLORS.grayLight,
                   borderRadius: BORDER_RADIUS.md,
-                  paddingVertical: SPACING.sm,
+                  paddingVertical: SPACING.sm + 4,
+                  justifyContent: 'center',
                   alignItems: 'center',
                   gap: 6,
                   borderWidth: 1,
@@ -398,7 +399,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               >
                 <Image
                   source={require('../../../assets/ride-car.png')}
-                  style={{ width: 100, height: 60, resizeMode: 'contain' }}
+                  style={{ width: 60, height: 36, resizeMode: 'contain' }}
                 />
                 <Text style={{
                   fontSize: 11,
@@ -413,7 +414,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   width: '48%',
                   backgroundColor: COLORS.grayLight,
                   borderRadius: BORDER_RADIUS.md,
-                  paddingVertical: SPACING.sm,
+                  paddingVertical: SPACING.sm + 4,
+                  justifyContent: 'center',
                   alignItems: 'center',
                   gap: 6,
                   borderWidth: 1,
@@ -424,7 +426,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               >
                 <Image
                   source={require('../../../assets/chauffeur-hat.png')}
-                  style={{ width: 100, height: 60, resizeMode: 'contain' }}
+                  style={{ width: 60, height: 36, resizeMode: 'contain' }}
                 />
                 <Text style={{
                   fontSize: 11,
@@ -439,7 +441,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   width: '48%',
                   backgroundColor: COLORS.grayLight,
                   borderRadius: BORDER_RADIUS.md,
-                  paddingVertical: SPACING.sm,
+                  paddingVertical: SPACING.sm + 4,
+                  justifyContent: 'center',
                   alignItems: 'center',
                   gap: 6,
                   borderWidth: 1,
@@ -450,7 +453,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               >
                 <Image
                   source={require('../../../assets/rental-key.png')}
-                  style={{ width: 100, height: 60, resizeMode: 'contain' }}
+                  style={{ width: 60, height: 36, resizeMode: 'contain' }}
                 />
                 <Text style={{
                   fontSize: 11,
@@ -465,7 +468,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   width: '48%',
                   backgroundColor: COLORS.grayLight,
                   borderRadius: BORDER_RADIUS.md,
-                  paddingVertical: SPACING.sm,
+                  paddingVertical: SPACING.sm + 4,
+                  justifyContent: 'center',
                   alignItems: 'center',
                   gap: 6,
                   borderWidth: 1,
@@ -476,7 +480,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               >
                 <Image
                   source={require('../../../assets/luxury-crown.png')}
-                  style={{ width: 100, height: 60, resizeMode: 'contain' }}
+                  style={{ width: 60, height: 36, resizeMode: 'contain' }}
                 />
                 <Text style={{
                   fontSize: 11,
