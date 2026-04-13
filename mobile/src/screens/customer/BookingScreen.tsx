@@ -82,6 +82,10 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
     : null;
 
   function handleSliderChange(newDays: number, newHours: number) {
+    // Bug 17: Ensure minimum booking of 1 hour when both sliders are at 0
+    if (newDays === 0 && newHours === 0) {
+      newHours = 1;
+    }
     setSliderDays(newDays);
     setSliderHours(newHours);
     const totalH = newDays * 24 + Math.max(newDays === 0 ? 1 : 0, newHours);
@@ -110,7 +114,6 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
 
     setIsSubmitting(true);
     try {
-      // 1. Create the booking
       const booking = await createBookingMutation.mutateAsync({
         vehicleId: vehicle.id,
         mode,
@@ -131,15 +134,17 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
         notes: notes.trim() || undefined,
       });
 
-      // 2. Create payment intent
-      const paymentIntent = await createPaymentIntent(booking.id);
-      setPaymentClientSecret(paymentIntent.clientSecret);
-
-      // 3. Navigate to payment
-      navigation.navigate('Payment', { bookingId: booking.id });
+      Alert.alert(
+        'Request Sent',
+        'Your booking request has been sent to the vehicle owner. You will be notified once they approve.',
+        [
+          { text: 'View My Bookings', onPress: () => navigation.navigate('BookingHistory') },
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]
+      );
     } catch (err: unknown) {
       const message =
-        err instanceof Error ? err.message : 'Failed to create booking. Please try again.';
+        err instanceof Error ? err.message : 'Failed to send request. Please try again.';
       Alert.alert('Booking Failed', message);
     } finally {
       setIsSubmitting(false);
@@ -251,35 +256,38 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
           </View>
         </View>
 
-        {/* Pickup Address */}
-        <View style={[styles.section, { zIndex: 20 }]}>
-          <Text style={styles.sectionTitle}>Pickup Address *</Text>
-          <PlacesAutocomplete
-            placeholder="Search pickup location..."
-            value={pickupAddress}
-            onChangeText={setPickupAddress}
-            biasLocation={userLocation ?? undefined}
-            onPlaceSelected={(place) => {
-              setPickupAddress(place.address);
-              setPickupCoords({ latitude: place.latitude, longitude: place.longitude });
-            }}
-          />
+        {/* Pickup & Dropoff Addresses (set by vehicle owner) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Pickup Location</Text>
+          <View style={styles.addressInfoBox}>
+            <Text style={styles.addressInfoIcon}>▼</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.addressInfoText}>
+                {vehicle.pickupAddress
+                  ? vehicle.location.city + ' area'
+                  : vehicle.location.address || vehicle.location.city}
+              </Text>
+              <Text style={styles.addressInfoHint}>Full address provided after owner approval</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Dropoff Address */}
-        <View style={[styles.section, { zIndex: 10 }]}>
-          <Text style={styles.sectionTitle}>Drop-off Address (optional)</Text>
-          <PlacesAutocomplete
-            placeholder="Search drop-off location..."
-            value={dropoffAddress}
-            onChangeText={setDropoffAddress}
-            biasLocation={userLocation ?? undefined}
-            onPlaceSelected={(place) => {
-              setDropoffAddress(place.address);
-              setDropoffCoords({ latitude: place.latitude, longitude: place.longitude });
-            }}
-          />
-        </View>
+        {(vehicle.dropoffAddress || vehicle.pickupAddress) ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Drop-off Location</Text>
+            <View style={styles.addressInfoBox}>
+              <Text style={[styles.addressInfoIcon, { color: '#EF4444' }]}>▼</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.addressInfoText}>
+                  {vehicle.dropoffAddress
+                    ? vehicle.location.city + ' area'
+                    : 'Same as pickup location'}
+                </Text>
+                <Text style={styles.addressInfoHint}>Full address provided after owner approval</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         {/* Notes */}
         <View style={styles.section}>
@@ -500,7 +508,6 @@ function getStyles() { return StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: BORDER_RADIUS.md,
     paddingHorizontal: SPACING.md,
-    color: COLORS.textPrimary,
     paddingVertical: Platform.OS === 'ios' ? 12 : 8,
     fontSize: 14,
     color: COLORS.textPrimary,
@@ -508,6 +515,32 @@ function getStyles() { return StyleSheet.create({
   },
   notesInput: {
     minHeight: 80,
+  },
+  addressInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 4,
+    gap: SPACING.sm,
+  },
+  addressInfoIcon: {
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    marginTop: 2,
+  },
+  addressInfoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+  },
+  addressInfoHint: {
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   bottomBar: {
     position: 'absolute',

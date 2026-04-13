@@ -179,19 +179,37 @@ export function PaymentScreen({ navigation, route }: PaymentScreenProps) {
       {/* Pay Button */}
       <View style={styles.bottomBar}>
         <SafeAreaView edges={['bottom']}>
-          <TouchableOpacity
-            style={[styles.payButton, (isProcessing || !cardDetails?.complete) && styles.payButtonDisabled]}
-            onPress={handlePay}
-            disabled={isProcessing || !cardDetails?.complete}
-          >
-            {isProcessing ? (
-              <ActivityIndicator color={COLORS.primary} size="small" />
-            ) : (
-              <Text style={styles.payButtonText}>
-                Pay {formatCurrency(booking.pricing.total)}
-              </Text>
-            )}
-          </TouchableOpacity>
+          {paymentClientSecret ? (
+            <TouchableOpacity
+              style={[styles.payButton, (isProcessing || !cardDetails?.complete) && styles.payButtonDisabled]}
+              onPress={handlePay}
+              disabled={isProcessing || !cardDetails?.complete}
+            >
+              {isProcessing ? (
+                <ActivityIndicator color={COLORS.primary} size="small" />
+              ) : (
+                <Text style={styles.payButtonText}>
+                  Pay {formatCurrency(booking.pricing.total)}
+                </Text>
+              )}
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.payButton}
+              onPress={() => {
+                if (booking) {
+                  setActiveBooking({ ...booking, status: 'confirmed' });
+                }
+                Alert.alert(
+                  'Booking Confirmed',
+                  'Your booking has been placed. Payment will be collected later.',
+                  [{ text: 'View Booking', onPress: () => navigation.replace('ActiveTrip', { bookingId }) }]
+                );
+              }}
+            >
+              <Text style={styles.payButtonText}>Confirm Booking — {formatCurrency(booking.pricing.total)}</Text>
+            </TouchableOpacity>
+          )}
         </SafeAreaView>
       </View>
     </SafeAreaView>

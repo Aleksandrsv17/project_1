@@ -30,6 +30,8 @@ export interface Vehicle {
   reviewCount: number;
   isAvailable: boolean;
   features: string[];
+  pickupAddress: string;
+  dropoffAddress: string;
   createdAt: string;
 }
 
@@ -76,6 +78,8 @@ export interface AddVehiclePayload {
     city: string;
   };
   features: string[];
+  pickupAddress?: string;
+  dropoffAddress?: string;
 }
 
 /** Map snake_case API vehicle to camelCase app Vehicle */
@@ -96,7 +100,7 @@ function mapVehicle(raw: any): Vehicle {
     pricePerHour: parseFloat(raw.hourly_rate) || parseFloat(raw.daily_rate) / 8 || 0,
     pricePerDay: parseFloat(raw.daily_rate) || 0,
     chauffeurAvailable: raw.chauffeur_available || false,
-    chauffeurFeePerHour: parseFloat(raw.chauffeur_daily_rate) / 8 || 0,
+    chauffeurFeePerHour: parseFloat(raw.chauffeur_daily_rate) / 24 || 0,
     depositAmount: parseFloat(raw.deposit_amount) || 500,
     images: raw.media?.map((m: any) => m.url) ?? [],
     description: raw.description || '',
@@ -110,6 +114,8 @@ function mapVehicle(raw: any): Vehicle {
     reviewCount: raw.review_count || 0,
     isAvailable: raw.status === 'active',
     features: raw.features || [],
+    pickupAddress: raw.pickup_address || '',
+    dropoffAddress: raw.dropoff_address || '',
     createdAt: raw.created_at,
   };
 }
@@ -160,6 +166,8 @@ export async function addVehicle(payload: AddVehiclePayload): Promise<Vehicle> {
     location_lat: payload.location?.latitude,
     location_lng: payload.location?.longitude,
     description: payload.description,
+    pickup_address: payload.pickupAddress || payload.location?.address,
+    dropoff_address: payload.dropoffAddress || '',
   };
   const response = await apiClient.post('/vehicles', body);
   const raw = response.data?.data?.vehicle ?? response.data?.data ?? response.data;

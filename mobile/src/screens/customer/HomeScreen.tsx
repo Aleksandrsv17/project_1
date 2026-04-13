@@ -399,7 +399,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               >
                 <Image
                   source={require('../../../assets/ride-car.png')}
-                  style={{ width: 60, height: 36, resizeMode: 'contain' }}
+                  style={{ width: 80, height: 44, resizeMode: 'contain' }}
                 />
                 <Text style={{
                   fontSize: 11,

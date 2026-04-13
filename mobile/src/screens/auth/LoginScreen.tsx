@@ -211,10 +211,10 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
             </View>
 
             {/* Register Link */}
-            <TouchableOpacity style={{ alignItems: 'center' }} onPress={() => navigation.navigate('Register')}>
-              <Text style={{ fontSize: 14, color: theme.colors.textSecondary }}>
+            <TouchableOpacity style={{ alignItems: 'center', alignSelf: 'center' }} onPress={() => navigation.navigate('Register')}>
+              <Text style={{ fontSize: 14, color: theme.colors.textSecondary, textAlign: 'center' }}>
                 Don't have an account?{' '}
-                <Text style={{ color: theme.colors.accent, fontWeight: '600' }}>Sign up</Text>
+                <Text style={{ color: theme.colors.accent === '#000000' ? '#FFFFFF' : theme.colors.accent, fontWeight: '600' }}>Sign up</Text>
               </Text>
             </TouchableOpacity>
           </View>

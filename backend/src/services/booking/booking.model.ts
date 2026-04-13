@@ -1,6 +1,6 @@
 export type BookingType = 'instant_ride' | 'scheduled' | 'hourly_rental' | 'daily_rental';
 export type BookingMode = 'self_drive' | 'chauffeur';
-export type BookingStatus = 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled';
+export type BookingStatus = 'requested' | 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled' | 'declined';
 
 export interface Booking {
   id: string;

@@ -30,8 +30,8 @@ export class VehicleService {
       `INSERT INTO vehicles
         (owner_id, make, model, year, license_plate, color, category,
          daily_rate, hourly_rate, chauffeur_available, chauffeur_daily_rate,
-         deposit_amount, max_daily_km, location_city, location_lat, location_lng, description, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,'active')
+         deposit_amount, max_daily_km, location_city, location_lat, location_lng, description, pickup_address, dropoff_address, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'active')
        RETURNING *`,
       [
         ownerId,
@@ -51,6 +51,8 @@ export class VehicleService {
         dto.location_lat ?? null,
         dto.location_lng ?? null,
         dto.description ?? null,
+        dto.pickup_address ?? null,
+        dto.dropoff_address ?? null,
       ]
     );
 
@@ -175,7 +177,7 @@ export class VehicleService {
       'make', 'model', 'year', 'color', 'daily_rate', 'hourly_rate',
       'chauffeur_available', 'chauffeur_daily_rate', 'deposit_amount',
       'max_daily_km', 'status', 'location_city', 'location_lat',
-      'location_lng', 'description',
+      'location_lng', 'description', 'pickup_address', 'dropoff_address',
     ];
 
     for (const key of updatable) {

@@ -87,12 +87,16 @@ export async function register(payload: RegisterPayload): Promise<AuthResponse> 
 }
 
 export async function logout(refreshToken: string): Promise<void> {
-  await apiClient.post('/auth/logout', { refreshToken });
+  await apiClient.post('/auth/logout', { refresh_token: refreshToken });
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
-  const response = await apiClient.post('/auth/refresh', { refreshToken });
-  return response.data;
+  const response = await apiClient.post('/auth/refresh', { refresh_token: refreshToken });
+  const data = response.data?.data ?? response.data;
+  return {
+    accessToken: data.access_token ?? data.accessToken,
+    refreshToken: data.refresh_token ?? data.refreshToken,
+  };
 }
 
 export async function submitKYC(payload: KYCPayload): Promise<{ message: string; status: string }> {
@@ -102,7 +106,17 @@ export async function submitKYC(payload: KYCPayload): Promise<{ message: string;
 
 export async function getProfile(): Promise<AuthResponse['user']> {
   const response = await apiClient.get('/auth/profile');
-  return response.data;
+  const raw = response.data?.data?.user ?? response.data?.data ?? response.data;
+  return {
+    id: raw.id,
+    fullName: `${raw.first_name ?? ''} ${raw.last_name ?? ''}`.trim() || raw.fullName || raw.email,
+    email: raw.email,
+    phone: raw.phone,
+    role: raw.role,
+    avatarUrl: raw.avatar_url ?? raw.avatarUrl ?? undefined,
+    kycVerified: raw.kyc_status ? raw.kyc_status === 'verified' : (raw.kycVerified ?? false),
+    createdAt: raw.created_at ?? raw.createdAt,
+  };
 }
 
 export async function updateProfile(updates: Partial<{

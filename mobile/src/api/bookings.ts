@@ -115,8 +115,21 @@ function mapBooking(raw: any): Booking {
 }
 
 export async function createBooking(payload: CreateBookingPayload): Promise<Booking> {
+  // Determine booking type from mode and duration
+  const durationMs = payload.endTime && payload.startTime
+    ? new Date(payload.endTime).getTime() - new Date(payload.startTime).getTime()
+    : 0;
+  const durationHours = durationMs / (1000 * 60 * 60);
+  let type = 'instant_ride';
+  if (payload.mode === 'chauffeur') {
+    type = durationHours > 24 ? 'daily_rental' : 'hourly_rental';
+  } else {
+    type = durationHours > 24 ? 'daily_rental' : durationHours > 0 ? 'hourly_rental' : 'instant_ride';
+  }
+
   const body = {
     vehicle_id: payload.vehicleId,
+    type,
     mode: payload.mode,
     start_time: payload.startTime,
     end_time: payload.endTime,

@@ -20,7 +20,7 @@ import { RentalSearchScreen } from '../screens/customer/RentalSearchScreen';
 
 // Owner screens
 import { OwnerDashboardScreen } from '../screens/owner/OwnerDashboardScreen';
-import { FleetMapScreen } from '../screens/owner/FleetMapScreen';
+import { OrdersScreen } from '../screens/owner/OrdersScreen';
 import { MyVehiclesScreen } from '../screens/owner/MyVehiclesScreen';
 import { AddVehicleScreen } from '../screens/owner/AddVehicleScreen';
 import { OwnerProfileScreen } from '../screens/owner/OwnerProfileScreen';
@@ -74,7 +74,7 @@ export type CustomerTabParamList = {
 
 export type OwnerTabParamList = {
   OwnerDashboard: undefined;
-  FleetMap: undefined;
+  Orders: undefined;
   MyVehicles: undefined;
   AddVehicle: undefined;
   OwnerProfile: undefined;
@@ -120,8 +120,8 @@ function OwnerTabs() {
     <OwnerTab.Navigator screenOptions={{ headerShown: false, tabBarShowLabel: false, tabBarStyle: getTabStyles().tabBar }}>
       <OwnerTab.Screen name="OwnerDashboard" component={OwnerDashboardScreen}
         options={{ tabBarIcon: ({ focused }) => <TabIcon icon="≡" focused={focused} label="Dashboard" /> }} />
-      <OwnerTab.Screen name="FleetMap" component={FleetMapScreen}
-        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="◎" focused={focused} label="Map" /> }} />
+      <OwnerTab.Screen name="Orders" component={OrdersScreen}
+        options={{ tabBarIcon: ({ focused }) => <TabIcon icon="☰" focused={focused} label="Orders" /> }} />
       <OwnerTab.Screen name="MyVehicles" component={MyVehiclesScreen}
         options={{ tabBarIcon: ({ focused }) => <TabIcon icon="◆" focused={focused} label="My Fleet" /> }} />
       <OwnerTab.Screen name="AddVehicle" component={AddVehicleScreen}

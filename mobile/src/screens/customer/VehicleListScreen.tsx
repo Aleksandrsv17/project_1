@@ -6,10 +6,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   TextInput,
-  Modal,
   Platform,
   RefreshControl,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -35,17 +35,17 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
   const [selectedCategory, setSelectedCategory] = useState(initialCategory ?? 'all');
   const [chauffeurOnly, setChauffeurOnly] = useState(initialChauffeur ?? false);
   const [citySearch, setCitySearch] = useState(initialCity ?? '');
-  const [showFilters, setShowFilters] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
+  const [showPriceFilter, setShowPriceFilter] = useState(false);
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(500);
 
   const filters: VehicleFilters = {
     category: selectedCategory !== 'all' ? selectedCategory : undefined,
     chauffeurAvailable: chauffeurOnly ? true : undefined,
     city: citySearch.trim() || undefined,
-    minPrice: minPrice ? Number(minPrice) : undefined,
-    maxPrice: maxPrice ? Number(maxPrice) : undefined,
+    minPrice: minPrice > 0 ? minPrice : undefined,
+    maxPrice: maxPrice < 500 ? maxPrice : undefined,
   };
 
   const { data, isLoading, isError, refetch, isFetching } = useVehicles(filters);
@@ -60,8 +60,8 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
   const activeFilterCount = [
     selectedCategory !== 'all',
     chauffeurOnly,
-    minPrice,
-    maxPrice,
+    minPrice > 0,
+    maxPrice < 500,
   ].filter(Boolean).length;
 
   return (
@@ -72,12 +72,6 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Browse Vehicles</Text>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowFilters(true)}
-        >
-          <Text style={styles.filterIcon}>⊕</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Search by City */}
@@ -125,6 +119,54 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
               {selectedCategory === item.value && <Text style={styles.categoryCheck}>✓</Text>}
             </TouchableOpacity>
           ))}
+        </View>
+      )}
+
+      {/* Price Filter Dropdown */}
+      <TouchableOpacity
+        style={styles.categoryDropdown}
+        onPress={() => setShowPriceFilter(v => !v)}
+      >
+        <Text style={styles.categoryDropdownLabel}>
+          {minPrice > 0 || maxPrice < 500 ? `${minPrice} — ${maxPrice} AED/hr` : 'Price Range'}
+        </Text>
+        <Text style={styles.categoryDropdownArrow}>{showPriceFilter ? '▲' : '▼'}</Text>
+      </TouchableOpacity>
+      {showPriceFilter && (
+        <View style={styles.priceDropdown}>
+          <View style={styles.priceSliderRow}>
+            <Text style={styles.priceSliderLabel}>From</Text>
+            <Text style={styles.priceSliderValue}>{minPrice} AED</Text>
+          </View>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={500}
+            step={10}
+            value={minPrice}
+            onValueChange={v => { const val = Math.round(v); if (val < maxPrice) setMinPrice(val); }}
+            minimumTrackTintColor={COLORS.textPrimary}
+            maximumTrackTintColor={COLORS.border}
+            thumbTintColor={COLORS.textPrimary}
+          />
+          <View style={styles.priceSliderRow}>
+            <Text style={styles.priceSliderLabel}>Maximum</Text>
+            <Text style={styles.priceSliderValue}>{maxPrice < 500 ? `${maxPrice} AED` : 'Any'}</Text>
+          </View>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={500}
+            step={10}
+            value={maxPrice}
+            onValueChange={v => { const val = Math.round(v); if (val > minPrice) setMaxPrice(val); }}
+            minimumTrackTintColor={COLORS.textPrimary}
+            maximumTrackTintColor={COLORS.border}
+            thumbTintColor={COLORS.textPrimary}
+          />
+          <TouchableOpacity style={styles.priceResetBtn} onPress={() => { setMinPrice(0); setMaxPrice(500); }}>
+            <Text style={styles.priceResetText}>Reset</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -180,71 +222,6 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
         />
       )}
 
-      {/* Filter Modal */}
-      <Modal
-        visible={showFilters}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowFilters(false)}
-      >
-        <SafeAreaView style={styles.modalSafeArea}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Filters</Text>
-            <TouchableOpacity onPress={() => setShowFilters(false)}>
-              <Text style={styles.modalClose}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.modalContent}>
-            <Text style={styles.filterSectionTitle}>Price Range (AED/hr)</Text>
-            <View style={styles.priceRow}>
-              <View style={styles.priceInputContainer}>
-                <Text style={styles.priceLabel}>Min</Text>
-                <TextInput
-                  style={styles.priceInput}
-                  value={minPrice}
-                  onChangeText={setMinPrice}
-                  keyboardType="numeric"
-                  placeholder="0"
-                  placeholderTextColor={COLORS.gray}
-                />
-              </View>
-              <Text style={styles.priceDash}>—</Text>
-              <View style={styles.priceInputContainer}>
-                <Text style={styles.priceLabel}>Max</Text>
-                <TextInput
-                  style={styles.priceInput}
-                  value={maxPrice}
-                  onChangeText={setMaxPrice}
-                  keyboardType="numeric"
-                  placeholder="Any"
-                  placeholderTextColor={COLORS.gray}
-                />
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.clearFiltersButton}
-              onPress={() => {
-                setMinPrice('');
-                setMaxPrice('');
-                setChauffeurOnly(false);
-                setSelectedCategory('all');
-              }}
-            >
-              <Text style={styles.clearFiltersText}>Clear All</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.applyFiltersButton}
-              onPress={() => setShowFilters(false)}
-            >
-              <Text style={styles.applyFiltersText}>Apply Filters</Text>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -276,32 +253,6 @@ function getStyles() { return StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: COLORS.textPrimary,
-  },
-  filterButton: {
-    padding: SPACING.xs,
-    position: 'relative',
-  },
-  filterButtonActive: {
-    // Indicator handled by badge
-  },
-  filterIcon: {
-    fontSize: 22, color: COLORS.textPrimary,
-  },
-  filterBadge: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    backgroundColor: COLORS.accent,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterBadgeText: {
-    color: COLORS.primary,
-    fontSize: 10,
-    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -448,96 +399,46 @@ function getStyles() { return StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
-  // Modal
-  modalSafeArea: {
-    flex: 1,
+  // Price dropdown
+  priceDropdown: {
+    marginHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
     backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
   },
-  modalHeader: {
+  priceSliderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  modalClose: {
-    fontSize: 18,
-    color: COLORS.textSecondary,
-    padding: SPACING.xs,
-  },
-  modalContent: {
-    padding: SPACING.md,
-    flex: 1,
-  },
-  filterSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  priceInputContainer: {
-    flex: 1,
-  },
-  priceLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
     marginBottom: 4,
   },
-  priceInput: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
-    fontSize: 15,
+  priceSliderLabel: {
+    fontSize: 13,
+    fontWeight: '600',
     color: COLORS.textPrimary,
   },
-  priceDash: {
-    fontSize: 18,
-    color: COLORS.textSecondary,
-    marginTop: 18,
+  priceSliderValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
   },
-  modalActions: {
-    flexDirection: 'row',
-    padding: SPACING.md,
-    gap: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+  slider: {
+    width: '100%',
+    height: 40,
+    marginBottom: SPACING.sm,
   },
-  clearFiltersButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: BORDER_RADIUS.md,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
+  priceResetBtn: {
+    alignSelf: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    marginTop: 4,
   },
-  clearFiltersText: {
-    fontSize: 15,
+  priceResetText: {
+    fontSize: 13,
     color: COLORS.textSecondary,
     fontWeight: '600',
-  },
-  applyFiltersButton: {
-    flex: 2,
-    backgroundColor: COLORS.accent,
-    borderRadius: BORDER_RADIUS.md,
-    paddingVertical: SPACING.md,
-    alignItems: 'center',
-  },
-  applyFiltersText: {
-    fontSize: 15,
-    color: COLORS.primary,
-    fontWeight: '700',
   },
 }); }

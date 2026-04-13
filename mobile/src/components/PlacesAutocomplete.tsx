@@ -77,7 +77,7 @@ export function PlacesAutocomplete({
       try {
         const details = await getPlaceDetails(prediction.placeId);
         onPlaceSelected({
-          address: details.formattedAddress,
+          address: prediction.description || details.formattedAddress,
           latitude: details.latitude,
           longitude: details.longitude,
           placeId: details.placeId,

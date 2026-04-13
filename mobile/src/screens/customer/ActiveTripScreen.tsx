@@ -499,10 +499,10 @@ function getStyles() { return StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   etaIcon: {
-    fontSize: 16, color: COLORS.textPrimary,
+    fontSize: 16, color: '#FFFFFF',
   },
   etaText: {
-    color: COLORS.textPrimary,
+    color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 15,
   },

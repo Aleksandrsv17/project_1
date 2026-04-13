@@ -26,6 +26,7 @@ type Props = {
   navigation: NativeStackNavigationProp<CustomerStackParamList, 'ChauffeurSearch'>;
 };
 
+// TODO: fetch from backend pricing API
 const CHAUFFEUR_HOURLY = 35;
 const DELIVERY_FEE = 50;
 const PER_KM = 0.20;

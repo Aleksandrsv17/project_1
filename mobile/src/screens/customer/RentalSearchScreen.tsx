@@ -23,7 +23,7 @@ type Props = {
   navigation: NativeStackNavigationProp<CustomerStackParamList, 'RentalSearch'>;
 };
 
-const CITIES = ['All Cities', 'Moscow', 'Zurich', 'Dubai'];
+const CITIES = ['All Cities', 'Dubai', 'Abu Dhabi', 'Moscow', 'Zurich'];
 const CATEGORIES = ['all', 'sedan', 'suv', 'sports', 'van'];
 
 export function RentalSearchScreen({ navigation }: Props) {

@@ -21,6 +21,8 @@ export interface Vehicle {
   location_lat: number | null;
   location_lng: number | null;
   description: string | null;
+  pickup_address: string | null;
+  dropoff_address: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -55,6 +57,8 @@ export interface CreateVehicleDto {
   location_lat?: number;
   location_lng?: number;
   description?: string;
+  pickup_address?: string;
+  dropoff_address?: string;
 }
 
 export interface UpdateVehicleDto {
@@ -73,6 +77,8 @@ export interface UpdateVehicleDto {
   location_lat?: number;
   location_lng?: number;
   description?: string;
+  pickup_address?: string;
+  dropoff_address?: string;
 }
 
 export interface VehicleQuery {

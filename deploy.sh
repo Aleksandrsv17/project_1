@@ -83,6 +83,7 @@ case "$MODE" in
       --exclude .env \
       --exclude ecosystem.config.js \
       --exclude logs \
+      --exclude uploads \
       --exclude "*.log" \
       "$LOCAL_BACKEND/" "$SERVER:$APP_DIR/" \
       || err "Upload failed"

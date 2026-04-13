@@ -162,6 +162,27 @@ export class BookingController {
       next(err);
     }
   }
+  async approve(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const booking = await bookingService.approveBooking(req.params.id, authReq.user.sub);
+      res.status(200).json({ success: true, data: { booking } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async decline(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const reason = req.body?.reason ?? 'Declined by owner';
+      const booking = await bookingService.declineBooking(req.params.id, authReq.user.sub, reason);
+      res.status(200).json({ success: true, data: { booking } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async earningsSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;

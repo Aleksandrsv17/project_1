@@ -663,7 +663,9 @@ function getStyles() { return StyleSheet.create({
     color: COLORS.textSecondary,
   },
   bookButton: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.accent === '#000000' ? 'transparent' : COLORS.accent,
+    borderWidth: COLORS.accent === '#000000' ? 1 : 0,
+    borderColor: '#FFFFFF',
     paddingHorizontal: SPACING.xl,
     paddingVertical: SPACING.md,
     borderRadius: BORDER_RADIUS.md,
@@ -672,9 +674,10 @@ function getStyles() { return StyleSheet.create({
   },
   bookButtonDisabled: {
     backgroundColor: COLORS.gray,
+    borderWidth: 0,
   },
   bookButtonText: {
-    color: COLORS.primary,
+    color: COLORS.accent === '#000000' ? '#FFFFFF' : COLORS.primary,
     fontWeight: '700',
     fontSize: 16,
   },

@@ -206,9 +206,10 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
             style={[styles.registerButton, isLoading && styles.disabledButton]}
             onPress={handleRegister}
             disabled={isLoading}
+            activeOpacity={0.85}
           >
             {isLoading ? (
-              <ActivityIndicator color={COLORS.primary} size="small" />
+              <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <Text style={styles.registerButtonText}>Create Account</Text>
             )}
@@ -436,7 +437,9 @@ function getStyles() { return StyleSheet.create({
     fontWeight: '500',
   },
   registerButton: {
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.accent === '#000000' ? 'transparent' : COLORS.accent,
+    borderWidth: COLORS.accent === '#000000' ? 1 : 0,
+    borderColor: '#FFFFFF',
     borderRadius: BORDER_RADIUS.md,
     paddingVertical: SPACING.md,
     alignItems: 'center',
@@ -448,9 +451,11 @@ function getStyles() { return StyleSheet.create({
     opacity: 0.7,
   },
   registerButtonText: {
-    color: COLORS.primary,
+    color: COLORS.accent === '#000000' ? '#FFFFFF' : COLORS.primary,
     fontWeight: '700',
     fontSize: 16,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   loginLink: {
     alignItems: 'center',

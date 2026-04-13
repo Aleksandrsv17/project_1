@@ -18,6 +18,8 @@ router.post('/confirm-payment', bookingController.confirm.bind(bookingController
 router.patch('/:id/start', bookingController.startRide.bind(bookingController));
 router.patch('/:id/complete', bookingController.complete.bind(bookingController));
 router.patch('/:id/cancel', bookingController.cancel.bind(bookingController));
+router.patch('/:id/approve', bookingController.approve.bind(bookingController));
+router.patch('/:id/decline', bookingController.decline.bind(bookingController));
 router.post('/:id/rate', bookingController.rate.bind(bookingController));
 
 // Dynamic /:id MUST be LAST

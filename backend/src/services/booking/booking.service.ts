@@ -97,7 +97,7 @@ export class BookingService {
            dropoff_address, dropoff_lat, dropoff_lng,
            base_amount, chauffeur_fee, insurance_fee, mileage_overage,
            platform_commission, total_amount, deposit_amount, notes)
-         VALUES ($1,$2,$3,$4,$5,'pending',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+         VALUES ($1,$2,$3,$4,$5,'requested',$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
          RETURNING *`,
         [
           customerId,
@@ -499,6 +499,43 @@ export class BookingService {
 
     logger.info('Booking cancelled', { bookingId, userId, reason });
 
+    return updated.rows[0];
+  }
+
+  async approveBooking(bookingId: string, ownerId: string): Promise<Booking> {
+    const result = await query<Booking & { owner_id: string }>(
+      `SELECT b.*, v.owner_id FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.id = $1`,
+      [bookingId]
+    );
+    if (!result.rows[0]) throw new NotFoundError('Booking not found');
+    if (result.rows[0].owner_id !== ownerId) throw new ForbiddenError('Not your vehicle');
+    if (result.rows[0].status !== 'requested') throw new ConflictError('Booking is not in requested state');
+
+    await query('UPDATE bookings SET status = $1, updated_at = NOW() WHERE id = $2', ['confirmed', bookingId]);
+
+    logger.info('Booking approved by owner', { bookingId, ownerId });
+
+    const updated = await query<Booking>('SELECT * FROM bookings WHERE id = $1', [bookingId]);
+    return updated.rows[0];
+  }
+
+  async declineBooking(bookingId: string, ownerId: string, reason: string): Promise<Booking> {
+    const result = await query<Booking & { owner_id: string }>(
+      `SELECT b.*, v.owner_id FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.id = $1`,
+      [bookingId]
+    );
+    if (!result.rows[0]) throw new NotFoundError('Booking not found');
+    if (result.rows[0].owner_id !== ownerId) throw new ForbiddenError('Not your vehicle');
+    if (result.rows[0].status !== 'requested') throw new ConflictError('Booking is not in requested state');
+
+    await query(
+      'UPDATE bookings SET status = $1, cancellation_reason = $2, updated_at = NOW() WHERE id = $3',
+      ['declined', reason, bookingId]
+    );
+
+    logger.info('Booking declined by owner', { bookingId, ownerId, reason });
+
+    const updated = await query<Booking>('SELECT * FROM bookings WHERE id = $1', [bookingId]);
     return updated.rows[0];
   }
 

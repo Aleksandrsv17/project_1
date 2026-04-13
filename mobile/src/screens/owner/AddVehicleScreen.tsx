@@ -85,6 +85,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
   // Step 4: Features & Location
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]);
   const [pickupAddress, setPickupAddress] = useState(detectedAddress ?? '');
+  const [dropoffAddress, setDropoffAddress] = useState('');
   const [pickupCity, setPickupCity] = useState('Dubai');
   const [pickupCountry, setPickupCountry] = useState('United Arab Emirates');
   const [showCountryPicker, setShowCountryPicker] = useState(false);
@@ -287,6 +288,8 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
         city: pickupCity.trim() || 'Dubai',
       },
       features: selectedFeatures,
+      pickupAddress: pickupAddress.trim() || detectedAddress || 'Dubai, UAE',
+      dropoffAddress: dropoffAddress.trim(),
     };
 
     try {
@@ -707,6 +710,31 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
                 <Text style={styles.useLocationText}>▼ Use my current location</Text>
               </TouchableOpacity>
             )}
+
+            {/* Drop-off Address */}
+            <Text style={[styles.fieldLabel, { marginTop: SPACING.md }]}>Drop-off Address</Text>
+            <View style={styles.addressInputCard}>
+              <View style={styles.addressDotsCol}>
+                <View style={[styles.addressGreenDot, { backgroundColor: '#EF4444' }]} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <TextInput
+                  style={styles.addressInput}
+                  value={dropoffAddress}
+                  onChangeText={setDropoffAddress}
+                  placeholder="Where should customer return the vehicle?"
+                  placeholderTextColor={COLORS.gray}
+                />
+              </View>
+              {dropoffAddress.length > 0 && (
+                <TouchableOpacity onPress={() => setDropoffAddress('')}>
+                  <Text style={{ fontSize: 14, color: COLORS.gray, padding: 4 }}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={{ fontSize: 11, color: COLORS.textSecondary, marginTop: 4, paddingLeft: SPACING.sm }}>
+              Leave empty if same as pickup address
+            </Text>
 
             {/* Map with pin */}
             <View style={[styles.mapPickerContainer, { marginTop: SPACING.md }]}>
@@ -1402,7 +1430,9 @@ function getStyles() { return StyleSheet.create({
   },
   nextButton: {
     flex: 2,
-    backgroundColor: COLORS.accent,
+    backgroundColor: COLORS.accent === '#000000' ? 'transparent' : COLORS.accent,
+    borderWidth: COLORS.accent === '#000000' ? 1 : 0,
+    borderColor: '#FFFFFF',
     borderRadius: BORDER_RADIUS.md,
     paddingVertical: SPACING.md,
     alignItems: 'center',
@@ -1416,7 +1446,7 @@ function getStyles() { return StyleSheet.create({
     opacity: 0.7,
   },
   nextButtonText: {
-    color: COLORS.primary,
+    color: COLORS.accent === '#000000' ? '#FFFFFF' : COLORS.primary,
     fontWeight: '700',
     fontSize: 16,
   },
