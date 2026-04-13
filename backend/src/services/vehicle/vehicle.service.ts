@@ -292,6 +292,37 @@ export class VehicleService {
     );
   }
 
+  async getAvailability(
+    vehicleId: string,
+    fromDate: Date,
+    toDate: Date
+  ): Promise<Array<{ id: string; startTime: string; endTime: string; status: string }>> {
+    // Verify vehicle exists
+    const vehicle = await query<Vehicle>(
+      'SELECT id FROM vehicles WHERE id = $1',
+      [vehicleId]
+    );
+    if (!vehicle.rows[0]) {
+      throw new NotFoundError('Vehicle');
+    }
+
+    interface BookingRow { id: string; start_time: string; end_time: string; status: string }
+    const result = await query<BookingRow>(
+      `SELECT id, start_time, end_time, status FROM bookings
+       WHERE vehicle_id = $1 AND status IN ('requested', 'confirmed', 'active')
+       AND end_time >= $2 AND start_time <= $3
+       ORDER BY start_time`,
+      [vehicleId, fromDate.toISOString(), toDate.toISOString()]
+    );
+
+    return result.rows.map((row: BookingRow) => ({
+      id: row.id,
+      startTime: row.start_time,
+      endTime: row.end_time,
+      status: row.status,
+    }));
+  }
+
   private async attachMedia(vehicles: Vehicle[]): Promise<VehicleWithMedia[]> {
     if (vehicles.length === 0) return [];
 

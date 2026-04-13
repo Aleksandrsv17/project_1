@@ -102,6 +102,9 @@ export function BookingHistoryScreen({ navigation }: BookingHistoryScreenProps) 
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: SPACING.xs, marginRight: SPACING.sm }}>
+          <Text style={{ fontSize: 22, color: COLORS.textPrimary }}>←</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>My Bookings</Text>
       </View>
 

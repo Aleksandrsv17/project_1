@@ -104,6 +104,22 @@ export class VehicleController {
     }
   }
 
+  async getAvailability(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const vehicleId = req.params.id;
+      const now = new Date();
+      const fromDate = req.query.from ? new Date(req.query.from as string) : now;
+      const toDate = req.query.to
+        ? new Date(req.query.to as string)
+        : new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // +60 days
+
+      const bookedRanges = await vehicleService.getAvailability(vehicleId, fromDate, toDate);
+      res.status(200).json({ success: true, data: { bookedRanges } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async addMedia(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;

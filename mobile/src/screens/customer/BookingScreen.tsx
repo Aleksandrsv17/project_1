@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
@@ -25,6 +26,7 @@ import { PlacesAutocomplete } from '../../components/PlacesAutocomplete';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
 import { calculateBookingTotal, formatDateTime, formatDuration } from '../../utils/formatters';
 import { differenceInHours, addHours, addDays } from 'date-fns';
+import { useVehicleAvailability } from '../../hooks/useVehicles';
 import { CustomerStackParamList } from '../../navigation/CustomerNavigator';
 
 type BookingScreenProps = {
@@ -47,6 +49,7 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
   const { bookingDraft, updateBookingDraft, setPaymentClientSecret } = useBookingStore();
   const { data: vehicle, isLoading: vehicleLoading } = useVehicle(vehicleId);
   const createBookingMutation = useCreateBooking();
+  const { data: availability } = useVehicleAvailability(vehicleId);
 
   const [startTime, setStartTime] = useState(bookingDraft?.startTime ?? new Date());
   const [endTime, setEndTime] = useState(bookingDraft?.endTime ?? addHours(new Date(), 3));
@@ -62,6 +65,120 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
   const [notes, setNotes] = useState(bookingDraft?.notes ?? '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { location: userLocation } = useLocation();
+
+  // Calendar state
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(null);
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
+  const [showStartTimePicker, setShowStartTimePicker] = useState(false);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
+  const [pickupTime, setPickupTime] = useState(new Date());
+  const [returnTime, setReturnTime] = useState(new Date());
+
+  // Build calendar grid
+  const calendarData = React.useMemo(() => {
+    const year = calendarMonth.getFullYear();
+    const month = calendarMonth.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const cells: Array<{ day: number; date: Date; isAvailable: boolean; isPast: boolean; isBooked: boolean; isRequested: boolean; inRange: boolean; isStart: boolean; isEnd: boolean } | null> = [];
+
+    for (let i = 0; i < firstDay; i++) cells.push(null);
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d);
+      const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date); dayEnd.setHours(23, 59, 59, 999);
+      const isPast = dayStart < today;
+
+      let isBooked = false;
+      let isRequested = false;
+      if (availability) {
+        for (const range of availability) {
+          const rs = new Date(range.startTime);
+          const re = new Date(range.endTime);
+          if (rs <= dayEnd && re >= dayStart) {
+            if (range.status === 'requested') isRequested = true;
+            else { isBooked = true; break; }
+          }
+        }
+      }
+
+      const isAvailable = !isPast && !isBooked;
+      const inRange = selectedStartDate && selectedEndDate
+        ? dayStart >= selectedStartDate && dayStart <= selectedEndDate
+        : false;
+      const isStart = selectedStartDate ? dayStart.getTime() === selectedStartDate.getTime() : false;
+      const isEnd = selectedEndDate ? dayStart.getTime() === selectedEndDate.getTime() : false;
+
+      cells.push({ day: d, date, isAvailable, isPast, isBooked, isRequested, inRange, isStart, isEnd });
+    }
+    return cells;
+  }, [calendarMonth, availability, selectedStartDate, selectedEndDate]);
+
+  function handleDayPress(date: Date) {
+    const d = new Date(date); d.setHours(0, 0, 0, 0);
+    if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+      setSelectedStartDate(d);
+      setSelectedEndDate(null);
+      const newStart = new Date(d);
+      newStart.setHours(pickupTime.getHours(), pickupTime.getMinutes());
+      setStartTime(newStart);
+    } else {
+      if (d < selectedStartDate) {
+        setSelectedStartDate(d);
+        const newStart = new Date(d);
+        newStart.setHours(pickupTime.getHours(), pickupTime.getMinutes());
+        setStartTime(newStart);
+      } else {
+        setSelectedEndDate(d);
+        const newEnd = new Date(d);
+        newEnd.setHours(returnTime.getHours(), returnTime.getMinutes());
+        setEndTime(newEnd);
+      }
+    }
+  }
+
+  function handlePickupTimeChange(_: any, date?: Date) {
+    if (date) {
+      setPickupTime(date);
+      if (selectedStartDate) {
+        const newStart = new Date(selectedStartDate);
+        newStart.setHours(date.getHours(), date.getMinutes());
+        setStartTime(newStart);
+      }
+    }
+    if (Platform.OS === 'android') setShowStartTimePicker(false);
+  }
+
+  function handleReturnTimeChange(_: any, date?: Date) {
+    if (date) {
+      setReturnTime(date);
+      if (selectedEndDate) {
+        const newEnd = new Date(selectedEndDate);
+        newEnd.setHours(date.getHours(), date.getMinutes());
+        setEndTime(newEnd);
+      }
+    }
+    if (Platform.OS === 'android') setShowEndTimePicker(false);
+  }
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dayHeaders = ['S','M','T','W','T','F','S'];
+
+  // Check if selected dates overlap with any booked range
+  const hasDateOverlap = React.useMemo(() => {
+    if (!availability || availability.length === 0) return false;
+    for (const range of availability) {
+      const rangeStart = new Date(range.startTime);
+      const rangeEnd = new Date(range.endTime);
+      if (startTime < rangeEnd && endTime > rangeStart) {
+        return true;
+      }
+    }
+    return false;
+  }, [availability, startTime, endTime]);
 
   const durationHours = Math.max(1, differenceInHours(endTime, startTime));
   const [sliderDays, setSliderDays] = useState(Math.floor(durationHours / 24));
@@ -202,59 +319,109 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
           </View>
         </View>
 
-        {/* Start Time */}
+        {/* Calendar */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Pick-up Time</Text>
-          <View style={styles.timeControl}>
-            <TouchableOpacity style={styles.timeAdjustButton} onPress={() => adjustStartTime(-1)}>
-              <Text style={styles.timeAdjustIcon}>−</Text>
+          <Text style={styles.sectionTitle}>Select Dates</Text>
+
+          {/* Month navigation */}
+          <View style={styles.calMonthRow}>
+            <TouchableOpacity onPress={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1))}>
+              <Text style={styles.calMonthArrow}>←</Text>
             </TouchableOpacity>
-            <View style={styles.timeDisplay}>
-              <Text style={styles.timeValue}>{formatDateTime(startTime)}</Text>
-            </View>
-            <TouchableOpacity style={styles.timeAdjustButton} onPress={() => adjustStartTime(1)}>
-              <Text style={styles.timeAdjustIcon}>+</Text>
+            <Text style={styles.calMonthTitle}>{monthNames[calendarMonth.getMonth()]} {calendarMonth.getFullYear()}</Text>
+            <TouchableOpacity onPress={() => setCalendarMonth(new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1))}>
+              <Text style={styles.calMonthArrow}>→</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Day headers */}
+          <View style={styles.calRow}>
+            {dayHeaders.map((d, i) => (
+              <View key={i} style={styles.calHeaderCell}><Text style={styles.calHeaderText}>{d}</Text></View>
+            ))}
+          </View>
+
+          {/* Day grid */}
+          <View style={styles.calGrid}>
+            {calendarData.map((cell, i) => {
+              if (!cell) return <View key={`e${i}`} style={styles.calCell} />;
+              const isSelected = cell.isStart || cell.isEnd;
+              return (
+                <TouchableOpacity
+                  key={cell.day}
+                  style={[
+                    styles.calCell,
+                    cell.inRange && styles.calCellInRange,
+                    isSelected && styles.calCellSelected,
+                    cell.isBooked && styles.calCellBooked,
+                    cell.isPast && styles.calCellPast,
+                  ]}
+                  disabled={!cell.isAvailable}
+                  onPress={() => handleDayPress(cell.date)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[
+                    styles.calDayText,
+                    isSelected && styles.calDayTextSelected,
+                    cell.isBooked && { color: '#EF4444' },
+                    cell.isPast && { color: COLORS.gray },
+                    cell.isRequested && { color: '#F59E0B' },
+                  ]}>{cell.day}</Text>
+                  {cell.isBooked && <View style={styles.calDot}><View style={[styles.calDotInner, { backgroundColor: '#EF4444' }]} /></View>}
+                  {cell.isRequested && !cell.isBooked && <View style={styles.calDot}><View style={[styles.calDotInner, { backgroundColor: '#F59E0B' }]} /></View>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Legend */}
+          <View style={styles.calLegend}>
+            <View style={styles.calLegendItem}><View style={[styles.calLegendDot, { backgroundColor: COLORS.textPrimary }]} /><Text style={styles.calLegendText}>Selected</Text></View>
+            <View style={styles.calLegendItem}><View style={[styles.calLegendDot, { backgroundColor: '#EF4444' }]} /><Text style={styles.calLegendText}>Booked</Text></View>
+            <View style={styles.calLegendItem}><View style={[styles.calLegendDot, { backgroundColor: '#F59E0B' }]} /><Text style={styles.calLegendText}>Pending</Text></View>
+          </View>
+
+          {hasDateOverlap && (
+            <Text style={styles.overlapWarning}>Vehicle is unavailable on selected dates</Text>
+          )}
         </View>
 
-        {/* Duration */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Duration</Text>
-          <Text style={styles.durationDisplay}>{durationText}</Text>
+        {/* Time pickers — show after dates selected */}
+        {selectedStartDate && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Pick-up Time</Text>
+            <TouchableOpacity style={styles.timePickerBtn} onPress={() => setShowStartTimePicker(!showStartTimePicker)}>
+              <Text style={styles.timePickerText}>{selectedStartDate.toLocaleDateString()} at {pickupTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+            </TouchableOpacity>
+            {showStartTimePicker && (
+              <DateTimePicker value={pickupTime} mode="time" display="spinner" onChange={handlePickupTimeChange} />
+            )}
 
-          <Text style={styles.sliderSubLabel}>Days</Text>
-          <Slider
-            style={styles.slider}
-            minimumValue={0} maximumValue={10} step={1} value={sliderDays}
-            onValueChange={(v: number) => handleSliderChange(v, sliderHours)}
-            minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
-            thumbTintColor="#d9c0a4"
-          />
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>0</Text>
-            <Text style={styles.sliderLabel}>10</Text>
-          </View>
+            {selectedEndDate ? (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: SPACING.md }]}>Return Time</Text>
+                <TouchableOpacity style={styles.timePickerBtn} onPress={() => setShowEndTimePicker(!showEndTimePicker)}>
+                  <Text style={styles.timePickerText}>{selectedEndDate.toLocaleDateString()} at {returnTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                </TouchableOpacity>
+                {showEndTimePicker && (
+                  <DateTimePicker value={returnTime} mode="time" display="spinner" onChange={handleReturnTimeChange} />
+                )}
 
-          <Text style={styles.sliderSubLabel}>Hours</Text>
-          <Slider
-            style={styles.slider}
-            minimumValue={0} maximumValue={23} step={1} value={sliderHours}
-            onValueChange={(v: number) => handleSliderChange(sliderDays, v)}
-            minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
-            thumbTintColor="#d9c0a4"
-          />
-          <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>0</Text>
-            <Text style={styles.sliderLabel}>23</Text>
+                <View style={styles.durationSummary}>
+                  <Text style={styles.durationSummaryText}>Duration: {durationText}</Text>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.calHint}>Tap an end date on the calendar</Text>
+            )}
           </View>
+        )}
 
-          <View style={styles.durationSummary}>
-            <Text style={styles.durationSummaryText}>
-              Return: {formatDateTime(endTime)}
-            </Text>
+        {!selectedStartDate && (
+          <View style={styles.section}>
+            <Text style={styles.calHint}>Tap a start date on the calendar above</Text>
           </View>
-        </View>
+        )}
 
         {/* Pickup & Dropoff Addresses (set by vehicle owner) */}
         <View style={styles.section}>
@@ -321,9 +488,9 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
       <View style={styles.bottomBar}>
         <SafeAreaView edges={['bottom']}>
           <TouchableOpacity
-            style={[styles.proceedButton, isSubmitting && styles.disabledButton]}
+            style={[styles.proceedButton, (isSubmitting || hasDateOverlap) && styles.disabledButton]}
             onPress={handleProceedToPayment}
-            disabled={isSubmitting}
+            disabled={isSubmitting || hasDateOverlap}
           >
             {isSubmitting ? (
               <ActivityIndicator color={COLORS.primary} size="small" />
@@ -576,4 +743,53 @@ function getStyles() { return StyleSheet.create({
     fontSize: 16,
     letterSpacing: 2,
   },
+  overlapWarning: {
+    color: '#EF4444',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: SPACING.sm,
+    textAlign: 'center' as const,
+  },
+  // Calendar styles
+  calMonthRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: SPACING.sm,
+  },
+  calMonthArrow: { fontSize: 20, color: COLORS.textPrimary, padding: SPACING.xs },
+  calMonthTitle: { fontSize: 16, fontWeight: '700' as const, color: COLORS.textPrimary },
+  calRow: { flexDirection: 'row' as const, marginBottom: 4 },
+  calHeaderCell: { flex: 1, alignItems: 'center' as const, paddingVertical: 4 },
+  calHeaderText: { fontSize: 12, fontWeight: '600' as const, color: COLORS.textSecondary },
+  calGrid: { flexDirection: 'row' as const, flexWrap: 'wrap' as const },
+  calCell: {
+    width: '14.28%' as any,
+    aspectRatio: 1,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    borderRadius: 8,
+  },
+  calCellInRange: { backgroundColor: COLORS.grayLight },
+  calCellSelected: { backgroundColor: COLORS.textPrimary },
+  calCellBooked: { backgroundColor: '#EF444415' },
+  calCellPast: { opacity: 0.3 },
+  calDayText: { fontSize: 14, fontWeight: '600' as const, color: COLORS.textPrimary },
+  calDayTextSelected: { color: COLORS.background },
+  calDot: { position: 'absolute' as const, bottom: 4 },
+  calDotInner: { width: 4, height: 4, borderRadius: 2 },
+  calLegend: { flexDirection: 'row' as const, justifyContent: 'center' as const, gap: SPACING.md, marginTop: SPACING.sm },
+  calLegendItem: { flexDirection: 'row' as const, alignItems: 'center' as const, gap: 4 },
+  calLegendDot: { width: 8, height: 8, borderRadius: 4 },
+  calLegendText: { fontSize: 11, color: COLORS.textSecondary },
+  calHint: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' as const, paddingVertical: SPACING.sm },
+  timePickerBtn: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    paddingVertical: 12,
+    paddingHorizontal: SPACING.md,
+    alignItems: 'center' as const,
+  },
+  timePickerText: { fontSize: 15, fontWeight: '600' as const, color: COLORS.textPrimary },
 }); }

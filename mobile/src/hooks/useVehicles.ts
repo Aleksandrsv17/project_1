@@ -8,6 +8,7 @@ import {
   deleteVehicle,
   toggleVehicleAvailability,
   getNearbyVehicles,
+  getVehicleAvailability,
   VehicleFilters,
   AddVehiclePayload,
 } from '../api/vehicles';
@@ -20,6 +21,7 @@ export const vehicleKeys = {
   detail: (id: string) => [...vehicleKeys.details(), id] as const,
   myVehicles: () => [...vehicleKeys.all, 'my-vehicles'] as const,
   nearby: (lat: number, lng: number) => [...vehicleKeys.all, 'nearby', lat, lng] as const,
+  availability: (id: string) => [...vehicleKeys.all, 'availability', id] as const,
 };
 
 export function useVehicles(filters?: VehicleFilters) {
@@ -53,6 +55,15 @@ export function useNearbyVehicles(latitude?: number, longitude?: number, radiusK
     queryFn: () => getNearbyVehicles(latitude!, longitude!, radiusKm),
     enabled: latitude !== undefined && longitude !== undefined,
     staleTime: 30_000,
+  });
+}
+
+export function useVehicleAvailability(vehicleId: string, from?: string, to?: string) {
+  return useQuery({
+    queryKey: vehicleKeys.availability(vehicleId),
+    queryFn: () => getVehicleAvailability(vehicleId, from, to),
+    enabled: Boolean(vehicleId),
+    staleTime: 60_000,
   });
 }
 

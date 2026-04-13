@@ -120,6 +120,26 @@ function mapVehicle(raw: any): Vehicle {
   };
 }
 
+export interface VehicleAvailabilityRange {
+  id: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+}
+
+export async function getVehicleAvailability(
+  vehicleId: string,
+  from?: string,
+  to?: string
+): Promise<VehicleAvailabilityRange[]> {
+  const params: Record<string, string> = {};
+  if (from) params.from = from;
+  if (to) params.to = to;
+  const response = await apiClient.get(`/vehicles/${vehicleId}/availability`, { params });
+  const data = response.data?.data ?? response.data;
+  return data?.bookedRanges ?? [];
+}
+
 export async function getVehicles(filters?: VehicleFilters): Promise<VehicleListResponse> {
   const params: Record<string, any> = { ...filters };
   // Map camelCase to backend snake_case param names

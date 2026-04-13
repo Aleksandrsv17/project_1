@@ -24,6 +24,8 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(false);
   const [locationAlways, setLocationAlways] = useState(false);
+  const [defaultTemp, setDefaultTemp] = useState(22);
+  const [defaultMusic, setDefaultMusic] = useState<'on' | 'off'>('on');
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -117,6 +119,45 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           <SettingRow icon="¤" label="Currency" value="AED" />
           <View style={styles.divider} />
           <SettingRow icon="⊡" label="Distance Unit" value="Kilometers" />
+        </View>
+
+        {/* Ride Defaults */}
+        <Text style={styles.sectionTitle}>Ride Defaults</Text>
+        <View style={styles.card}>
+          <View style={styles.settingRow}>
+            <Text style={styles.settingIcon}>◔</Text>
+            <View style={[styles.settingContent, { flex: 1 }]}>
+              <Text style={styles.settingLabel}>Temperature</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity style={styles.tempBtn} onPress={() => setDefaultTemp(t => Math.max(16, t - 1))}>
+                <Text style={styles.tempBtnText}>-</Text>
+              </TouchableOpacity>
+              <Text style={styles.tempValue}>{defaultTemp}°C</Text>
+              <TouchableOpacity style={styles.tempBtn} onPress={() => setDefaultTemp(t => Math.min(28, t + 1))}>
+                <Text style={styles.tempBtnText}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.settingRow}>
+            <Text style={styles.settingIcon}>♫</Text>
+            <View style={[styles.settingContent, { flex: 1 }]}>
+              <Text style={styles.settingLabel}>Music</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                style={[styles.musicToggle, defaultMusic === 'on' && styles.musicToggleActive]}
+                onPress={() => setDefaultMusic('on')}>
+                <Text style={[styles.musicToggleText, defaultMusic === 'on' && styles.musicToggleTextActive]}>On</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.musicToggle, defaultMusic === 'off' && styles.musicToggleActive]}
+                onPress={() => setDefaultMusic('off')}>
+                <Text style={[styles.musicToggleText, defaultMusic === 'off' && styles.musicToggleTextActive]}>Off</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
 
         {/* Data */}
@@ -213,4 +254,11 @@ function getStyles() { return StyleSheet.create({
   settingSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   settingValue: { fontSize: 14, color: COLORS.textSecondary },
   settingArrow: { fontSize: 20, color: COLORS.gray, fontWeight: '300' },
+  tempBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
+  tempBtnText: { fontSize: 16, fontWeight: '600', color: COLORS.textPrimary },
+  tempValue: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, minWidth: 44, textAlign: 'center' },
+  musicToggle: { paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md },
+  musicToggleActive: { backgroundColor: COLORS.textPrimary, borderColor: COLORS.textPrimary },
+  musicToggleText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  musicToggleTextActive: { color: COLORS.background },
 }); }

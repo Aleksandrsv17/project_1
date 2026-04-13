@@ -36,6 +36,13 @@ router.patch(
   vehicleController.adminUpdateStatus.bind(vehicleController)
 );
 
+// Vehicle availability (booked date ranges) — must be before /:id catch-all
+router.get(
+  '/:id/availability',
+  authenticate,
+  vehicleController.getAvailability.bind(vehicleController)
+);
+
 // Update vehicle
 router.patch(
   '/:id',

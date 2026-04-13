@@ -24,6 +24,7 @@ import { searchPlaces, getPlaceDetails, getDirections, decodePolyline, reverseGe
 import { VehicleCard } from '../../components/VehicleCard';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuthStore } from '../../store/authStore';
 import { Vehicle } from '../../api/vehicles';
 import { CustomerTabParamList } from '../../navigation/CustomerNavigator';
@@ -35,7 +36,7 @@ type HomeScreenProps = {
   navigation: BottomTabNavigationProp<CustomerTabParamList, 'Home'>;
 };
 
-type ViewMode = 'idle' | 'search' | 'route' | 'searching';
+type ViewMode = 'idle' | 'search' | 'route' | 'preferences' | 'searching';
 
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const styles = getStyles();
@@ -59,6 +60,14 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [rideType, setRideType] = useState<'sedan' | 'suv' | 'van'>('sedan');
   const [mapCenter, setMapCenter] = useState<LatLng | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [scheduled, setScheduled] = useState(false);
+  const [scheduleDate, setScheduleDate] = useState(new Date(Date.now() + 60 * 60 * 1000));
+  const [tempDate, setTempDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
+  const [prefTemp, setPrefTemp] = useState(22);
+  const [prefMusic, setPrefMusic] = useState<'on' | 'off'>('on');
+  const [prefNotes, setPrefNotes] = useState('');
 
   const region = location
     ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 }
@@ -211,10 +220,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
   function handleRequestRide() {
     Keyboard.dismiss();
+    setViewMode('preferences');
+  }
+
+  function handleConfirmRide() {
     setViewMode('searching');
     setSearchingSeconds(0);
-
-    // Start pulse animation
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.3, duration: 800, useNativeDriver: true }),
@@ -647,31 +658,115 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 </View>
               )}
 
-              {/* Car type selector */}
+              {/* Car type selector with prices */}
               <View style={styles.carTypeRow}>
                 {([
-                  { key: 'sedan', label: 'Sedan', sub: '1-3' },
-                  { key: 'suv', label: 'SUV', sub: '1-5' },
-                  { key: 'van', label: 'Van', sub: '1-7' },
-                ] as const).map((type) => (
-                  <TouchableOpacity
-                    key={type.key}
-                    style={[styles.carTypeItem, rideType === type.key && styles.carTypeItemActive]}
-                    onPress={() => setRideType(type.key)}
-                  >
-                    <Text style={[styles.carTypeIcon, rideType === type.key && styles.carTypeIconActive]}>
-                      {type.key === 'sedan' ? '◆' : type.key === 'suv' ? '◆◆' : '◆◆◆'}
-                    </Text>
-                    <Text style={[styles.carTypeName, rideType === type.key && styles.carTypeNameActive]}>{type.label}</Text>
-                  </TouchableOpacity>
-                ))}
+                  { key: 'sedan', label: 'Sedan', sub: '1-3', mult: 1 },
+                  { key: 'suv', label: 'SUV', sub: '1-5', mult: 1.3 },
+                  { key: 'van', label: 'Van', sub: '1-7', mult: 1.6 },
+                ] as const).map((type) => {
+                  const price = routeInfo ? Math.round(parseFloat(routeInfo.distance.replace(/[^0-9.]/g, '')) * 2.5 * type.mult) : 0;
+                  return (
+                    <TouchableOpacity key={type.key} style={[styles.carTypeItem, rideType === type.key && styles.carTypeItemActive]} onPress={() => setRideType(type.key)}>
+                      <Text style={[styles.carTypeIcon, rideType === type.key && styles.carTypeIconActive]}>
+                        {type.key === 'sedan' ? '◆' : type.key === 'suv' ? '◆◆' : '◆◆◆'}
+                      </Text>
+                      <Text style={[styles.carTypeName, rideType === type.key && styles.carTypeNameActive]}>{type.label}</Text>
+                      <Text style={[styles.carTypePrice, rideType === type.key && styles.carTypePriceActive]}>${price}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
-              <TouchableOpacity style={styles.findVehiclesButton} onPress={handleRequestRide}>
-                <Text style={styles.findVehiclesText}>Request {rideType === 'sedan' ? 'Sedan' : rideType === 'suv' ? 'SUV' : 'Van'}</Text>
-              </TouchableOpacity>
+              {/* Schedule section */}
+              {scheduled && (
+                <View style={styles.scheduleRow}>
+                  <TouchableOpacity style={styles.scheduleDateBox} onPress={() => { setTempDate(scheduleDate); setPickerMode('date'); setShowPicker(true); }}>
+                    <Text style={styles.scheduleDateText}>{scheduleDate.toLocaleDateString()}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.scheduleDateBox} onPress={() => { setTempDate(scheduleDate); setPickerMode('time'); setShowPicker(true); }}>
+                    <Text style={styles.scheduleDateText}>{scheduleDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setScheduled(false)}>
+                    <Text style={{ fontSize: 16, color: COLORS.textSecondary, padding: 4 }}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {showPicker && (
+                <View style={styles.pickerWrap}>
+                  <DateTimePicker value={tempDate} mode={pickerMode} minimumDate={new Date()} display="spinner" textColor={COLORS.textPrimary} themeVariant="dark"
+                    onChange={(_, date) => { if (date) setTempDate(date); }} />
+                  <TouchableOpacity style={styles.pickerConfirmBtn} onPress={() => { setScheduleDate(tempDate); setShowPicker(false); }}>
+                    <Text style={styles.pickerConfirmText}>CONFIRM</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* Request button + schedule clock */}
+              <View style={styles.requestRow}>
+                <TouchableOpacity style={[styles.findVehiclesButton, { flex: 1 }]} onPress={handleRequestRide}>
+                  <Text style={styles.findVehiclesText}>{scheduled ? 'Schedule' : 'Request'} {rideType === 'sedan' ? 'Sedan' : rideType === 'suv' ? 'SUV' : 'Van'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.clockBtn, scheduled && styles.clockBtnActive]} onPress={() => setScheduled(!scheduled)}>
+                  <Text style={[styles.clockIcon, scheduled && { color: '#FFF' }]}>◷</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
+        </>
+      )}
+
+      {/* ── PREFERENCES MODE ── */}
+      {viewMode === 'preferences' && (
+        <>
+          <SafeAreaView style={styles.searchOverlay} edges={['top']}>
+            <TouchableOpacity style={styles.searchBack} onPress={() => setViewMode('route')}>
+              <Text style={styles.searchBackText}>←</Text>
+            </TouchableOpacity>
+          </SafeAreaView>
+          <View style={styles.routeBottomCard}>
+            <Text style={styles.prefTitle}>Ride Preferences</Text>
+
+            <View style={styles.prefRow}>
+              <Text style={styles.prefLabel}>Temperature</Text>
+              <View style={styles.prefTempRow}>
+                <TouchableOpacity style={styles.prefTempBtn} onPress={() => setPrefTemp(t => Math.max(16, t - 1))}><Text style={styles.prefTempBtnText}>-</Text></TouchableOpacity>
+                <Text style={styles.prefTempValue}>{prefTemp}°C</Text>
+                <TouchableOpacity style={styles.prefTempBtn} onPress={() => setPrefTemp(t => Math.min(28, t + 1))}><Text style={styles.prefTempBtnText}>+</Text></TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.prefDivider} />
+
+            <View style={styles.prefRow}>
+              <Text style={styles.prefLabel}>Music</Text>
+              <View style={styles.prefToggleRow}>
+                <TouchableOpacity style={[styles.prefToggle, prefMusic === 'on' && styles.prefToggleActive]} onPress={() => setPrefMusic('on')}>
+                  <Text style={[styles.prefToggleText, prefMusic === 'on' && styles.prefToggleTextActive]}>On</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.prefToggle, prefMusic === 'off' && styles.prefToggleActive]} onPress={() => setPrefMusic('off')}>
+                  <Text style={[styles.prefToggleText, prefMusic === 'off' && styles.prefToggleTextActive]}>Off</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.prefDivider} />
+
+            <Text style={styles.prefLabel}>Notes for driver</Text>
+            <TextInput
+              style={styles.prefInput}
+              value={prefNotes}
+              onChangeText={setPrefNotes}
+              placeholder="E.g. child seat, quiet ride, luggage..."
+              placeholderTextColor={COLORS.gray}
+              multiline
+              numberOfLines={3}
+            />
+
+            <TouchableOpacity style={styles.findVehiclesButton} onPress={handleConfirmRide}>
+              <Text style={styles.findVehiclesText}>Confirm & Search</Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
 
@@ -921,6 +1016,34 @@ function getStyles() { return StyleSheet.create({
     paddingVertical: SPACING.md, alignItems: 'center',
   },
   findVehiclesText: { color: '#000000', fontWeight: '700', fontSize: 15, letterSpacing: 1 },
+
+  // Schedule
+  requestRow: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' },
+  clockBtn: { width: 52, height: 52, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
+  clockBtnActive: { backgroundColor: COLORS.textPrimary, borderColor: COLORS.textPrimary },
+  clockIcon: { fontSize: 22, color: COLORS.textSecondary },
+  scheduleRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm, alignItems: 'center' },
+  scheduleDateBox: { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingVertical: 10, alignItems: 'center' },
+  scheduleDateText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  pickerWrap: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', marginBottom: SPACING.sm },
+  pickerConfirmBtn: { backgroundColor: '#d9c0a4', paddingVertical: SPACING.sm, alignItems: 'center' },
+  pickerConfirmText: { fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 2 },
+
+  // Preferences
+  prefTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.md, textAlign: 'center' },
+  prefRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: SPACING.sm },
+  prefLabel: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary, marginBottom: 4 },
+  prefDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: SPACING.sm },
+  prefTempRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  prefTempBtn: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
+  prefTempBtnText: { fontSize: 18, fontWeight: '600', color: COLORS.textPrimary },
+  prefTempValue: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, minWidth: 50, textAlign: 'center' },
+  prefToggleRow: { flexDirection: 'row', gap: SPACING.sm },
+  prefToggle: { paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md },
+  prefToggleActive: { backgroundColor: COLORS.textPrimary, borderColor: COLORS.textPrimary },
+  prefToggleText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  prefToggleTextActive: { color: COLORS.background },
+  prefInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, color: COLORS.textPrimary, marginTop: 4, marginBottom: SPACING.md, minHeight: 70, textAlignVertical: 'top' },
 
   // ── Searching mode ──
   searchingHeader: { paddingHorizontal: SPACING.md },

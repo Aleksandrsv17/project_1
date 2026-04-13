@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { useVehicle } from '../../hooks/useVehicles';
+import { useVehicle, useVehicleAvailability } from '../../hooks/useVehicles';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { InlineError } from '../../components/ErrorBoundary';
 import { StarRating } from '../../components/StarRating';
@@ -38,7 +38,55 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
   const [selectedMode, setSelectedMode] = useState<'self_drive' | 'chauffeur'>('self_drive');
 
   const { data: vehicle, isLoading, isError, refetch } = useVehicle(vehicleId);
+  const { data: availability } = useVehicleAvailability(vehicleId);
   const { setBookingDraft } = useBookingStore();
+
+  // Build 30-day calendar data
+  const calendarDays = React.useMemo(() => {
+    const days: Array<{
+      date: Date;
+      dayNum: number;
+      dayName: string;
+      isToday: boolean;
+      status: 'available' | 'booked' | 'requested';
+    }> = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const dayStart = new Date(d);
+      const dayEnd = new Date(d);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      let status: 'available' | 'booked' | 'requested' = 'available';
+      if (availability) {
+        for (const range of availability) {
+          const rangeStart = new Date(range.startTime);
+          const rangeEnd = new Date(range.endTime);
+          if (rangeStart <= dayEnd && rangeEnd >= dayStart) {
+            if (range.status === 'requested') {
+              status = 'requested';
+            } else {
+              status = 'booked';
+              break; // booked takes priority
+            }
+          }
+        }
+      }
+
+      days.push({
+        date: d,
+        dayNum: d.getDate(),
+        dayName: dayNames[d.getDay()],
+        isToday: i === 0,
+        status,
+      });
+    }
+    return days;
+  }, [availability]);
 
   function handleBookNow() {
     if (!vehicle) return;
@@ -223,6 +271,51 @@ export function VehicleDetailScreen({ navigation, route }: VehicleDetailScreenPr
               </MapView>
               <Text style={styles.mapAddress}>{vehicle.location.address}</Text>
             </View>
+          </View>
+
+          {/* Availability Calendar Strip */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Availability</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.calendarStrip}
+            >
+              {calendarDays.map((day, idx) => {
+                const bgColor =
+                  day.status === 'booked'
+                    ? '#EF444420'
+                    : day.status === 'requested'
+                    ? '#F59E0B20'
+                    : COLORS.grayLight;
+                const textColor =
+                  day.status === 'booked' ? COLORS.textSecondary : COLORS.textPrimary;
+
+                return (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.calendarDay,
+                      { backgroundColor: bgColor },
+                      day.isToday && styles.calendarDayToday,
+                    ]}
+                  >
+                    <Text style={[styles.calendarDayName, { color: textColor }]}>
+                      {day.dayName}
+                    </Text>
+                    <Text style={[styles.calendarDayNum, { color: textColor }]}>
+                      {day.dayNum}
+                    </Text>
+                    {day.status === 'booked' && (
+                      <Text style={styles.calendarLabelBooked}>Booked</Text>
+                    )}
+                    {day.status === 'requested' && (
+                      <Text style={styles.calendarLabelPending}>Pending</Text>
+                    )}
+                  </View>
+                );
+              })}
+            </ScrollView>
           </View>
 
           {/* Pricing & Mode Selection */}
@@ -680,5 +773,40 @@ function getStyles() { return StyleSheet.create({
     color: COLORS.accent === '#000000' ? '#FFFFFF' : COLORS.primary,
     fontWeight: '700',
     fontSize: 16,
+  },
+  calendarStrip: {
+    gap: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  calendarDay: {
+    width: 56,
+    paddingVertical: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center' as const,
+    gap: 2,
+  },
+  calendarDayToday: {
+    borderWidth: 2,
+    borderColor: COLORS.accent === '#000000' ? '#FFFFFF' : COLORS.accent,
+  },
+  calendarDayName: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  calendarDayNum: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  calendarLabelBooked: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#EF4444',
+    marginTop: 2,
+  },
+  calendarLabelPending: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#F59E0B',
+    marginTop: 2,
   },
 }); }
