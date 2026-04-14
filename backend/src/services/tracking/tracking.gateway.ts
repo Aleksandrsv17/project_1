@@ -46,6 +46,8 @@ class TrackingGateway {
   private pendingRides = new Map<string, PendingRide>();
   /** Map of driverId -> set of customer socketIds tracking them */
   private driverTrackers = new Map<string, Set<string>>();
+  /** Map of bookingId -> customer socketId for direct event delivery */
+  private rideCustomerSockets = new Map<string, string>();
 
   initialize(server: HttpServer): SocketServer {
     this.io = new SocketServer(server, {
@@ -371,6 +373,10 @@ class TrackingGateway {
             ? `${driverUserResult.rows[0].first_name} ${driverUserResult.rows[0].last_name}`
             : authSocket.email;
 
+          // Store customer socket for this booking
+          this.rideCustomerSockets.set(bookingId, pending.socketId);
+          this.rideCustomerSockets.set(data.rideRequestId, pending.socketId);
+
           // Notify customer: ride matched
           this.io?.to(pending.socketId).emit('ride:matched', {
             rideRequestId: data.rideRequestId,
@@ -435,7 +441,12 @@ class TrackingGateway {
       });
 
       socket.on('driver:arrived', (data: { bookingId: string }) => {
-        // Notify customer that driver has arrived at pickup
+        // Notify customer via stored socket
+        const arrivedSid = this.rideCustomerSockets.get(data.bookingId);
+        if (arrivedSid) {
+          this.io?.to(arrivedSid).emit('ride:driver_arrived', { bookingId: data.bookingId });
+        }
+        // Also try trackers
         const trackers = this.driverTrackers.get(authSocket.userId);
         if (trackers) {
           for (const sid of trackers) {
@@ -458,20 +469,16 @@ class TrackingGateway {
             [data.bookingId]
           );
 
-          if (booking.rows[0]) {
-            // Broadcast to all trackers of this driver
-            const trackers = this.driverTrackers.get(authSocket.userId);
-            if (trackers) {
-              for (const sid of trackers) {
-                this.io?.to(sid).emit('ride:trip_started', { bookingId: data.bookingId });
-              }
-            }
-            // Also broadcast to all connected sockets of the customer
-            const sockets = await this.io?.fetchSockets();
-            for (const s of sockets ?? []) {
-              if ((s as any).userId === booking.rows[0].customer_id) {
-                s.emit('ride:trip_started', { bookingId: data.bookingId });
-              }
+          // Emit to customer via stored socket
+          const customerSid = this.rideCustomerSockets.get(data.bookingId);
+          if (customerSid) {
+            this.io?.to(customerSid).emit('ride:trip_started', { bookingId: data.bookingId });
+          }
+          // Also try trackers
+          const trackers = this.driverTrackers.get(authSocket.userId);
+          if (trackers) {
+            for (const sid of trackers) {
+              this.io?.to(sid).emit('ride:trip_started', { bookingId: data.bookingId });
             }
           }
 
@@ -490,23 +497,20 @@ class TrackingGateway {
             [data.bookingId]
           );
 
-          // Broadcast to all trackers
+          // Emit to customer via stored socket
+          const completedCustomerSid = this.rideCustomerSockets.get(data.bookingId);
+          if (completedCustomerSid) {
+            this.io?.to(completedCustomerSid).emit('ride:trip_completed', { bookingId: data.bookingId });
+          }
+          // Also try trackers
           const completedTrackers = this.driverTrackers.get(authSocket.userId);
           if (completedTrackers) {
             for (const sid of completedTrackers) {
               this.io?.to(sid).emit('ride:trip_completed', { bookingId: data.bookingId });
             }
           }
-          // Also broadcast to customer directly
-          const completedBooking = await query<{ customer_id: string }>('SELECT customer_id FROM bookings WHERE id = $1', [data.bookingId]);
-          if (completedBooking.rows[0]) {
-            const allSockets = await this.io?.fetchSockets();
-            for (const s of allSockets ?? []) {
-              if ((s as any).userId === completedBooking.rows[0].customer_id) {
-                s.emit('ride:trip_completed', { bookingId: data.bookingId });
-              }
-            }
-          }
+          // Cleanup
+          this.rideCustomerSockets.delete(data.bookingId);
 
           socket.emit('driver:complete_trip:ack', { success: true, bookingId: data.bookingId });
           logger.info('Trip completed', { bookingId: data.bookingId, driverId: authSocket.userId });
