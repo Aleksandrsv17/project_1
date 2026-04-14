@@ -330,6 +330,10 @@ class TrackingGateway {
           const now = new Date();
           const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // estimate 2h
 
+          // Check if vehicleId is a valid UUID, otherwise use null (Bersenev driver local vehicle)
+          const isUuidVid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(driver.vehicleId);
+          const vehicleIdForDb = isUuidVid ? driver.vehicleId : null;
+
           const bookingResult = await query<{ id: string }>(
             `INSERT INTO bookings
               (customer_id, vehicle_id, type, mode, status,
@@ -342,7 +346,7 @@ class TrackingGateway {
              RETURNING id`,
             [
               pending.customerId,
-              driver.vehicleId,
+              vehicleIdForDb,
               now,
               endTime,
               pending.pickup.text,
@@ -533,12 +537,13 @@ class TrackingGateway {
         pickupText: string;
         destText: string;
         vehicleCategory?: string;
+        preferences?: { temperature?: number; music?: string; notes?: string };
       }) => {
         try {
-          const { pickupLat, pickupLng, destLat, destLng, pickupText, destText, vehicleCategory } = data;
+          const { pickupLat, pickupLng, destLat, destLng, pickupText, destText, vehicleCategory, preferences } = data;
 
-          // Find nearby drivers (50km radius, no category filter for ride requests)
-          const nearbyDrivers = rideService.findNearbyDrivers(pickupLat, pickupLng, 50);
+          // Find nearby drivers (no radius limit for testing)
+          const nearbyDrivers = rideService.findNearbyDrivers(pickupLat, pickupLng, 10000);
 
           if (nearbyDrivers.length === 0) {
             socket.emit('ride:no_drivers', {
@@ -568,6 +573,7 @@ class TrackingGateway {
             currentDriverIndex: 0,
             timeoutHandle: null,
           };
+          (pending as any).preferences = preferences;
 
           this.pendingRides.set(rideRequestId, pending);
 
@@ -750,6 +756,7 @@ class TrackingGateway {
       estimatedPrice: extra.estimatedPrice || 0,
       estimatedDistance: extra.estimatedDistance || 0,
       estimatedDuration: extra.estimatedDuration || 0,
+      preferences: extra.preferences || null,
       timeout: 30,
     });
 
