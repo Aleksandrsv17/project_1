@@ -1,19 +1,21 @@
 import { format, formatDistanceToNow, parseISO, differenceInMinutes, differenceInHours } from 'date-fns';
 
 /**
- * Format a number as currency (AED by default for UAE market)
+ * Format a number as currency (EUR default)
  */
-export function formatCurrency(amount: number, currency = 'AED'): string {
-  if (isNaN(amount)) return `${currency} 0.00`;
-  return `${currency} ${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
+export function formatCurrency(amount: number, currency = 'EUR'): string {
+  if (isNaN(amount)) return '€0.00';
+  const symbol = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency === 'AED' ? 'AED ' : `${currency} `;
+  return `${symbol}${amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`;
 }
 
 /**
  * Format currency as compact string for display in cards
  */
-export function formatCurrencyCompact(amount: number, currency = 'AED'): string {
+export function formatCurrencyCompact(amount: number, currency = 'EUR'): string {
   if (amount >= 1000) {
-    return `${currency} ${(amount / 1000).toFixed(1)}k`;
+    const symbol = currency === 'EUR' ? '€' : currency === 'USD' ? '$' : currency === 'AED' ? 'AED ' : `${currency} `;
+    return `${symbol}${(amount / 1000).toFixed(1)}k`;
   }
   return formatCurrency(amount, currency);
 }

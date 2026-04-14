@@ -147,15 +147,15 @@ function RentalVehicleCard({ vehicle, durationDays, onSelect }: { vehicle: Vehic
         {/* Pricing */}
         <View style={styles.pricingRow}>
           <View>
-            <Text style={styles.priceMain}>${vehicle.pricePerDay}/day</Text>
+            <Text style={styles.priceMain}>€{vehicle.pricePerDay}/day</Text>
             <Text style={styles.priceSub}>Daily rate</Text>
           </View>
           <View style={{ alignItems: 'center' }}>
-            <Text style={styles.priceTotal}>${totalEstimate}</Text>
+            <Text style={styles.priceTotal}>€{totalEstimate}</Text>
             <Text style={styles.priceSub}>Est. {durationDays} day{durationDays !== 1 ? 's' : ''}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.priceDeposit}>${vehicle.depositAmount}</Text>
+            <Text style={styles.priceDeposit}>€{vehicle.depositAmount}</Text>
             <Text style={styles.priceSub}>Deposit</Text>
           </View>
         </View>

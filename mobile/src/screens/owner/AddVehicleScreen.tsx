@@ -549,7 +549,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
             <View style={styles.row}>
               <View style={styles.halfField}>
                 <Field
-                  label="Price Per Hour (AED) *"
+                  label="Price Per Hour (EUR) *"
                   value={pricePerHour}
                   onChangeText={setPricePerHour}
                   placeholder="e.g. 150"
@@ -558,7 +558,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
               </View>
               <View style={styles.halfField}>
                 <Field
-                  label="Price Per Day (AED) *"
+                  label="Price Per Day (EUR) *"
                   value={pricePerDay}
                   onChangeText={setPricePerDay}
                   placeholder="e.g. 800"
@@ -585,7 +585,7 @@ export function AddVehicleScreen({ navigation }: AddVehicleScreenProps) {
 
             {chauffeurAvailable && (
               <Field
-                label="Chauffeur Fee Per Hour (AED)"
+                label="Chauffeur Fee Per Hour (EUR)"
                 value={chauffeurFeePerHour}
                 onChangeText={setChauffeurFeePerHour}
                 placeholder="e.g. 80"

@@ -8,6 +8,7 @@ import {
   ScrollView,
   Platform,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -83,7 +84,7 @@ export function RentalSearchScreen({ navigation }: Props) {
         for (const range of availability) {
           const rs = new Date(range.startTime), re = new Date(range.endTime);
           if (rs <= dayEnd && re >= dayStart) {
-            if (range.status === 'requested') isRequested = true;
+            if (range.status === 'requested' || range.status === 'pending') isRequested = true;
             else { isBooked = true; break; }
           }
         }
@@ -122,8 +123,9 @@ export function RentalSearchScreen({ navigation }: Props) {
 
   function handleSelect(vehicle: Vehicle) {
     if (!selectedStart || !selectedEnd) {
-      // If no dates selected, show calendar for this vehicle
       setSelectedVehicleForCal(vehicle.id);
+      setShowCalendar(true);
+      Alert.alert('Select Rental Period', 'Please select start and end dates in the calendar first.');
       return;
     }
     setBookingDraft({
@@ -212,21 +214,27 @@ export function RentalSearchScreen({ navigation }: Props) {
                 const isSelected = cell.isStart || cell.isEnd;
                 return (
                   <TouchableOpacity key={cell.day} disabled={!cell.isAvailable}
-                    style={[styles.calCell, cell.inRange && styles.calCellRange, isSelected && styles.calCellSelected, cell.isBooked && styles.calCellBooked, cell.isPast && { opacity: 0.3 }]}
+                    style={styles.calCell}
                     onPress={() => handleDayPress(cell.date)} activeOpacity={0.7}>
-                    <Text style={[styles.calDayText, isSelected && { color: COLORS.background }, cell.isBooked && { color: '#EF4444' }, cell.isPast && { color: COLORS.gray }, cell.isRequested && { color: '#F59E0B' }]}>{cell.day}</Text>
-                    {cell.isBooked && <View style={styles.calDot}><View style={[styles.calDotInner, { backgroundColor: '#EF4444' }]} /></View>}
-                    {cell.isRequested && !cell.isBooked && <View style={styles.calDot}><View style={[styles.calDotInner, { backgroundColor: '#F59E0B' }]} /></View>}
+                    <View style={[
+                      styles.calCellInner,
+                      cell.inRange && styles.calCellRange,
+                      isSelected && styles.calCellSelected,
+                      cell.isBooked && styles.calCellBooked,
+                      cell.isRequested && !cell.isBooked && styles.calCellRequested,
+                      cell.isPast && { opacity: 0.3 },
+                    ]}>
+                      <Text style={[
+                        styles.calDayText,
+                        isSelected && { color: COLORS.background },
+                        cell.isBooked && { color: '#EF4444' },
+                        cell.isRequested && !cell.isBooked && { color: '#F59E0B' },
+                        cell.isPast && { color: COLORS.gray },
+                      ]}>{cell.day}</Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
-            </View>
-
-            {/* Legend */}
-            <View style={styles.calLegend}>
-              <View style={styles.calLegendItem}><View style={[styles.calLegendDot, { backgroundColor: COLORS.textPrimary }]} /><Text style={styles.calLegendText}>Selected</Text></View>
-              <View style={styles.calLegendItem}><View style={[styles.calLegendDot, { backgroundColor: '#EF4444' }]} /><Text style={styles.calLegendText}>Booked</Text></View>
-              <View style={styles.calLegendItem}><View style={[styles.calLegendDot, { backgroundColor: '#F59E0B' }]} /><Text style={styles.calLegendText}>Pending</Text></View>
             </View>
 
             {/* Time pickers inside dropdown */}
@@ -336,15 +344,15 @@ function RentalCard({ vehicle, durationBillingDays, durationLabel, onSelect }: {
         <View style={styles.cardDivider} />
         <View style={styles.pricingRow}>
           <View>
-            <Text style={styles.priceMain}>${vehicle.pricePerDay}/day</Text>
+            <Text style={styles.priceMain}>€{vehicle.pricePerDay}/day</Text>
             <Text style={styles.priceSub}>Daily rate</Text>
           </View>
           <View style={{ alignItems: 'center' }}>
-            <Text style={styles.priceTotal}>${totalEstimate}</Text>
+            <Text style={styles.priceTotal}>€{totalEstimate}</Text>
             <Text style={styles.priceSub}>Est. {durationLabel}</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.priceDeposit}>${vehicle.depositAmount}</Text>
+            <Text style={styles.priceDeposit}>€{vehicle.depositAmount}</Text>
             <Text style={styles.priceSub}>Deposit</Text>
           </View>
         </View>
@@ -389,19 +397,21 @@ function getStyles() { return StyleSheet.create({
   calHeaderCell: { flex: 1, alignItems: 'center', paddingVertical: 4 },
   calHeaderText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
+  calCell: { width: '14.28%', height: 40, justifyContent: 'center', alignItems: 'center', paddingVertical: 2, paddingHorizontal: 3 },
+  calCellInner: { width: '100%', height: '100%', borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
   calCellRange: { backgroundColor: COLORS.grayLight },
   calCellSelected: { backgroundColor: COLORS.textPrimary },
-  calCellBooked: { backgroundColor: '#EF444415' },
-  calDayText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  calCellBooked: { backgroundColor: '#FDECEC' },
+  calCellRequested: { backgroundColor: '#FEF3C7' },
+  calDayText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center', includeFontPadding: false },
   calDot: { position: 'absolute', bottom: 4 },
   calDotInner: { width: 4, height: 4, borderRadius: 2 },
-  calLegend: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.md, marginTop: SPACING.sm },
+  calLegend: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.md, marginTop: 4 },
   calLegendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   calLegendDot: { width: 8, height: 8, borderRadius: 4 },
   calLegendText: { fontSize: 11, color: COLORS.textSecondary },
-  calDropdown: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginTop: SPACING.xs },
-  calTimeSection: { marginTop: SPACING.md, borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SPACING.sm },
+  calDropdown: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.sm, marginTop: SPACING.xs },
+  calTimeSection: { marginTop: 0, paddingTop: 0 },
   calTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs },
   calTimeLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, letterSpacing: 1 },
   calTimeBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: 8 },

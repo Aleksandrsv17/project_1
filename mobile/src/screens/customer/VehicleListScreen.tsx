@@ -128,7 +128,7 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
         onPress={() => setShowPriceFilter(v => !v)}
       >
         <Text style={styles.categoryDropdownLabel}>
-          {minPrice > 0 || maxPrice < 500 ? `${minPrice} — ${maxPrice} AED/hr` : 'Price Range'}
+          {minPrice > 0 || maxPrice < 500 ? `€${minPrice} — €${maxPrice}/hr` : 'Price Range'}
         </Text>
         <Text style={styles.categoryDropdownArrow}>{showPriceFilter ? '▲' : '▼'}</Text>
       </TouchableOpacity>
@@ -136,7 +136,7 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
         <View style={styles.priceDropdown}>
           <View style={styles.priceSliderRow}>
             <Text style={styles.priceSliderLabel}>From</Text>
-            <Text style={styles.priceSliderValue}>{minPrice} AED</Text>
+            <Text style={styles.priceSliderValue}>€{minPrice}</Text>
           </View>
           <Slider
             style={styles.slider}
@@ -151,7 +151,7 @@ export function VehicleListScreen({ navigation, route }: VehicleListScreenProps)
           />
           <View style={styles.priceSliderRow}>
             <Text style={styles.priceSliderLabel}>Maximum</Text>
-            <Text style={styles.priceSliderValue}>{maxPrice < 500 ? `${maxPrice} AED` : 'Any'}</Text>
+            <Text style={styles.priceSliderValue}>{maxPrice < 500 ? `€${maxPrice}` : 'Any'}</Text>
           </View>
           <Slider
             style={styles.slider}

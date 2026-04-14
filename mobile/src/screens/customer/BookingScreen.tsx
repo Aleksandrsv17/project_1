@@ -507,7 +507,7 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
 }
 
 function formatCurrency(amount: number) {
-  return `AED ${amount.toFixed(0)}`;
+  return `€${amount.toFixed(0)}`;
 }
 
 function getStyles() { return StyleSheet.create({

@@ -126,7 +126,8 @@ export function ChauffeurVehicleListScreen({ navigation, route }: Props) {
 function ChauffeurVehicleCard({ vehicle, durationHours, onSelect }: { vehicle: Vehicle; durationHours: number; onSelect: () => void }) {
   const styles = getStyles();
   const thumbnail = vehicle.images[0] || null;
-  const chauffeurFee = vehicle.chauffeurFeePerHour || 45;
+  const chauffeurFee = Math.round(vehicle.chauffeurFeePerHour || 45);
+  const pricePerHour = Math.round(vehicle.pricePerHour);
   const totalEstimate = Math.round(vehicle.pricePerHour * durationHours + chauffeurFee * durationHours);
 
   return (
@@ -173,15 +174,15 @@ function ChauffeurVehicleCard({ vehicle, durationHours, onSelect }: { vehicle: V
         {/* Pricing */}
         <View style={styles.pricingRow}>
           <View>
-            <Text style={styles.priceMain}>${vehicle.pricePerHour}/hr</Text>
+            <Text style={styles.priceMain}>€{pricePerHour}/hr</Text>
             <Text style={styles.priceSub}>Vehicle</Text>
           </View>
           <View>
-            <Text style={styles.priceAccent}>${chauffeurFee}/hr</Text>
+            <Text style={styles.priceAccent}>€{chauffeurFee}/hr</Text>
             <Text style={styles.priceSub}>Chauffeur</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.priceTotal}>${totalEstimate}</Text>
+            <Text style={styles.priceTotal}>€{totalEstimate}</Text>
             <Text style={styles.priceSub}>Est. {durationHours}h</Text>
           </View>
         </View>

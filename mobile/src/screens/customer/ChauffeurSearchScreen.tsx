@@ -378,11 +378,11 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
             {/* Price breakdown */}
             <View style={styles.priceBlock}>
               <Text style={styles.priceLabel}>starting from</Text>
-              <Text style={styles.priceValue}>${totalPrice}</Text>
+              <Text style={styles.priceValue}>€{totalPrice}</Text>
               <View style={styles.priceBreakdown}>
-                <Text style={styles.breakdownText}>Chauffeur: ${CHAUFFEUR_HOURLY}/hr × {durationText}</Text>
-                <Text style={styles.breakdownText}>Delivery fee: ${DELIVERY_FEE}</Text>
-                <Text style={styles.breakdownText}>+ ${PER_KM}/km distance</Text>
+                <Text style={styles.breakdownText}>Chauffeur: €{CHAUFFEUR_HOURLY}/hr × {durationText}</Text>
+                <Text style={styles.breakdownText}>Delivery fee: €{DELIVERY_FEE}</Text>
+                <Text style={styles.breakdownText}>+ €{PER_KM}/km distance</Text>
               </View>
             </View>
 

@@ -316,7 +316,7 @@ export class VehicleService {
     interface BookingRow { id: string; start_time: string; end_time: string; status: string }
     const result = await query<BookingRow>(
       `SELECT id, start_time, end_time, status FROM bookings
-       WHERE vehicle_id = $1 AND status IN ('requested', 'confirmed', 'active')
+       WHERE vehicle_id = $1 AND status IN ('requested', 'pending', 'confirmed', 'active')
        AND end_time >= $2 AND start_time <= $3
        ORDER BY start_time`,
       [vehicleId, fromDate.toISOString(), toDate.toISOString()]

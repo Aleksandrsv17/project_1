@@ -796,7 +796,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                         {type.key === 'sedan' ? '◆' : type.key === 'suv' ? '◆◆' : '◆◆◆'}
                       </Text>
                       <Text style={[styles.carTypeName, rideType === type.key && styles.carTypeNameActive]}>{type.label}</Text>
-                      <Text style={[styles.carTypePrice, rideType === type.key && styles.carTypePriceActive]}>${price}</Text>
+                      <Text style={[styles.carTypePrice, rideType === type.key && styles.carTypePriceActive]}>€{price}</Text>
                     </TouchableOpacity>
                   );
                 })}
