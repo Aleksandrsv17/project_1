@@ -77,8 +77,13 @@ export class VehicleService {
     }
 
     if (queryParams.city) {
+      // Normalize umlauts for matching (Zürich → Zurich)
+      const normalizedCity = queryParams.city
+        .replace(/[üÜ]/g, m => m === 'ü' ? 'u' : 'U')
+        .replace(/[öÖ]/g, m => m === 'ö' ? 'o' : 'O')
+        .replace(/[äÄ]/g, m => m === 'ä' ? 'a' : 'A');
       conditions.push(`v.location_city ILIKE $${paramIdx++}`);
-      values.push(`%${queryParams.city}%`);
+      values.push(`%${normalizedCity}%`);
     }
 
     if (queryParams.category) {
