@@ -33,24 +33,27 @@ class RideService {
     userId: string,
     socketId: string,
     vehicleId: string,
-    location: DriverLocation
+    location: DriverLocation,
+    providedInfo?: { make?: string; model?: string; year?: number; plate?: string; category?: string }
   ): Promise<OnlineDriver | null> {
     try {
-      // Load vehicle info from DB
-      const result = await query<{
-        make: string;
-        model: string;
-        year: number;
-        license_plate: string;
-        category: string;
-      }>(
-        'SELECT make, model, year, license_plate, category FROM vehicles WHERE id = $1',
-        [vehicleId]
-      );
-
-      const vehicle = result.rows[0];
-      if (!vehicle) {
-        logger.warn('Driver tried to go online with invalid vehicle', { userId, vehicleId });
+      // Check if vehicleId is a UUID; if not, use providedInfo (for local Bersenev driver vehicles)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vehicleId);
+      let vehicleInfo = providedInfo;
+      if (isUuid) {
+        const result = await query<{
+          make: string; model: string; year: number; license_plate: string; category: string;
+        }>(
+          'SELECT make, model, year, license_plate, category FROM vehicles WHERE id = $1',
+          [vehicleId]
+        );
+        const v = result.rows[0];
+        if (v) {
+          vehicleInfo = { make: v.make, model: v.model, year: v.year, plate: v.license_plate, category: v.category };
+        }
+      }
+      if (!vehicleInfo || !vehicleInfo.make) {
+        logger.warn('Driver tried to go online without valid vehicle info', { userId, vehicleId });
         return null;
       }
 
@@ -60,11 +63,11 @@ class RideService {
         vehicleId,
         location,
         vehicleInfo: {
-          make: vehicle.make,
-          model: vehicle.model,
-          year: vehicle.year,
-          plate: vehicle.license_plate,
-          category: vehicle.category,
+          make: vehicleInfo.make || 'Mercedes',
+          model: vehicleInfo.model || '',
+          year: vehicleInfo.year || new Date().getFullYear(),
+          plate: vehicleInfo.plate || '',
+          category: vehicleInfo.category || 'luxury',
         },
       };
 

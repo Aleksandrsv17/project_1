@@ -255,13 +255,14 @@ class TrackingGateway {
       // ══  RIDE MATCHING — Driver Events  ═════════════════════════════════
       // ════════════════════════════════════════════════════════════════════
 
-      socket.on('driver:online', async (data: { vehicleId: string; location: { lat: number; lng: number } }) => {
+      socket.on('driver:online', async (data: { vehicleId: string; location: { lat: number; lng: number }; vehicleInfo?: any }) => {
         try {
           const driver = await rideService.driverGoOnline(
             authSocket.userId,
             socket.id,
             data.vehicleId,
-            data.location
+            data.location,
+            data.vehicleInfo
           );
           if (driver) {
             socket.emit('driver:online:ack', { success: true, driver });
