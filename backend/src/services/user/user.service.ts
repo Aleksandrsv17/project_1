@@ -103,6 +103,20 @@ export class UserService {
       throw new UnauthorizedError('Invalid email or password');
     }
 
+    // Generate driver UID if missing (for existing users)
+    if (!user.driver_uid) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const uid = generateDriverUID();
+        try {
+          await query('UPDATE users SET driver_uid = $1 WHERE id = $2', [uid, user.id]);
+          user.driver_uid = uid;
+          break;
+        } catch (err: any) {
+          if (err.code === '23505' && attempt < 4) continue;
+        }
+      }
+    }
+
     const tokens = await this.generateAndStoreTokens(user.id, user.email, user.role);
 
     logger.info('User logged in', { userId: user.id, email: user.email });

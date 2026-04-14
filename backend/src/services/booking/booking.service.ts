@@ -267,6 +267,64 @@ export class BookingService {
     return { bookings, total };
   }
 
+  async findByDriver(
+    driverId: string,
+    status?: BookingStatus,
+    page = 1,
+    limit = 20
+  ): Promise<{ bookings: BookingWithDetails[]; total: number }> {
+    // Get driver's UID
+    const userResult = await query<{ driver_uid: string }>('SELECT driver_uid FROM users WHERE id = $1', [driverId]);
+    const driverUid = userResult.rows[0]?.driver_uid;
+    if (!driverUid) return { bookings: [], total: 0 };
+
+    const conditions = ['v.assigned_driver_uid = $1'];
+    const values: unknown[] = [driverUid];
+    let paramIdx = 2;
+
+    if (status) {
+      conditions.push(`b.status = $${paramIdx++}`);
+      values.push(status);
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const offset = (page - 1) * limit;
+
+    const countResult = await query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM bookings b JOIN vehicles v ON v.id = b.vehicle_id ${whereClause}`,
+      values
+    );
+    const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
+
+    const dataValues = [...values, limit, offset];
+    const result = await query<Booking & {
+      v_make: string; v_model: string; v_year: number; v_license_plate: string;
+      v_color: string | null; v_category: string;
+      u_first_name: string; u_last_name: string; u_email: string; u_phone: string | null;
+    }>(
+      `SELECT b.*,
+        v.make AS v_make, v.model AS v_model, v.year AS v_year,
+        v.license_plate AS v_license_plate, v.color AS v_color, v.category AS v_category,
+        u.first_name AS u_first_name, u.last_name AS u_last_name,
+        u.email AS u_email, u.phone AS u_phone
+       FROM bookings b
+       JOIN vehicles v ON v.id = b.vehicle_id
+       LEFT JOIN users u ON u.id = b.customer_id
+       ${whereClause}
+       ORDER BY b.created_at DESC
+       LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+      dataValues
+    );
+
+    const bookings: BookingWithDetails[] = result.rows.map((row: any) => ({
+      ...row,
+      vehicle: { make: row.v_make, model: row.v_model, year: row.v_year, license_plate: row.v_license_plate, color: row.v_color, category: row.v_category },
+      customer: { first_name: row.u_first_name, last_name: row.u_last_name, email: row.u_email, phone: row.u_phone },
+    }));
+
+    return { bookings, total };
+  }
+
   async findByOwner(
     ownerId: string,
     status?: BookingStatus,
@@ -502,30 +560,43 @@ export class BookingService {
     return updated.rows[0];
   }
 
-  async approveBooking(bookingId: string, ownerId: string): Promise<Booking> {
-    const result = await query<Booking & { owner_id: string }>(
-      `SELECT b.*, v.owner_id FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.id = $1`,
+  async approveBooking(bookingId: string, userId: string): Promise<Booking> {
+    // Get user's driver_uid
+    const userResult = await query<{ driver_uid: string }>('SELECT driver_uid FROM users WHERE id = $1', [userId]);
+    const driverUid = userResult.rows[0]?.driver_uid;
+
+    const result = await query<Booking & { owner_id: string; assigned_driver_uid: string | null }>(
+      `SELECT b.*, v.owner_id, v.assigned_driver_uid FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.id = $1`,
       [bookingId]
     );
     if (!result.rows[0]) throw new NotFoundError('Booking not found');
-    if (result.rows[0].owner_id !== ownerId) throw new ForbiddenError('Not your vehicle');
+
+    const isOwner = result.rows[0].owner_id === userId;
+    const isAssignedDriver = driverUid && result.rows[0].assigned_driver_uid === driverUid;
+    if (!isOwner && !isAssignedDriver) throw new ForbiddenError('Not authorized for this vehicle');
     if (result.rows[0].status !== 'requested') throw new ConflictError('Booking is not in requested state');
 
     await query('UPDATE bookings SET status = $1, updated_at = NOW() WHERE id = $2', ['confirmed', bookingId]);
 
-    logger.info('Booking approved by owner', { bookingId, ownerId });
+    logger.info('Booking approved', { bookingId, userId, byDriver: !!isAssignedDriver });
 
     const updated = await query<Booking>('SELECT * FROM bookings WHERE id = $1', [bookingId]);
     return updated.rows[0];
   }
 
-  async declineBooking(bookingId: string, ownerId: string, reason: string): Promise<Booking> {
-    const result = await query<Booking & { owner_id: string }>(
-      `SELECT b.*, v.owner_id FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.id = $1`,
+  async declineBooking(bookingId: string, userId: string, reason: string): Promise<Booking> {
+    const userResult = await query<{ driver_uid: string }>('SELECT driver_uid FROM users WHERE id = $1', [userId]);
+    const driverUid = userResult.rows[0]?.driver_uid;
+
+    const result = await query<Booking & { owner_id: string; assigned_driver_uid: string | null }>(
+      `SELECT b.*, v.owner_id, v.assigned_driver_uid FROM bookings b JOIN vehicles v ON b.vehicle_id = v.id WHERE b.id = $1`,
       [bookingId]
     );
     if (!result.rows[0]) throw new NotFoundError('Booking not found');
-    if (result.rows[0].owner_id !== ownerId) throw new ForbiddenError('Not your vehicle');
+
+    const isOwner = result.rows[0].owner_id === userId;
+    const isAssignedDriver = driverUid && result.rows[0].assigned_driver_uid === driverUid;
+    if (!isOwner && !isAssignedDriver) throw new ForbiddenError('Not authorized for this vehicle');
     if (result.rows[0].status !== 'requested') throw new ConflictError('Booking is not in requested state');
 
     await query(
@@ -533,7 +604,7 @@ export class BookingService {
       ['declined', reason, bookingId]
     );
 
-    logger.info('Booking declined by owner', { bookingId, ownerId, reason });
+    logger.info('Booking declined', { bookingId, userId, reason });
 
     const updated = await query<Booking>('SELECT * FROM bookings WHERE id = $1', [bookingId]);
     return updated.rows[0];
