@@ -317,7 +317,10 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     });
 
     socket.on('driver:location_update', (data: any) => {
-      setDriverLocation({ latitude: data.lat, longitude: data.lng });
+      const newLoc = { latitude: data.lat, longitude: data.lng };
+      setDriverLocation(newLoc);
+      // Follow driver on map
+      mapRef.current?.animateToRegion({ ...newLoc, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 500);
     });
 
     socket.on('ride:trip_started', () => {
@@ -450,6 +453,18 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         {driverLocation && viewMode === 'searching' && matchedDriver && (
           <Marker coordinate={driverLocation} anchor={{ x: 0.5, y: 0.5 }}>
             <View style={styles.driverMarker}><Text style={styles.driverMarkerText}>◆</Text></View>
+          </Marker>
+        )}
+        {/* Pickup marker during matched */}
+        {viewMode === 'searching' && matchedDriver && pickupCoords && (
+          <Marker coordinate={pickupCoords}>
+            <View style={styles.matchedPickupPin}><Text style={styles.matchedPinText}>P</Text></View>
+          </Marker>
+        )}
+        {/* Destination marker during trip */}
+        {viewMode === 'searching' && matchedDriver && destCoords && tripStatus === 'in_progress' && (
+          <Marker coordinate={destCoords}>
+            <View style={styles.matchedDestPin}><Text style={styles.matchedPinText}>D</Text></View>
           </Marker>
         )}
       </MapView>
@@ -926,13 +941,19 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       {viewMode === 'searching' && matchedDriver && (
         <>
           <View style={styles.matchedPanel}>
+            {/* Status */}
             <View style={styles.matchedHeader}>
+              <View style={[styles.matchedStatusDot, {
+                backgroundColor: tripStatus === 'in_progress' ? '#3B82F6' : tripStatus === 'completed' ? '#10B981' : '#F59E0B'
+              }]} />
               <Text style={styles.matchedStatus}>
                 {tripStatus === 'matched' ? 'Driver is on the way' :
                  tripStatus === 'in_progress' ? 'Trip in progress' :
                  tripStatus === 'completed' ? 'Trip completed!' : 'Arriving...'}
               </Text>
             </View>
+
+            {/* Driver info */}
             <View style={styles.matchedDriverCard}>
               <View style={styles.matchedAvatar}><Text style={styles.matchedAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text></View>
               <View style={{ flex: 1 }}>
@@ -941,17 +962,45 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 <Text style={styles.matchedPlate}>{matchedDriver.vehiclePlate}</Text>
               </View>
             </View>
+
+            {/* Contact buttons */}
+            <View style={styles.contactRow}>
+              <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Call Driver', `Calling ${matchedDriver.driverName}...`)}>
+                <Text style={styles.contactBtnIcon}>☎</Text>
+                <Text style={styles.contactBtnText}>Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Message Driver', `Opening chat with ${matchedDriver.driverName}...`)}>
+                <Text style={styles.contactBtnIcon}>✉</Text>
+                <Text style={styles.contactBtnText}>Message</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Route */}
             <View style={styles.matchedRoute}>
               <View style={styles.matchedRouteRow}>
-                <View style={[styles.matchedDot, { backgroundColor: '#10B981' }]} />
+                <View style={[styles.matchedDot, { backgroundColor: tripStatus === 'in_progress' ? '#64748B' : '#10B981' }]} />
                 <Text style={styles.matchedRouteText} numberOfLines={1}>{pickupText}</Text>
+                {tripStatus === 'in_progress' && <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700' }}>✓</Text>}
               </View>
               <View style={{ width: 1, height: 12, backgroundColor: COLORS.border, marginLeft: 4.5 }} />
               <View style={styles.matchedRouteRow}>
-                <View style={[styles.matchedDot, { backgroundColor: '#EF4444' }]} />
+                <View style={[styles.matchedDot, { backgroundColor: tripStatus === 'in_progress' ? '#EF4444' : '#64748B' }]} />
                 <Text style={styles.matchedRouteText} numberOfLines={1}>{destText}</Text>
               </View>
             </View>
+
+            {tripStatus === 'completed' && (
+              <TouchableOpacity style={styles.rateBtn} onPress={() => {
+                setViewMode('idle');
+                setMatchedDriver(null);
+                setDriverLocation(null);
+                setPickupText(''); setDestText('');
+                setPickupCoords(null); setDestCoords(null);
+                setRouteCoords([]); setRouteInfo(null);
+              }}>
+                <Text style={styles.rateBtnText}>DONE</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </>
       )}
@@ -1235,7 +1284,7 @@ function getStyles() { return StyleSheet.create({
   driverMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3B82F6', borderWidth: 3, borderColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
   driverMarkerText: { fontSize: 14, color: '#FFFFFF' },
   matchedPanel: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: SPACING.md, paddingBottom: 40 },
-  matchedHeader: { marginBottom: SPACING.md },
+  matchedHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
   matchedStatus: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center' },
   matchedDriverCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.md, backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md, padding: SPACING.md },
   matchedAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center' },
@@ -1247,4 +1296,14 @@ function getStyles() { return StyleSheet.create({
   matchedRouteRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   matchedDot: { width: 10, height: 10, borderRadius: 5 },
   matchedRouteText: { fontSize: 13, color: COLORS.textSecondary, flex: 1 },
+  matchedStatusDot: { width: 10, height: 10, borderRadius: 5, marginRight: SPACING.sm },
+  contactRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
+  contactBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md, paddingVertical: 10 },
+  contactBtnIcon: { fontSize: 16, color: COLORS.textPrimary },
+  contactBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
+  rateBtn: { backgroundColor: COLORS.textPrimary, borderRadius: BORDER_RADIUS.md, paddingVertical: 14, alignItems: 'center', marginTop: SPACING.md },
+  rateBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.background, letterSpacing: 2 },
+  matchedPickupPin: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center' },
+  matchedDestPin: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center' },
+  matchedPinText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
 }); }
