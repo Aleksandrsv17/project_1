@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import Slider from '@react-native-community/slider';
+// Slider removed — using calendar instead
 import { searchPlaces, getPlaceDetails, reverseGeocode, PlacePrediction, LatLng } from '../../api/maps';
 import { getMapStyle } from '../../themes/mapStyles';
 import { useLocation } from '../../hooks/useLocation';
@@ -21,6 +21,7 @@ import { useBookingStore } from '../../store/bookingStore';
 import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
 import { CustomerStackParamList } from '../../navigation/MainNavigator';
 import { addHours, addDays } from 'date-fns';
+import { useVehicleAvailability } from '../../hooks/useVehicles';
 
 type Props = {
   navigation: NativeStackNavigationProp<CustomerStackParamList, 'ChauffeurSearch'>;
@@ -45,15 +46,61 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
   const [dropPinFor, setDropPinFor] = useState<'pickup' | null>(null);
   const [mapCenter, setMapCenter] = useState<LatLng | null>(null);
 
-  const [pickupTime, setPickupTime] = useState(new Date(Date.now() + 2 * 60 * 60 * 1000));
-  const [showTimePicker, setShowTimePicker] = useState(false);
-  const [pickerMode, setPickerMode] = useState<'date' | 'time'>('date');
-  const [tempPickupTime, setTempPickupTime] = useState(pickupTime);
-
-  const [days, setDays] = useState(0);
-  const [hours, setHours] = useState(3);
-
   const [carType, setCarType] = useState<'sedan' | 'suv' | 'van'>('sedan');
+
+  // Calendar state
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calMonth, setCalMonth] = useState(new Date());
+  const [selectedStart, setSelectedStart] = useState<Date | null>(null);
+  const [selectedEnd, setSelectedEnd] = useState<Date | null>(null);
+  const [pickupTimeVal, setPickupTimeVal] = useState(new Date());
+  const [returnTimeVal, setReturnTimeVal] = useState(new Date());
+  const [showPickupTime, setShowPickupTime] = useState(false);
+  const [showReturnTime, setShowReturnTime] = useState(false);
+
+  const pickupTime = selectedStart ? (() => { const d = new Date(selectedStart); d.setHours(pickupTimeVal.getHours(), pickupTimeVal.getMinutes()); return d; })() : new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const endTime = selectedEnd ? (() => { const d = new Date(selectedEnd); d.setHours(returnTimeVal.getHours(), returnTimeVal.getMinutes()); return d; })() : new Date(Date.now() + 5 * 60 * 60 * 1000);
+
+  const durationMs = Math.max(0, endTime.getTime() - pickupTime.getTime());
+  const totalHoursCalc = Math.round(durationMs / (1000 * 60 * 60));
+  const days = Math.floor(totalHoursCalc / 24);
+  const hours = totalHoursCalc % 24;
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dayHeaders = ['S','M','T','W','T','F','S'];
+
+  const calendarData = React.useMemo(() => {
+    const year = calMonth.getFullYear();
+    const month = calMonth.getMonth();
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const cells: Array<{ day: number; date: Date; isAvailable: boolean; isPast: boolean; inRange: boolean; isStart: boolean; isEnd: boolean } | null> = [];
+    for (let i = 0; i < firstDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(year, month, d);
+      const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
+      const isPast = dayStart < today;
+      const isAvailable = !isPast;
+      const ss = selectedStart ? new Date(selectedStart) : null; if (ss) ss.setHours(0,0,0,0);
+      const se = selectedEnd ? new Date(selectedEnd) : null; if (se) se.setHours(0,0,0,0);
+      const inRange = ss && se ? dayStart >= ss && dayStart <= se : false;
+      const isStart = ss ? dayStart.getTime() === ss.getTime() : false;
+      const isEnd = se ? dayStart.getTime() === se.getTime() : false;
+      cells.push({ day: d, date, isAvailable, isPast, inRange, isStart, isEnd });
+    }
+    return cells;
+  }, [calMonth, selectedStart, selectedEnd]);
+
+  function handleDayPress(date: Date) {
+    const d = new Date(date); d.setHours(0, 0, 0, 0);
+    if (!selectedStart || (selectedStart && selectedEnd)) {
+      setSelectedStart(d); setSelectedEnd(null);
+    } else {
+      if (d < selectedStart) setSelectedStart(d);
+      else setSelectedEnd(d);
+    }
+  }
 
   // Show bottom card when pickup is set
   const showDetails = !!pickupCoords;
@@ -115,7 +162,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
 
   // ── Price ──────────────────────────────────────────────────────────────────
   const totalHours = days * 24 + hours;
-  const duration = totalHours;
+  const duration = Math.max(1, totalHours);
   const chauffeurCost = CHAUFFEUR_HOURLY * Math.max(1, totalHours);
   const totalPrice = chauffeurCost + DELIVERY_FEE;
   const durationText = days > 0 && hours > 0 ? `${days}d ${hours}h` : days > 0 ? `${days} day${days !== 1 ? 's' : ''}` : `${Math.max(1, hours)} hour${hours !== 1 ? 's' : ''}`;
@@ -222,60 +269,87 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
       {showDetails && !dropPinFor && (
         <View style={styles.bottomCard}>
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Pickup date & time */}
-            <Text style={styles.sectionLabel}>PICKUP DATE & TIME</Text>
-            <View style={styles.dateTimeRow}>
-              <TouchableOpacity style={styles.dateBox} onPress={() => { setTempPickupTime(pickupTime); setPickerMode('date'); setShowTimePicker(true); }}>
-                <Text style={styles.dateText}>{pickupTime.toLocaleDateString()}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.dateBox} onPress={() => { setTempPickupTime(pickupTime); setPickerMode('time'); setShowTimePicker(true); }}>
-                <Text style={styles.dateText}>{pickupTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-              </TouchableOpacity>
-            </View>
-            {showTimePicker && (
-              <View style={styles.pickerContainer}>
-                <DateTimePicker value={tempPickupTime} mode={pickerMode} minimumDate={new Date()} display="spinner"
-                  textColor={COLORS.textPrimary} themeVariant="dark"
-                  onChange={(_, date) => { if (date) setTempPickupTime(date); }} />
-                <TouchableOpacity style={styles.confirmPickerBtn} onPress={() => { setPickupTime(tempPickupTime); setShowTimePicker(false); }}>
-                  <Text style={styles.confirmPickerText}>CONFIRM</Text>
-                </TouchableOpacity>
+            {/* Calendar dropdown */}
+            <Text style={styles.sectionLabel}>BOOKING PERIOD</Text>
+            <TouchableOpacity style={styles.dateBox} onPress={() => setShowCalendar(!showCalendar)}>
+              <Text style={styles.dateText}>
+                {selectedStart && selectedEnd
+                  ? `${selectedStart.toLocaleDateString()} — ${selectedEnd.toLocaleDateString()}  (${durationText})`
+                  : selectedStart
+                  ? `${selectedStart.toLocaleDateString()} — Select end date`
+                  : 'Select dates'}
+              </Text>
+            </TouchableOpacity>
+
+            {showCalendar && (
+              <View style={styles.calDropdown}>
+                <View style={styles.calMonthRow}>
+                  <TouchableOpacity onPress={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))}>
+                    <Text style={styles.calArrow}>←</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.calMonthTitle}>{monthNames[calMonth.getMonth()]} {calMonth.getFullYear()}</Text>
+                  <TouchableOpacity onPress={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() + 1, 1))}>
+                    <Text style={styles.calArrow}>→</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.calRow}>
+                  {dayHeaders.map((d, i) => (
+                    <View key={i} style={styles.calHeaderCell}><Text style={styles.calHeaderText}>{d}</Text></View>
+                  ))}
+                </View>
+                <View style={styles.calGrid}>
+                  {calendarData.map((cell, i) => {
+                    if (!cell) return <View key={`e${i}`} style={styles.calCell} />;
+                    const isSelected = cell.isStart || cell.isEnd;
+                    return (
+                      <TouchableOpacity key={cell.day} disabled={!cell.isAvailable}
+                        style={[styles.calCell, cell.inRange && styles.calCellRange, isSelected && styles.calCellSelected, cell.isPast && { opacity: 0.3 }]}
+                        onPress={() => handleDayPress(cell.date)} activeOpacity={0.7}>
+                        <Text style={[styles.calDayText, isSelected && { color: COLORS.background }, cell.isPast && { color: COLORS.gray }]}>{cell.day}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {selectedStart && (
+                  <View style={{ marginTop: SPACING.sm }}>
+                    <View style={styles.calTimeRow}>
+                      <Text style={styles.calTimeLabel}>Pick-up</Text>
+                      <TouchableOpacity style={styles.calTimeBtn} onPress={() => setShowPickupTime(!showPickupTime)}>
+                        <Text style={styles.calTimeText}>{pickupTimeVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {showPickupTime && (
+                      <DateTimePicker value={pickupTimeVal} mode="time" display="spinner" textColor={COLORS.textPrimary} themeVariant="dark"
+                        onChange={(_, date) => { if (date) setPickupTimeVal(date); if (Platform.OS === 'android') setShowPickupTime(false); }} />
+                    )}
+                    {selectedEnd && (
+                      <>
+                        <View style={styles.calTimeRow}>
+                          <Text style={styles.calTimeLabel}>Return</Text>
+                          <TouchableOpacity style={styles.calTimeBtn} onPress={() => setShowReturnTime(!showReturnTime)}>
+                            <Text style={styles.calTimeText}>{returnTimeVal.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
+                          </TouchableOpacity>
+                        </View>
+                        {showReturnTime && (
+                          <DateTimePicker value={returnTimeVal} mode="time" display="spinner" textColor={COLORS.textPrimary} themeVariant="dark"
+                            onChange={(_, date) => { if (date) setReturnTimeVal(date); if (Platform.OS === 'android') setShowReturnTime(false); }} />
+                        )}
+                        <Text style={styles.calDuration}>{durationText}</Text>
+                        <TouchableOpacity style={styles.calConfirmBtn} onPress={() => setShowCalendar(false)}>
+                          <Text style={styles.calConfirmText}>CONFIRM</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                )}
               </View>
             )}
 
-            {/* Duration */}
-            <Text style={styles.sectionLabel}>DURATION</Text>
-            <Text style={styles.durationDisplay}>{durationText}</Text>
-
-            <View style={styles.sliderBlock}>
-              <Text style={styles.sliderSubLabel}>Days</Text>
-              <Slider
-                style={styles.slider}
-                minimumValue={0} maximumValue={10} step={1} value={days}
-                onValueChange={(v: number) => setDays(v)}
-                minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
-                thumbTintColor="#d9c0a4"
-              />
-              <View style={styles.sliderLabels}>
-                <Text style={styles.sliderLabel}>0</Text>
-                <Text style={styles.sliderLabel}>10</Text>
-              </View>
-            </View>
-
-            <View style={styles.sliderBlock}>
-              <Text style={styles.sliderSubLabel}>Hours</Text>
-              <Slider
-                style={styles.slider}
-                minimumValue={0} maximumValue={23} step={1} value={hours}
-                onValueChange={(v: number) => setHours(v)}
-                minimumTrackTintColor="#d9c0a4" maximumTrackTintColor={COLORS.border}
-                thumbTintColor="#d9c0a4"
-              />
-              <View style={styles.sliderLabels}>
-                <Text style={styles.sliderLabel}>0</Text>
-                <Text style={styles.sliderLabel}>23</Text>
-              </View>
-            </View>
+            {/* Duration display when calendar closed */}
+            {!showCalendar && selectedStart && selectedEnd && (
+              <Text style={styles.durationDisplay}>{durationText}</Text>
+            )}
 
             {/* Car type */}
             <Text style={styles.sectionLabel}>VEHICLE TYPE</Text>
@@ -360,6 +434,25 @@ function getStyles() { return StyleSheet.create({
   confirmPickerText: { fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 2 },
   // Toggle
   durationDisplay: { fontSize: 26, fontWeight: '700', color: '#d9c0a4', textAlign: 'center', marginBottom: SPACING.xs },
+  calDropdown: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginTop: SPACING.xs },
+  calMonthRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  calArrow: { fontSize: 20, color: COLORS.textPrimary, padding: SPACING.xs },
+  calMonthTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  calRow: { flexDirection: 'row', marginBottom: 4 },
+  calHeaderCell: { flex: 1, alignItems: 'center', paddingVertical: 4 },
+  calHeaderText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  calCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
+  calCellRange: { backgroundColor: COLORS.grayLight },
+  calCellSelected: { backgroundColor: COLORS.textPrimary },
+  calDayText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  calTimeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs },
+  calTimeLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, letterSpacing: 1 },
+  calTimeBtn: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: 8 },
+  calTimeText: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
+  calDuration: { fontSize: 20, fontWeight: '700', color: '#d9c0a4', textAlign: 'center', marginTop: SPACING.sm },
+  calConfirmBtn: { backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.sm + 2, alignItems: 'center', marginTop: SPACING.sm },
+  calConfirmText: { fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 2 },
   sliderSubLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, letterSpacing: 1, marginBottom: 2 },
   toggleRow: { flexDirection: 'row', gap: SPACING.sm },
   toggleBtn: { flex: 1, paddingVertical: SPACING.sm + 2, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, alignItems: 'center' },
