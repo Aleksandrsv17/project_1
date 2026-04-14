@@ -23,7 +23,7 @@ import { useNearbyVehicles } from '../../hooks/useVehicles';
 import { searchPlaces, getPlaceDetails, getDirections, decodePolyline, reverseGeocode, PlacePrediction, LatLng } from '../../api/maps';
 import { VehicleCard } from '../../components/VehicleCard';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
-import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION, SOCKET_URL } from '../../utils/constants';
+import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION, SOCKET_URL, API_BASE_URL } from '../../utils/constants';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { io, Socket } from 'socket.io-client';
 import * as SecureStore from 'expo-secure-store';
@@ -244,14 +244,43 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       ])
     ).start();
 
-    // Connect Socket.io
-    const token = await SecureStore.getItemAsync(SECURE_STORE_KEYS.ACCESS_TOKEN);
-    if (!token) return;
+    // Connect Socket.io — get fresh token
+    let token = await SecureStore.getItemAsync(SECURE_STORE_KEYS.ACCESS_TOKEN);
+    if (!token) {
+      Alert.alert('Error', 'Please log out and log back in.');
+      setViewMode('route');
+      return;
+    }
 
-    const socket = io(SOCKET_URL, { auth: { token }, transports: ['websocket'] });
+    // Try to refresh token first to ensure it's valid
+    try {
+      const refreshToken = await SecureStore.getItemAsync(SECURE_STORE_KEYS.REFRESH_TOKEN);
+      if (refreshToken) {
+        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const newToken = data?.data?.access_token ?? data?.access_token;
+          if (newToken) {
+            token = newToken;
+            await SecureStore.setItemAsync(SECURE_STORE_KEYS.ACCESS_TOKEN, newToken);
+          }
+        }
+      }
+    } catch {}
+
+    const socket = io(SOCKET_URL, { auth: { token }, transports: ['polling', 'websocket'] });
     socketRef.current = socket;
 
+    socket.on('connect_error', (err) => {
+      console.log('[Socket] Customer connection error:', err.message);
+    });
+
     socket.on('connect', () => {
+      console.log('[Socket] Customer connected');
       // Send ride request
       socket.emit('customer:request_ride', {
         pickupLat: pickupCoords?.latitude,
@@ -267,19 +296,24 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     socket.on('ride:matched', (data: any) => {
       pulseAnim.stopAnimation();
       pulseAnim.setValue(1);
+      const d = data.driver ?? data;
+      const vi = d.vehicleInfo ?? {};
       setMatchedDriver({
-        driverName: data.driverName,
-        vehicleMake: data.vehicleMake,
-        vehicleModel: data.vehicleModel,
-        vehiclePlate: data.vehiclePlate,
-        driverLat: data.driverLat,
-        driverLng: data.driverLng,
+        driverName: d.name ?? d.driverName ?? 'Driver',
+        vehicleMake: vi.make ?? d.vehicleMake ?? '',
+        vehicleModel: vi.model ?? d.vehicleModel ?? '',
+        vehiclePlate: vi.plate ?? vi.licensePlate ?? d.vehiclePlate ?? '',
+        driverLat: d.location?.lat ?? d.driverLat ?? 0,
+        driverLng: d.location?.lng ?? d.driverLng ?? 0,
       });
-      setDriverLocation({ latitude: data.driverLat, longitude: data.driverLng });
+      setDriverLocation({
+        latitude: d.location?.lat ?? d.driverLat ?? 0,
+        longitude: d.location?.lng ?? d.driverLng ?? 0,
+      });
       setTripStatus('matched');
 
       // Track driver location
-      socket.emit('customer:track_driver', { driverId: data.driverId });
+      socket.emit('customer:track_driver', { driverId: d.userId ?? data.driverId });
     });
 
     socket.on('driver:location_update', (data: any) => {
@@ -411,6 +445,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             strokeColor={'#d9c0a4'}
             strokeWidth={4}
           />
+        )}
+        {/* Live driver marker */}
+        {driverLocation && viewMode === 'searching' && matchedDriver && (
+          <Marker coordinate={driverLocation} anchor={{ x: 0.5, y: 0.5 }}>
+            <View style={styles.driverMarker}><Text style={styles.driverMarkerText}>◆</Text></View>
+          </Marker>
         )}
       </MapView>
 
@@ -885,11 +925,6 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       {/* ── DRIVER MATCHED ── */}
       {viewMode === 'searching' && matchedDriver && (
         <>
-          {driverLocation && (
-            <Marker coordinate={driverLocation}>
-              <View style={styles.driverMarker}><Text style={styles.driverMarkerText}>◆</Text></View>
-            </Marker>
-          )}
           <View style={styles.matchedPanel}>
             <View style={styles.matchedHeader}>
               <Text style={styles.matchedStatus}>

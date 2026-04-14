@@ -362,31 +362,27 @@ class TrackingGateway {
             ? `${customerResult.rows[0].first_name} ${customerResult.rows[0].last_name}`
             : 'Customer';
 
-          // Notify customer: ride matched
-          this.io?.to(pending.socketId).emit('ride:matched', {
-            rideRequestId: data.rideRequestId,
-            bookingId,
-            driver: {
-              userId: driver.userId,
-              name: authSocket.email, // will be replaced with real name below
-              vehicleInfo: driver.vehicleInfo,
-              location: driver.location,
-            },
-          });
-
-          // Get driver's real name for the customer
+          // Get driver's real name
           const driverUserResult = await query<{ first_name: string; last_name: string }>(
             'SELECT first_name, last_name FROM users WHERE id = $1',
             [authSocket.userId]
           );
-          if (driverUserResult.rows[0]) {
-            this.io?.to(pending.socketId).emit('ride:driver_info', {
-              bookingId,
-              driverName: `${driverUserResult.rows[0].first_name} ${driverUserResult.rows[0].last_name}`,
+          const driverName = driverUserResult.rows[0]
+            ? `${driverUserResult.rows[0].first_name} ${driverUserResult.rows[0].last_name}`
+            : authSocket.email;
+
+          // Notify customer: ride matched
+          this.io?.to(pending.socketId).emit('ride:matched', {
+            rideRequestId: data.rideRequestId,
+            bookingId,
+            driverId: driver.userId,
+            driver: {
+              userId: driver.userId,
+              name: driverName,
               vehicleInfo: driver.vehicleInfo,
               location: driver.location,
-            });
-          }
+            },
+          });
 
           // Notify driver: confirmed
           socket.emit('ride:confirmed', {
@@ -504,8 +500,8 @@ class TrackingGateway {
         try {
           const { pickupLat, pickupLng, destLat, destLng, pickupText, destText, vehicleCategory } = data;
 
-          // Find nearby drivers (10km radius)
-          const nearbyDrivers = rideService.findNearbyDrivers(pickupLat, pickupLng, 10, vehicleCategory);
+          // Find nearby drivers (50km radius, no category filter for ride requests)
+          const nearbyDrivers = rideService.findNearbyDrivers(pickupLat, pickupLng, 50);
 
           if (nearbyDrivers.length === 0) {
             socket.emit('ride:no_drivers', {
