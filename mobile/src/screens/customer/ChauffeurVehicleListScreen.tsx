@@ -34,12 +34,12 @@ export function ChauffeurVehicleListScreen({ navigation, route }: Props) {
 
   const { data, isLoading, refetch, isFetching } = useVehicles({
     chauffeurAvailable: true,
-    city: params.city || undefined,
+    city: params.city ? params.city.replace(/ü/g,'u').replace(/ö/g,'o').replace(/ä/g,'a').replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ä/g,'A') : undefined,
   });
 
   const vehicles = (data?.vehicles ?? []).filter(v => {
     if (!v.chauffeurAvailable) return false;
-    if (params.city && v.location.city.toLowerCase() !== params.city.toLowerCase()) return false;
+    // City filtering is handled by the backend API
     if (category !== 'all' && v.category !== category) return false;
     return true;
   });
