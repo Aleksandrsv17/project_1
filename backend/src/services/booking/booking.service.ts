@@ -53,7 +53,13 @@ export class BookingService {
       if (!vehicle.chauffeur_available) {
         throw new AppError('This vehicle does not have a chauffeur available', 400);
       }
-      chauffeurId = await this.assignChauffeur(dto.chauffeur_id ?? null);
+      // If vehicle has an assigned driver, use that — no need to find one from chauffeurs pool
+      if (vehicle.assigned_driver_uid) {
+        const driverResult = await query<{ id: string }>('SELECT id FROM users WHERE driver_uid = $1', [vehicle.assigned_driver_uid]);
+        if (driverResult.rows[0]) chauffeurId = driverResult.rows[0].id;
+      } else if (!chauffeurId) {
+        try { chauffeurId = await this.assignChauffeur(null); } catch { /* No pool chauffeurs — proceed without */ }
+      }
     }
 
     // 5. Surge pricing context
