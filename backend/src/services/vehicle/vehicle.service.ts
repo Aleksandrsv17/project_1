@@ -30,8 +30,8 @@ export class VehicleService {
       `INSERT INTO vehicles
         (owner_id, make, model, year, license_plate, color, category,
          daily_rate, hourly_rate, chauffeur_available, chauffeur_daily_rate,
-         deposit_amount, max_daily_km, location_city, location_lat, location_lng, description, pickup_address, dropoff_address, status)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,'active')
+         deposit_amount, max_daily_km, location_city, location_lat, location_lng, description, pickup_address, dropoff_address, assigned_driver_uid, status)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'active')
        RETURNING *`,
       [
         ownerId,
@@ -53,6 +53,7 @@ export class VehicleService {
         dto.description ?? null,
         dto.pickup_address ?? null,
         dto.dropoff_address ?? null,
+        dto.assigned_driver_uid ?? null,
       ]
     );
 
@@ -178,6 +179,7 @@ export class VehicleService {
       'chauffeur_available', 'chauffeur_daily_rate', 'deposit_amount',
       'max_daily_km', 'status', 'location_city', 'location_lat',
       'location_lng', 'description', 'pickup_address', 'dropoff_address',
+      'assigned_driver_uid',
     ];
 
     for (const key of updatable) {
@@ -321,6 +323,49 @@ export class VehicleService {
       endTime: row.end_time,
       status: row.status,
     }));
+  }
+
+  async assignDriver(vehicleId: string, ownerId: string, driverUid: string): Promise<Vehicle> {
+    const vehicle = await query<Vehicle>(
+      'SELECT id, owner_id FROM vehicles WHERE id = $1',
+      [vehicleId]
+    );
+
+    if (!vehicle.rows[0]) {
+      throw new NotFoundError('Vehicle');
+    }
+
+    if (vehicle.rows[0].owner_id !== ownerId) {
+      throw new ForbiddenError('You do not own this vehicle');
+    }
+
+    // Verify driver_uid exists in users table
+    const userResult = await query<{ id: string }>(
+      'SELECT id FROM users WHERE driver_uid = $1 AND deleted_at IS NULL',
+      [driverUid]
+    );
+
+    if (!userResult.rows[0]) {
+      throw new NotFoundError('User with this driver UID');
+    }
+
+    const result = await query<Vehicle>(
+      'UPDATE vehicles SET assigned_driver_uid = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [driverUid, vehicleId]
+    );
+
+    logger.info('Driver assigned to vehicle', { vehicleId, driverUid, ownerId });
+
+    return result.rows[0];
+  }
+
+  async findByDriverUid(driverUid: string): Promise<VehicleWithMedia[]> {
+    const result = await query<Vehicle>(
+      "SELECT * FROM vehicles WHERE assigned_driver_uid = $1 AND status != 'inactive' ORDER BY created_at DESC",
+      [driverUid]
+    );
+
+    return this.attachMedia(result.rows);
   }
 
   private async attachMedia(vehicles: Vehicle[]): Promise<VehicleWithMedia[]> {

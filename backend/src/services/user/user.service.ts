@@ -26,6 +26,13 @@ import {
 } from '../../middleware/errorHandler';
 import { logger } from '../../utils/logger';
 
+function generateDriverUID(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let uid = '';
+  for (let i = 0; i < 8; i++) uid += chars[Math.floor(Math.random() * chars.length)];
+  return uid;
+}
+
 export class UserService {
   async register(dto: CreateUserDto): Promise<{ user: PublicUser; tokens: AuthTokens }> {
     // Check for existing user
@@ -56,9 +63,25 @@ export class UserService {
     );
 
     const user = result.rows[0];
+
+    // Generate unique driver UID
+    let driverUid: string | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const uid = generateDriverUID();
+      try {
+        await query('UPDATE users SET driver_uid = $1 WHERE id = $2', [uid, user.id]);
+        driverUid = uid;
+        user.driver_uid = uid;
+        break;
+      } catch (err: any) {
+        if (err.code === '23505' && attempt < 4) continue; // unique violation, retry
+        if (attempt === 4) logger.warn('Failed to generate unique driver UID after 5 attempts', { userId: user.id });
+      }
+    }
+
     const tokens = await this.generateAndStoreTokens(user.id, user.email, user.role);
 
-    logger.info('User registered', { userId: user.id, email: user.email });
+    logger.info('User registered', { userId: user.id, email: user.email, driverUid });
 
     return { user: toPublicUser(user), tokens };
   }

@@ -23,6 +23,7 @@ export interface Vehicle {
   description: string | null;
   pickup_address: string | null;
   dropoff_address: string | null;
+  assigned_driver_uid: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -59,6 +60,7 @@ export interface CreateVehicleDto {
   description?: string;
   pickup_address?: string;
   dropoff_address?: string;
+  assigned_driver_uid?: string;
 }
 
 export interface UpdateVehicleDto {
@@ -79,6 +81,7 @@ export interface UpdateVehicleDto {
   description?: string;
   pickup_address?: string;
   dropoff_address?: string;
+  assigned_driver_uid?: string;
 }
 
 export interface VehicleQuery {

@@ -135,6 +135,44 @@ export class VehicleController {
       next(err);
     }
   }
+  async assignDriver(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const { driver_uid } = req.body as { driver_uid?: string };
+
+      if (!driver_uid || typeof driver_uid !== 'string') {
+        throw new ValidationError('driver_uid is required');
+      }
+
+      const vehicle = await vehicleService.assignDriver(req.params.id, authReq.user.sub, driver_uid);
+      res.status(200).json({ success: true, data: { vehicle } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getAssignedVehicles(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      // Look up the requesting user's driver_uid
+      const { query: dbQuery } = await import('../../db');
+      const userResult = await dbQuery<{ driver_uid: string | null }>(
+        'SELECT driver_uid FROM users WHERE id = $1 AND deleted_at IS NULL',
+        [authReq.user.sub]
+      );
+
+      const driverUid = userResult.rows[0]?.driver_uid;
+      if (!driverUid) {
+        res.status(200).json({ success: true, data: { vehicles: [] } });
+        return;
+      }
+
+      const vehicles = await vehicleService.findByDriverUid(driverUid);
+      res.status(200).json({ success: true, data: { vehicles } });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 export const vehicleController = new VehicleController();

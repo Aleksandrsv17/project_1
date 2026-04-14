@@ -15,6 +15,7 @@ export interface User {
   created_at: Date;
   updated_at: Date;
   deleted_at: Date | null;
+  driver_uid: string | null;
 }
 
 export type PublicUser = Omit<User, 'password_hash' | 'deleted_at'>;

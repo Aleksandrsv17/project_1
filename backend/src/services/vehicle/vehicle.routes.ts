@@ -15,6 +15,13 @@ router.get(
   vehicleController.getMyVehicles.bind(vehicleController)
 );
 
+// Authenticated — get vehicles assigned to the requesting driver
+router.get(
+  '/assigned',
+  authenticate,
+  vehicleController.getAssignedVehicles.bind(vehicleController)
+);
+
 // Create vehicle
 router.post(
   '/',
@@ -34,6 +41,14 @@ router.patch(
     return authenticate(req, res, () => requireRole('admin')(req, res, next));
   },
   vehicleController.adminUpdateStatus.bind(vehicleController)
+);
+
+// Assign driver to vehicle
+router.patch(
+  '/:id/assign-driver',
+  authenticate,
+  requireRole('customer', 'owner', 'admin'),
+  vehicleController.assignDriver.bind(vehicleController)
 );
 
 // Vehicle availability (booked date ranges) — must be before /:id catch-all
