@@ -78,6 +78,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [driverLocation, setDriverLocation] = useState<LatLng | null>(null);
   const [tripStatus, setTripStatus] = useState<'searching' | 'matched' | 'arriving' | 'in_progress' | 'completed'>('searching');
   const [driverRating, setDriverRating] = useState(0);
+  const [rideProgress, setRideProgress] = useState(0);
 
   const region = location
     ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 }
@@ -307,6 +308,14 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       setDriverLocation(newLoc);
       // Follow driver on map
       mapRef.current?.animateToRegion({ ...newLoc, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 500);
+
+      // Calculate ride progress (during trip)
+      if (pickupCoords && destCoords) {
+        const totalDist = Math.sqrt((destCoords.latitude - pickupCoords.latitude) ** 2 + (destCoords.longitude - pickupCoords.longitude) ** 2);
+        const coveredDist = Math.sqrt((data.lat - pickupCoords.latitude) ** 2 + (data.lng - pickupCoords.longitude) ** 2);
+        const progress = totalDist > 0 ? Math.min(100, Math.round((coveredDist / totalDist) * 100)) : 0;
+        setRideProgress(progress);
+      }
     });
 
     socket.on('ride:driver_arrived', () => {
@@ -1046,24 +1055,35 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
       )}
 
-      {/* ── IN PROGRESS MINI BAR ── */}
+      {/* ── IN PROGRESS BUBBLE ── */}
       {viewMode === 'searching' && matchedDriver && tripStatus === 'in_progress' && (
         <View style={styles.miniBar}>
-          <View style={styles.miniBarTop}>
-            <View style={[styles.matchedStatusDot, { backgroundColor: '#3B82F6' }]} />
-            <Text style={styles.miniBarStatus}>Trip in progress</Text>
+          {/* Progress bar */}
+          <View style={styles.miniProgress}>
+            <View style={[styles.miniProgressFill, { width: `${rideProgress}%` }]} />
           </View>
+          <View style={styles.miniProgressLabels}>
+            <Text style={styles.miniProgressText}>{rideProgress}%</Text>
+            <Text style={styles.miniProgressDest} numberOfLines={1}>{destText}</Text>
+          </View>
+
+          {/* Driver info */}
           <View style={styles.miniBarDriver}>
             <View style={styles.miniBarAvatar}><Text style={styles.miniBarAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.miniBarName}>{matchedDriver.driverName}</Text>
-              <Text style={styles.miniBarCar}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel} · {matchedDriver.vehiclePlate}</Text>
+              <Text style={styles.miniBarCar}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
+              <Text style={styles.miniBarPlate}>{matchedDriver.vehiclePlate}</Text>
             </View>
-            <TouchableOpacity style={styles.miniBarCallBtn} onPress={() => Alert.alert('Call Driver', `Calling ${matchedDriver.driverName}...`)}>
-              <Text style={styles.miniBarCallIcon}>☎</Text>
-            </TouchableOpacity>
+            <View style={styles.miniBarActions}>
+              <TouchableOpacity style={styles.miniBarCallBtn} onPress={() => Alert.alert('Call', `Calling ${matchedDriver.driverName}...`)}>
+                <Text style={styles.miniBarCallIcon}>☎</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.miniBarCallBtn} onPress={() => Alert.alert('Message', `Messaging ${matchedDriver.driverName}...`)}>
+                <Text style={styles.miniBarCallIcon}>✉</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={styles.miniBarDest}>→ {destText}</Text>
         </View>
       )}
     </View>
@@ -1386,16 +1406,20 @@ function getStyles() { return StyleSheet.create({
   arrivedTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
   arrivedSub: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 4 },
   arrivedHint: { fontSize: 13, color: COLORS.textSecondary },
-  // Mini bar for in-progress
-  miniBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.background, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, paddingBottom: 30, shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 8 },
-  miniBarTop: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm },
-  miniBarStatus: { fontSize: 14, fontWeight: '700', color: '#3B82F6' },
-  miniBarDriver: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
-  miniBarAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center' },
-  miniBarAvatarText: { fontSize: 14, fontWeight: '700', color: COLORS.background },
+  // In-progress bubble
+  miniBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: 34, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 10 },
+  miniProgress: { height: 6, backgroundColor: COLORS.border, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
+  miniProgressFill: { height: '100%', backgroundColor: '#3B82F6', borderRadius: 3 },
+  miniProgressLabels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  miniProgressText: { fontSize: 12, fontWeight: '700', color: '#3B82F6' },
+  miniProgressDest: { fontSize: 12, color: COLORS.textSecondary, flex: 1, textAlign: 'right', marginLeft: SPACING.sm },
+  miniBarDriver: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  miniBarAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center' },
+  miniBarAvatarText: { fontSize: 16, fontWeight: '700', color: COLORS.background },
   miniBarName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
   miniBarCar: { fontSize: 12, color: COLORS.textSecondary },
-  miniBarCallBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center' },
-  miniBarCallIcon: { fontSize: 18, color: COLORS.textPrimary },
-  miniBarDest: { fontSize: 12, color: COLORS.textSecondary },
+  miniBarPlate: { fontSize: 11, fontWeight: '600', color: COLORS.textPrimary, letterSpacing: 1, marginTop: 1 },
+  miniBarActions: { flexDirection: 'row', gap: 6 },
+  miniBarCallBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center' },
+  miniBarCallIcon: { fontSize: 16, color: COLORS.textPrimary },
 }); }
