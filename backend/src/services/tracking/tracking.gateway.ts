@@ -448,11 +448,14 @@ class TrackingGateway {
           );
 
           if (booking.rows[0]) {
-            // Broadcast to the booking room
-            this.io?.to(`booking:${data.bookingId}`).emit('ride:trip_started', {
-              bookingId: data.bookingId,
-              timestamp: Date.now(),
-            });
+            // Broadcast to the booking room and all trackers of this driver
+            this.io?.to(`booking:${data.bookingId}`).emit('ride:trip_started', { bookingId: data.bookingId });
+            const trackers = this.driverTrackers.get(authSocket.userId);
+            if (trackers) {
+              for (const sid of trackers) {
+                this.io?.to(sid).emit('ride:trip_started', { bookingId: data.bookingId });
+              }
+            }
           }
 
           socket.emit('driver:start_trip:ack', { success: true, bookingId: data.bookingId });
@@ -470,11 +473,14 @@ class TrackingGateway {
             [data.bookingId]
           );
 
-          // Broadcast to the booking room
-          this.io?.to(`booking:${data.bookingId}`).emit('ride:trip_completed', {
-            bookingId: data.bookingId,
-            timestamp: Date.now(),
-          });
+          // Broadcast to the booking room and all trackers
+          this.io?.to(`booking:${data.bookingId}`).emit('ride:trip_completed', { bookingId: data.bookingId });
+          const completedTrackers = this.driverTrackers.get(authSocket.userId);
+          if (completedTrackers) {
+            for (const sid of completedTrackers) {
+              this.io?.to(sid).emit('ride:trip_completed', { bookingId: data.bookingId });
+            }
+          }
 
           socket.emit('driver:complete_trip:ack', { success: true, bookingId: data.bookingId });
           logger.info('Trip completed', { bookingId: data.bookingId, driverId: authSocket.userId });

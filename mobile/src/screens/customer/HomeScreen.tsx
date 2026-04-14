@@ -316,7 +316,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       socket.emit('customer:track_driver', { driverId: d.userId ?? data.driverId });
     });
 
-    socket.on('driver:location_update', (data: any) => {
+    socket.on('driver:location:updated', (data: any) => {
       const newLoc = { latitude: data.lat, longitude: data.lng };
       setDriverLocation(newLoc);
       // Follow driver on map
@@ -989,8 +989,10 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               </View>
             </View>
 
-            {tripStatus === 'completed' && (
+            {tripStatus === 'completed' ? (
               <TouchableOpacity style={styles.rateBtn} onPress={() => {
+                socketRef.current?.disconnect();
+                socketRef.current = null;
                 setViewMode('idle');
                 setMatchedDriver(null);
                 setDriverLocation(null);
@@ -999,6 +1001,25 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 setRouteCoords([]); setRouteInfo(null);
               }}>
                 <Text style={styles.rateBtnText}>DONE</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.cancelRideBtn} onPress={() => {
+                Alert.alert('Cancel Ride', 'Are you sure?', [
+                  { text: 'No', style: 'cancel' },
+                  { text: 'Yes, Cancel', style: 'destructive', onPress: () => {
+                    socketRef.current?.emit('customer:cancel_ride', {});
+                    socketRef.current?.disconnect();
+                    socketRef.current = null;
+                    setViewMode('idle');
+                    setMatchedDriver(null);
+                    setDriverLocation(null);
+                    setPickupText(''); setDestText('');
+                    setPickupCoords(null); setDestCoords(null);
+                    setRouteCoords([]); setRouteInfo(null);
+                  }},
+                ]);
+              }}>
+                <Text style={styles.cancelRideBtnText}>Cancel Ride</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1306,4 +1327,6 @@ function getStyles() { return StyleSheet.create({
   matchedPickupPin: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center' },
   matchedDestPin: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center' },
   matchedPinText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
+  cancelRideBtn: { alignItems: 'center', paddingVertical: SPACING.sm, marginTop: SPACING.sm },
+  cancelRideBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.error },
 }); }
