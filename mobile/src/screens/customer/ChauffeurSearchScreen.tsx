@@ -133,7 +133,15 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
       const coords = { latitude: d.latitude, longitude: d.longitude };
       setPickupText(p.mainText);
       setPickupCoords(coords);
-      try { const geo = await reverseGeocode(coords.latitude, coords.longitude); setCity(geo.city || ''); } catch {}
+      // Extract city from place secondary text or reverse geocode
+      const cityFromPlace = p.secondaryText?.split(',')[0]?.trim() || '';
+      try {
+        const geo = await reverseGeocode(coords.latitude, coords.longitude);
+        const geoCity = (geo.city || '').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ä/g,'a').replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ä/g,'A');
+        setCity(geoCity || cityFromPlace);
+      } catch {
+        setCity(cityFromPlace);
+      }
       mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
     } catch {}
   }
@@ -142,7 +150,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
     if (location) {
       setPickupText(userAddress ?? 'My Location');
       setPickupCoords({ latitude: location.latitude, longitude: location.longitude });
-      try { reverseGeocode(location.latitude, location.longitude).then(g => setCity(g.city || '')); } catch {}
+      try { reverseGeocode(location.latitude, location.longitude).then(g => setCity((g.city || '').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ä/g,'a'))); } catch {}
     }
   }
 
@@ -152,7 +160,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
       const geo = await reverseGeocode(mapCenter.latitude, mapCenter.longitude);
       setPickupText(geo.formattedAddress || `${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`);
       setPickupCoords(mapCenter);
-      setCity(geo.city || '');
+      setCity((geo.city || '').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ä/g,'a'));
     } catch {
       setPickupText(`${mapCenter.latitude.toFixed(4)}, ${mapCenter.longitude.toFixed(4)}`);
       setPickupCoords(mapCenter);
