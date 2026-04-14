@@ -77,6 +77,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [matchedDriver, setMatchedDriver] = useState<{ driverName: string; vehicleMake: string; vehicleModel: string; vehiclePlate: string; driverLat: number; driverLng: number } | null>(null);
   const [driverLocation, setDriverLocation] = useState<LatLng | null>(null);
   const [tripStatus, setTripStatus] = useState<'searching' | 'matched' | 'arriving' | 'in_progress' | 'completed'>('searching');
+  const [driverRating, setDriverRating] = useState(0);
 
   const region = location
     ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 }
@@ -990,18 +991,61 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             </View>
 
             {tripStatus === 'completed' ? (
-              <TouchableOpacity style={styles.rateBtn} onPress={() => {
-                socketRef.current?.disconnect();
-                socketRef.current = null;
-                setViewMode('idle');
-                setMatchedDriver(null);
-                setDriverLocation(null);
-                setPickupText(''); setDestText('');
-                setPickupCoords(null); setDestCoords(null);
-                setRouteCoords([]); setRouteInfo(null);
-              }}>
-                <Text style={styles.rateBtnText}>DONE</Text>
-              </TouchableOpacity>
+              <View style={styles.completedCard}>
+                <Text style={styles.completedTitle}>Trip Completed!</Text>
+
+                {/* Trip summary */}
+                <View style={styles.completedSummary}>
+                  <View style={styles.completedSummaryRow}>
+                    <Text style={styles.completedLabel}>From</Text>
+                    <Text style={styles.completedValue} numberOfLines={1}>{pickupText}</Text>
+                  </View>
+                  <View style={styles.completedSummaryRow}>
+                    <Text style={styles.completedLabel}>To</Text>
+                    <Text style={styles.completedValue} numberOfLines={1}>{destText}</Text>
+                  </View>
+                  {routeInfo && (
+                    <View style={styles.completedSummaryRow}>
+                      <Text style={styles.completedLabel}>Distance</Text>
+                      <Text style={styles.completedValue}>{routeInfo.distance}</Text>
+                    </View>
+                  )}
+                  <View style={styles.completedSummaryRow}>
+                    <Text style={styles.completedLabel}>Driver</Text>
+                    <Text style={styles.completedValue}>{matchedDriver.driverName}</Text>
+                  </View>
+                  <View style={styles.completedSummaryRow}>
+                    <Text style={styles.completedLabel}>Vehicle</Text>
+                    <Text style={styles.completedValue}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
+                  </View>
+                </View>
+
+                {/* Rating */}
+                <Text style={styles.rateLabel}>Rate your driver (optional)</Text>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <TouchableOpacity key={star} onPress={() => setDriverRating(star)}>
+                      <Text style={[styles.star, star <= driverRating && styles.starActive]}>
+                        ★
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity style={styles.rateBtn} onPress={() => {
+                  socketRef.current?.disconnect();
+                  socketRef.current = null;
+                  setViewMode('idle');
+                  setMatchedDriver(null);
+                  setDriverLocation(null);
+                  setDriverRating(0);
+                  setPickupText(''); setDestText('');
+                  setPickupCoords(null); setDestCoords(null);
+                  setRouteCoords([]); setRouteInfo(null);
+                }}>
+                  <Text style={styles.rateBtnText}>CONFIRM</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <TouchableOpacity style={styles.cancelRideBtn} onPress={() => {
                 Alert.alert('Cancel Ride', 'Are you sure?', [
@@ -1329,4 +1373,14 @@ function getStyles() { return StyleSheet.create({
   matchedPinText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
   cancelRideBtn: { alignItems: 'center', paddingVertical: SPACING.sm, marginTop: SPACING.sm },
   cancelRideBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.error },
+  completedCard: { marginTop: SPACING.sm },
+  completedTitle: { fontSize: 20, fontWeight: '800', color: '#10B981', textAlign: 'center', marginBottom: SPACING.md },
+  completedSummary: { backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md },
+  completedSummaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  completedLabel: { fontSize: 13, color: COLORS.textSecondary },
+  completedValue: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, maxWidth: '60%', textAlign: 'right' },
+  rateLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center', marginBottom: SPACING.sm },
+  starsRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
+  star: { fontSize: 36, color: COLORS.border },
+  starActive: { color: '#F59E0B' },
 }); }
