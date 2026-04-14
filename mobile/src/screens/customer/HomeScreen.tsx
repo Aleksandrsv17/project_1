@@ -330,20 +330,6 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 
     socket.on('ride:trip_completed', () => {
       setTripStatus('completed');
-      setTimeout(() => {
-        socket.disconnect();
-        socketRef.current = null;
-        setViewMode('idle');
-        setMatchedDriver(null);
-        setDriverLocation(null);
-        setPickupText('');
-        setDestText('');
-        setPickupCoords(null);
-        setDestCoords(null);
-        setRouteCoords([]);
-        setRouteInfo(null);
-        Alert.alert('Trip Completed', 'Thank you for riding with us!');
-      }, 2000);
     });
 
     socket.on('ride:no_drivers', () => {
