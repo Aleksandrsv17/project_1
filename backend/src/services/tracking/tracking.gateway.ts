@@ -459,12 +459,18 @@ class TrackingGateway {
           );
 
           if (booking.rows[0]) {
-            // Broadcast to the booking room and all trackers of this driver
-            this.io?.to(`booking:${data.bookingId}`).emit('ride:trip_started', { bookingId: data.bookingId });
+            // Broadcast to all trackers of this driver
             const trackers = this.driverTrackers.get(authSocket.userId);
             if (trackers) {
               for (const sid of trackers) {
                 this.io?.to(sid).emit('ride:trip_started', { bookingId: data.bookingId });
+              }
+            }
+            // Also broadcast to all connected sockets of the customer
+            const sockets = await this.io?.fetchSockets();
+            for (const s of sockets ?? []) {
+              if ((s as any).userId === booking.rows[0].customer_id) {
+                s.emit('ride:trip_started', { bookingId: data.bookingId });
               }
             }
           }
@@ -484,12 +490,21 @@ class TrackingGateway {
             [data.bookingId]
           );
 
-          // Broadcast to the booking room and all trackers
-          this.io?.to(`booking:${data.bookingId}`).emit('ride:trip_completed', { bookingId: data.bookingId });
+          // Broadcast to all trackers
           const completedTrackers = this.driverTrackers.get(authSocket.userId);
           if (completedTrackers) {
             for (const sid of completedTrackers) {
               this.io?.to(sid).emit('ride:trip_completed', { bookingId: data.bookingId });
+            }
+          }
+          // Also broadcast to customer directly
+          const completedBooking = await query<{ customer_id: string }>('SELECT customer_id FROM bookings WHERE id = $1', [data.bookingId]);
+          if (completedBooking.rows[0]) {
+            const allSockets = await this.io?.fetchSockets();
+            for (const s of allSockets ?? []) {
+              if ((s as any).userId === completedBooking.rows[0].customer_id) {
+                s.emit('ride:trip_completed', { bookingId: data.bookingId });
+              }
             }
           }
 
