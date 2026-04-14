@@ -245,33 +245,18 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       ])
     ).start();
 
-    // Connect Socket.io — get fresh token
-    let token = await SecureStore.getItemAsync(SECURE_STORE_KEYS.ACCESS_TOKEN);
+    // Connect Socket.io — get token (make a quick API call to trigger refresh if needed)
+    try {
+      const { default: apiClient } = await import('../../api/client');
+      await apiClient.get('/auth/profile');
+    } catch {}
+
+    const token = await SecureStore.getItemAsync(SECURE_STORE_KEYS.ACCESS_TOKEN);
     if (!token) {
-      Alert.alert('Error', 'Please log out and log back in.');
+      Alert.alert('Session Expired', 'Please log out and log back in.');
       setViewMode('route');
       return;
     }
-
-    // Try to refresh token first to ensure it's valid
-    try {
-      const refreshToken = await SecureStore.getItemAsync(SECURE_STORE_KEYS.REFRESH_TOKEN);
-      if (refreshToken) {
-        const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken }),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const newToken = data?.data?.access_token ?? data?.access_token;
-          if (newToken) {
-            token = newToken;
-            await SecureStore.setItemAsync(SECURE_STORE_KEYS.ACCESS_TOKEN, newToken);
-          }
-        }
-      }
-    } catch {}
 
     const socket = io(SOCKET_URL, { auth: { token }, transports: ['polling', 'websocket'] });
     socketRef.current = socket;

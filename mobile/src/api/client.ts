@@ -82,10 +82,12 @@ apiClient.interceptors.response.use(
 
         // Call the refresh endpoint (without auth interceptor to avoid loop)
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refreshToken,
+          refresh_token: refreshToken,
         });
 
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
+        const raw = response.data?.data ?? response.data;
+        const accessToken = raw.access_token ?? raw.accessToken;
+        const newRefreshToken = raw.refresh_token ?? raw.refreshToken;
 
         // Store new tokens
         await SecureStore.setItemAsync(SECURE_STORE_KEYS.ACCESS_TOKEN, accessToken);
