@@ -324,6 +324,10 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       mapRef.current?.animateToRegion({ ...newLoc, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 500);
     });
 
+    socket.on('ride:driver_arrived', () => {
+      setTripStatus('arriving');
+    });
+
     socket.on('ride:trip_started', () => {
       setTripStatus('in_progress');
     });
@@ -924,59 +928,61 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
         </>
       )}
 
-      {/* ── DRIVER MATCHED ── */}
-      {viewMode === 'searching' && matchedDriver && (
-        <>
-          <View style={styles.matchedPanel}>
-            {/* Status */}
-            <View style={styles.matchedHeader}>
-              <View style={[styles.matchedStatusDot, {
-                backgroundColor: tripStatus === 'in_progress' ? '#3B82F6' : tripStatus === 'completed' ? '#10B981' : '#F59E0B'
-              }]} />
-              <Text style={styles.matchedStatus}>
-                {tripStatus === 'matched' ? 'Driver is on the way' :
-                 tripStatus === 'in_progress' ? 'Trip in progress' :
-                 tripStatus === 'completed' ? 'Trip completed!' : 'Arriving...'}
-              </Text>
-            </View>
+      {/* ── DRIVER ARRIVED POPUP ── */}
+      {viewMode === 'searching' && matchedDriver && tripStatus === 'arriving' && (
+        <View style={styles.arrivedPopup}>
+          <Text style={styles.arrivedIcon}>✓</Text>
+          <Text style={styles.arrivedTitle}>Driver has arrived!</Text>
+          <Text style={styles.arrivedSub}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel} · {matchedDriver.vehiclePlate}</Text>
+          <Text style={styles.arrivedHint}>Your driver is waiting at the pickup point</Text>
+        </View>
+      )}
 
-            {/* Driver info */}
-            <View style={styles.matchedDriverCard}>
-              <View style={styles.matchedAvatar}><Text style={styles.matchedAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.matchedDriverName}>{matchedDriver.driverName}</Text>
-                <Text style={styles.matchedVehicle}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
-                <Text style={styles.matchedPlate}>{matchedDriver.vehiclePlate}</Text>
-              </View>
-            </View>
+      {/* ── DRIVER ON THE WAY / TRIP COMPLETED ── */}
+      {viewMode === 'searching' && matchedDriver && (tripStatus === 'matched' || tripStatus === 'completed') && (
+        <View style={styles.matchedPanel}>
+          <View style={styles.matchedHeader}>
+            <View style={[styles.matchedStatusDot, {
+              backgroundColor: tripStatus === 'completed' ? '#10B981' : '#F59E0B'
+            }]} />
+            <Text style={styles.matchedStatus}>
+              {tripStatus === 'matched' ? 'Driver is on the way' : 'Trip completed!'}
+            </Text>
+          </View>
 
-            {/* Contact buttons */}
-            <View style={styles.contactRow}>
-              <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Call Driver', `Calling ${matchedDriver.driverName}...`)}>
-                <Text style={styles.contactBtnIcon}>☎</Text>
-                <Text style={styles.contactBtnText}>Call</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Message Driver', `Opening chat with ${matchedDriver.driverName}...`)}>
-                <Text style={styles.contactBtnIcon}>✉</Text>
-                <Text style={styles.contactBtnText}>Message</Text>
-              </TouchableOpacity>
+          <View style={styles.matchedDriverCard}>
+            <View style={styles.matchedAvatar}><Text style={styles.matchedAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.matchedDriverName}>{matchedDriver.driverName}</Text>
+              <Text style={styles.matchedVehicle}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
+              <Text style={styles.matchedPlate}>{matchedDriver.vehiclePlate}</Text>
             </View>
+          </View>
 
-            {/* Route */}
-            <View style={styles.matchedRoute}>
-              <View style={styles.matchedRouteRow}>
-                <View style={[styles.matchedDot, { backgroundColor: tripStatus === 'in_progress' ? '#64748B' : '#10B981' }]} />
-                <Text style={styles.matchedRouteText} numberOfLines={1}>{pickupText}</Text>
-                {tripStatus === 'in_progress' && <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '700' }}>✓</Text>}
-              </View>
-              <View style={{ width: 1, height: 12, backgroundColor: COLORS.border, marginLeft: 4.5 }} />
-              <View style={styles.matchedRouteRow}>
-                <View style={[styles.matchedDot, { backgroundColor: tripStatus === 'in_progress' ? '#EF4444' : '#64748B' }]} />
-                <Text style={styles.matchedRouteText} numberOfLines={1}>{destText}</Text>
-              </View>
+          <View style={styles.contactRow}>
+            <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Call Driver', `Calling ${matchedDriver.driverName}...`)}>
+              <Text style={styles.contactBtnIcon}>☎</Text>
+              <Text style={styles.contactBtnText}>Call</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Message Driver', `Opening chat with ${matchedDriver.driverName}...`)}>
+              <Text style={styles.contactBtnIcon}>✉</Text>
+              <Text style={styles.contactBtnText}>Message</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.matchedRoute}>
+            <View style={styles.matchedRouteRow}>
+              <View style={[styles.matchedDot, { backgroundColor: '#10B981' }]} />
+              <Text style={styles.matchedRouteText} numberOfLines={1}>{pickupText}</Text>
             </View>
+            <View style={{ width: 1, height: 12, backgroundColor: COLORS.border, marginLeft: 4.5 }} />
+            <View style={styles.matchedRouteRow}>
+              <View style={[styles.matchedDot, { backgroundColor: '#64748B' }]} />
+              <Text style={styles.matchedRouteText} numberOfLines={1}>{destText}</Text>
+            </View>
+          </View>
 
-            {tripStatus === 'completed' ? (
+          {tripStatus === 'completed' ? (
               <View style={styles.completedCard}>
                 <Text style={styles.completedTitle}>Trip Completed!</Text>
 
@@ -1054,6 +1060,27 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             )}
           </View>
         </>
+      )}
+
+      {/* ── IN PROGRESS MINI BAR ── */}
+      {viewMode === 'searching' && matchedDriver && tripStatus === 'in_progress' && (
+        <View style={styles.miniBar}>
+          <View style={styles.miniBarTop}>
+            <View style={[styles.matchedStatusDot, { backgroundColor: '#3B82F6' }]} />
+            <Text style={styles.miniBarStatus}>Trip in progress</Text>
+          </View>
+          <View style={styles.miniBarDriver}>
+            <View style={styles.miniBarAvatar}><Text style={styles.miniBarAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.miniBarName}>{matchedDriver.driverName}</Text>
+              <Text style={styles.miniBarCar}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel} · {matchedDriver.vehiclePlate}</Text>
+            </View>
+            <TouchableOpacity style={styles.miniBarCallBtn} onPress={() => Alert.alert('Call Driver', `Calling ${matchedDriver.driverName}...`)}>
+              <Text style={styles.miniBarCallIcon}>☎</Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.miniBarDest}>→ {destText}</Text>
+        </View>
       )}
     </View>
   );
@@ -1369,4 +1396,22 @@ function getStyles() { return StyleSheet.create({
   starsRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
   star: { fontSize: 36, color: COLORS.border },
   starActive: { color: '#F59E0B' },
+  // Arrived popup
+  arrivedPopup: { position: 'absolute', top: '35%', left: SPACING.lg, right: SPACING.lg, backgroundColor: COLORS.background, borderRadius: BORDER_RADIUS.md, padding: SPACING.lg, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 10, zIndex: 20 },
+  arrivedIcon: { fontSize: 40, color: '#10B981', marginBottom: SPACING.sm },
+  arrivedTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, marginBottom: 4 },
+  arrivedSub: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 4 },
+  arrivedHint: { fontSize: 13, color: COLORS.textSecondary },
+  // Mini bar for in-progress
+  miniBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.background, borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, paddingBottom: 30, shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 8 },
+  miniBarTop: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm },
+  miniBarStatus: { fontSize: 14, fontWeight: '700', color: '#3B82F6' },
+  miniBarDriver: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.xs },
+  miniBarAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center' },
+  miniBarAvatarText: { fontSize: 14, fontWeight: '700', color: COLORS.background },
+  miniBarName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
+  miniBarCar: { fontSize: 12, color: COLORS.textSecondary },
+  miniBarCallBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center' },
+  miniBarCallIcon: { fontSize: 18, color: COLORS.textPrimary },
+  miniBarDest: { fontSize: 12, color: COLORS.textSecondary },
 }); }

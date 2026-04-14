@@ -434,6 +434,17 @@ class TrackingGateway {
         }
       });
 
+      socket.on('driver:arrived', (data: { bookingId: string }) => {
+        // Notify customer that driver has arrived at pickup
+        const trackers = this.driverTrackers.get(authSocket.userId);
+        if (trackers) {
+          for (const sid of trackers) {
+            this.io?.to(sid).emit('ride:driver_arrived', { bookingId: data.bookingId });
+          }
+        }
+        logger.info('Driver arrived at pickup', { bookingId: data.bookingId, driverId: authSocket.userId });
+      });
+
       socket.on('driver:start_trip', async (data: { bookingId: string }) => {
         try {
           await query(
