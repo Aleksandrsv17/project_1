@@ -133,15 +133,19 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
       const coords = { latitude: d.latitude, longitude: d.longitude };
       setPickupText(p.mainText);
       setPickupCoords(coords);
-      // Extract city from place secondary text or reverse geocode
-      const cityFromPlace = p.secondaryText?.split(',')[0]?.trim() || '';
-      try {
-        const geo = await reverseGeocode(coords.latitude, coords.longitude);
-        const geoCity = (geo.city || '').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ä/g,'a').replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ä/g,'A');
-        setCity(geoCity || cityFromPlace);
-      } catch {
-        setCity(cityFromPlace);
+      // Extract city — check place text, secondary text, and reverse geocode
+      const fullText = `${p.mainText} ${p.secondaryText || ''}`.toLowerCase();
+      const normalize = (s: string) => s.replace(/ü/g,'u').replace(/ö/g,'o').replace(/ä/g,'a').replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ä/g,'A');
+      // Check for known cities in the place text
+      const knownCities = ['Dubai', 'Moscow', 'Zurich', 'Abu Dhabi'];
+      let detectedCity = knownCities.find(c => fullText.includes(c.toLowerCase()) || fullText.includes(normalize(c).toLowerCase())) || '';
+      if (!detectedCity) {
+        try {
+          const geo = await reverseGeocode(coords.latitude, coords.longitude);
+          detectedCity = normalize(geo.city || '') || p.secondaryText?.split(',')[0]?.trim() || '';
+        } catch {}
       }
+      setCity(detectedCity);
       mapRef.current?.animateToRegion({ ...coords, latitudeDelta: 0.015, longitudeDelta: 0.015 });
     } catch {}
   }
