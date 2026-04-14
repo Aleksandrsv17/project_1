@@ -53,10 +53,10 @@ export class BookingService {
       if (!vehicle.chauffeur_available) {
         throw new AppError('This vehicle does not have a chauffeur available', 400);
       }
-      // If vehicle has an assigned driver, use that — no need to find one from chauffeurs pool
+      // If vehicle has an assigned driver, skip chauffeur pool — driver handles it via Nova Driver app
       if (vehicle.assigned_driver_uid) {
-        const driverResult = await query<{ id: string }>('SELECT id FROM users WHERE driver_uid = $1', [vehicle.assigned_driver_uid]);
-        if (driverResult.rows[0]) chauffeurId = driverResult.rows[0].id;
+        // Don't set chauffeur_id — the assigned driver manages bookings via their app
+        chauffeurId = null;
       } else if (!chauffeurId) {
         try { chauffeurId = await this.assignChauffeur(null); } catch { /* No pool chauffeurs — proceed without */ }
       }
