@@ -707,11 +707,17 @@ export class BookingService {
     }
 
     // Vehicle owner can manage
-    const vehicle = await query<{ owner_id: string }>(
-      'SELECT owner_id FROM vehicles WHERE id = $1',
+    const vehicle = await query<{ owner_id: string; assigned_driver_uid: string | null }>(
+      'SELECT owner_id, assigned_driver_uid FROM vehicles WHERE id = $1',
       [booking.vehicle_id]
     );
     if (vehicle.rows[0]?.owner_id === userId) return true;
+
+    // Assigned driver can manage
+    if (vehicle.rows[0]?.assigned_driver_uid) {
+      const user = await query<{ driver_uid: string }>('SELECT driver_uid FROM users WHERE id = $1', [userId]);
+      if (user.rows[0]?.driver_uid === vehicle.rows[0].assigned_driver_uid) return true;
+    }
 
     return false;
   }
