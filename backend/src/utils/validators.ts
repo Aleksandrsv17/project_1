@@ -85,7 +85,7 @@ export const createBookingSchema = Joi.object({
   chauffeur_id: Joi.string().uuid().optional(),
   type: Joi.string().valid('instant_ride', 'scheduled', 'hourly_rental', 'daily_rental').required(),
   mode: Joi.string().valid('self_drive', 'chauffeur').required(),
-  start_time: Joi.date().iso().min('now').required(),
+  start_time: Joi.date().iso().required(),
   end_time: Joi.date().iso().greater(Joi.ref('start_time')).optional(),
   duration_hours: Joi.number().positive().optional(),
   pickup_address: Joi.string().max(500).optional(),
