@@ -23,8 +23,11 @@ import { useNearbyVehicles } from '../../hooks/useVehicles';
 import { searchPlaces, getPlaceDetails, getDirections, decodePolyline, reverseGeocode, PlacePrediction, LatLng } from '../../api/maps';
 import { VehicleCard } from '../../components/VehicleCard';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
-import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
+import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION, SOCKET_URL } from '../../utils/constants';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { io, Socket } from 'socket.io-client';
+import * as SecureStore from 'expo-secure-store';
+import { SECURE_STORE_KEYS } from '../../utils/constants';
 import { useAuthStore } from '../../store/authStore';
 import { Vehicle } from '../../api/vehicles';
 import { CustomerTabParamList } from '../../navigation/CustomerNavigator';
@@ -68,6 +71,12 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [prefTemp, setPrefTemp] = useState(22);
   const [prefMusic, setPrefMusic] = useState<'on' | 'off'>('on');
   const [prefNotes, setPrefNotes] = useState('');
+
+  // Socket & matched driver state
+  const socketRef = useRef<Socket | null>(null);
+  const [matchedDriver, setMatchedDriver] = useState<{ driverName: string; vehicleMake: string; vehicleModel: string; vehiclePlate: string; driverLat: number; driverLng: number } | null>(null);
+  const [driverLocation, setDriverLocation] = useState<LatLng | null>(null);
+  const [tripStatus, setTripStatus] = useState<'searching' | 'matched' | 'arriving' | 'in_progress' | 'completed'>('searching');
 
   const region = location
     ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 }
@@ -223,15 +232,90 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
     setViewMode('preferences');
   }
 
-  function handleConfirmRide() {
+  async function handleConfirmRide() {
     setViewMode('searching');
     setSearchingSeconds(0);
+    setMatchedDriver(null);
+    setTripStatus('searching');
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.3, duration: 800, useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       ])
     ).start();
+
+    // Connect Socket.io
+    const token = await SecureStore.getItemAsync(SECURE_STORE_KEYS.ACCESS_TOKEN);
+    if (!token) return;
+
+    const socket = io(SOCKET_URL, { auth: { token }, transports: ['websocket'] });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      // Send ride request
+      socket.emit('customer:request_ride', {
+        pickupLat: pickupCoords?.latitude,
+        pickupLng: pickupCoords?.longitude,
+        destLat: destCoords?.latitude,
+        destLng: destCoords?.longitude,
+        pickupText,
+        destText,
+        vehicleCategory: rideType,
+      });
+    });
+
+    socket.on('ride:matched', (data: any) => {
+      pulseAnim.stopAnimation();
+      pulseAnim.setValue(1);
+      setMatchedDriver({
+        driverName: data.driverName,
+        vehicleMake: data.vehicleMake,
+        vehicleModel: data.vehicleModel,
+        vehiclePlate: data.vehiclePlate,
+        driverLat: data.driverLat,
+        driverLng: data.driverLng,
+      });
+      setDriverLocation({ latitude: data.driverLat, longitude: data.driverLng });
+      setTripStatus('matched');
+
+      // Track driver location
+      socket.emit('customer:track_driver', { driverId: data.driverId });
+    });
+
+    socket.on('driver:location_update', (data: any) => {
+      setDriverLocation({ latitude: data.lat, longitude: data.lng });
+    });
+
+    socket.on('ride:trip_started', () => {
+      setTripStatus('in_progress');
+    });
+
+    socket.on('ride:trip_completed', () => {
+      setTripStatus('completed');
+      setTimeout(() => {
+        socket.disconnect();
+        socketRef.current = null;
+        setViewMode('idle');
+        setMatchedDriver(null);
+        setDriverLocation(null);
+        setPickupText('');
+        setDestText('');
+        setPickupCoords(null);
+        setDestCoords(null);
+        setRouteCoords([]);
+        setRouteInfo(null);
+        Alert.alert('Trip Completed', 'Thank you for riding with us!');
+      }, 2000);
+    });
+
+    socket.on('ride:no_drivers', () => {
+      pulseAnim.stopAnimation();
+      pulseAnim.setValue(1);
+      socket.disconnect();
+      socketRef.current = null;
+      Alert.alert('No Drivers Available', 'No drivers found nearby. Please try again later.');
+      setViewMode('route');
+    });
   }
 
   function handleCancelSearch() {
@@ -771,44 +855,68 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       )}
 
       {/* ── SEARCHING MODE: Looking for driver ── */}
-      {viewMode === 'searching' && (
+      {viewMode === 'searching' && !matchedDriver && (
         <>
-          {/* Keep showing the route on map */}
           <SafeAreaView style={styles.searchingHeader} edges={['top']}>
             <View style={styles.searchingHeaderCard}>
               <Text style={styles.searchingHeaderTitle}>Looking for your driver...</Text>
-              <Text style={styles.searchingHeaderSub}>
-                {pickupText} → {destText}
-              </Text>
+              <Text style={styles.searchingHeaderSub}>{pickupText} → {destText}</Text>
             </View>
           </SafeAreaView>
-
           <View style={styles.searchingOverlay}>
-            {/* Pulsing circle */}
             <Animated.View style={[styles.pulseCircleOuter, { transform: [{ scale: pulseAnim }] }]}>
-              <View style={styles.pulseCircleInner}>
-                <Text style={styles.pulseIcon}>◆</Text>
-              </View>
+              <View style={styles.pulseCircleInner}><Text style={styles.pulseIcon}>◆</Text></View>
             </Animated.View>
-
             <Text style={styles.searchingTitle}>Searching for drivers nearby</Text>
-            <Text style={styles.searchingTimer}>
-              {Math.floor(searchingSeconds / 60)}:{(searchingSeconds % 60).toString().padStart(2, '0')}
-            </Text>
-
+            <Text style={styles.searchingTimer}>{Math.floor(searchingSeconds / 60)}:{(searchingSeconds % 60).toString().padStart(2, '0')}</Text>
             {routeInfo && (
               <View style={styles.searchingRouteInfo}>
                 <Text style={styles.searchingRouteText}>◔ {routeInfo.duration}  ·  ▼ {routeInfo.distance}</Text>
               </View>
             )}
-
-            <Text style={styles.searchingHint}>
-              This usually takes less than a minute
-            </Text>
-
+            <Text style={styles.searchingHint}>This usually takes less than a minute</Text>
             <TouchableOpacity style={styles.cancelSearchButton} onPress={handleCancelSearch}>
               <Text style={styles.cancelSearchText}>Cancel</Text>
             </TouchableOpacity>
+          </View>
+        </>
+      )}
+
+      {/* ── DRIVER MATCHED ── */}
+      {viewMode === 'searching' && matchedDriver && (
+        <>
+          {driverLocation && (
+            <Marker coordinate={driverLocation}>
+              <View style={styles.driverMarker}><Text style={styles.driverMarkerText}>◆</Text></View>
+            </Marker>
+          )}
+          <View style={styles.matchedPanel}>
+            <View style={styles.matchedHeader}>
+              <Text style={styles.matchedStatus}>
+                {tripStatus === 'matched' ? 'Driver is on the way' :
+                 tripStatus === 'in_progress' ? 'Trip in progress' :
+                 tripStatus === 'completed' ? 'Trip completed!' : 'Arriving...'}
+              </Text>
+            </View>
+            <View style={styles.matchedDriverCard}>
+              <View style={styles.matchedAvatar}><Text style={styles.matchedAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.matchedDriverName}>{matchedDriver.driverName}</Text>
+                <Text style={styles.matchedVehicle}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
+                <Text style={styles.matchedPlate}>{matchedDriver.vehiclePlate}</Text>
+              </View>
+            </View>
+            <View style={styles.matchedRoute}>
+              <View style={styles.matchedRouteRow}>
+                <View style={[styles.matchedDot, { backgroundColor: '#10B981' }]} />
+                <Text style={styles.matchedRouteText} numberOfLines={1}>{pickupText}</Text>
+              </View>
+              <View style={{ width: 1, height: 12, backgroundColor: COLORS.border, marginLeft: 4.5 }} />
+              <View style={styles.matchedRouteRow}>
+                <View style={[styles.matchedDot, { backgroundColor: '#EF4444' }]} />
+                <Text style={styles.matchedRouteText} numberOfLines={1}>{destText}</Text>
+              </View>
+            </View>
           </View>
         </>
       )}
@@ -1088,4 +1196,20 @@ function getStyles() { return StyleSheet.create({
     borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xxl,
   },
   cancelSearchText: { fontSize: 15, fontWeight: '600', color: COLORS.error },
+  // Matched driver
+  driverMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3B82F6', borderWidth: 3, borderColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
+  driverMarkerText: { fontSize: 14, color: '#FFFFFF' },
+  matchedPanel: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: SPACING.md, paddingBottom: 40 },
+  matchedHeader: { marginBottom: SPACING.md },
+  matchedStatus: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center' },
+  matchedDriverCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.md, backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md, padding: SPACING.md },
+  matchedAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center' },
+  matchedAvatarText: { fontSize: 20, fontWeight: '700', color: COLORS.background },
+  matchedDriverName: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
+  matchedVehicle: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
+  matchedPlate: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary, marginTop: 2, letterSpacing: 1 },
+  matchedRoute: { marginBottom: SPACING.sm },
+  matchedRouteRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  matchedDot: { width: 10, height: 10, borderRadius: 5 },
+  matchedRouteText: { fontSize: 13, color: COLORS.textSecondary, flex: 1 },
 }); }
