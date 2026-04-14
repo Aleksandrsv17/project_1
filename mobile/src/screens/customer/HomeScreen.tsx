@@ -1059,7 +1059,6 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               </TouchableOpacity>
             )}
           </View>
-        </>
       )}
 
       {/* ── IN PROGRESS MINI BAR ── */}
