@@ -324,7 +324,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
                 </View>
 
                 {selectedStart && (
-                  <View style={{ marginTop: SPACING.sm }}>
+                  <View style={{ marginTop: 0 }}>
                     <View style={styles.calTimeRow}>
                       <Text style={styles.calTimeLabel}>Pick-up</Text>
                       <TouchableOpacity style={styles.calTimeBtn} onPress={() => setShowPickupTime(!showPickupTime)}>
@@ -432,9 +432,11 @@ function getStyles() { return StyleSheet.create({
   predSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
   // Bottom card
   bottomCard: {
-    position: 'absolute', bottom: 12, left: SPACING.md, right: SPACING.md,
-    backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md,
-    borderWidth: 1, borderColor: COLORS.border, maxHeight: '55%',
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: SPACING.lg, paddingTop: SPACING.md, paddingBottom: SPACING.xl,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.12, shadowRadius: 12,
+    elevation: 10, maxHeight: '60%',
   },
   sectionLabel: { fontSize: 10, fontWeight: '600', color: COLORS.textSecondary, letterSpacing: 2, marginBottom: SPACING.xs, marginTop: SPACING.md },
   // Date & Time
@@ -454,7 +456,7 @@ function getStyles() { return StyleSheet.create({
   calHeaderCell: { flex: 1, alignItems: 'center', paddingVertical: 4 },
   calHeaderText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
   calGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  calCell: { width: '14.28%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
+  calCell: { width: '14.28%', height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 8 },
   calCellRange: { backgroundColor: COLORS.grayLight },
   calCellSelected: { backgroundColor: COLORS.textPrimary },
   calDayText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },

@@ -66,14 +66,16 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { location: userLocation } = useLocation();
 
-  // Calendar state
-  const [calendarMonth, setCalendarMonth] = useState(new Date());
-  const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(null);
-  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(null);
+  // Calendar state — pre-fill from booking draft dates (zero out time for calendar matching)
+  const draftStart = bookingDraft?.startTime ? (() => { const d = new Date(bookingDraft.startTime); d.setHours(0,0,0,0); return d; })() : null;
+  const draftEnd = bookingDraft?.endTime ? (() => { const d = new Date(bookingDraft.endTime); d.setHours(0,0,0,0); return d; })() : null;
+  const [calendarMonth, setCalendarMonth] = useState(draftStart ?? new Date());
+  const [selectedStartDate, setSelectedStartDate] = useState<Date | null>(draftStart);
+  const [selectedEndDate, setSelectedEndDate] = useState<Date | null>(draftEnd);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
-  const [pickupTime, setPickupTime] = useState(new Date());
-  const [returnTime, setReturnTime] = useState(new Date());
+  const [pickupTime, setPickupTime] = useState(bookingDraft?.startTime ? new Date(bookingDraft.startTime) : new Date());
+  const [returnTime, setReturnTime] = useState(bookingDraft?.endTime ? new Date(bookingDraft.endTime) : new Date());
 
   // Build calendar grid
   const calendarData = React.useMemo(() => {
@@ -292,32 +294,34 @@ export function BookingScreen({ navigation, route }: BookingScreenProps) {
           </View>
         )}
 
-        {/* Mode Selection */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Booking Mode</Text>
-          <View style={styles.modeRow}>
-            <TouchableOpacity
-              style={[styles.modeButton, mode === 'self_drive' && styles.modeButtonActive]}
-              onPress={() => setMode('self_drive')}
-            >
-              <Text style={styles.modeButtonIcon}>—</Text>
-              <Text style={[styles.modeButtonText, mode === 'self_drive' && styles.modeButtonTextActive]}>
-                Self Drive
-              </Text>
-            </TouchableOpacity>
-            {vehicle?.chauffeurAvailable && (
+        {/* Mode Selection — hidden: mode is locked based on flow (chauffeur or self_drive) */}
+        {false && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Booking Mode</Text>
+            <View style={styles.modeRow}>
               <TouchableOpacity
-                style={[styles.modeButton, mode === 'chauffeur' && styles.modeButtonActive]}
-                onPress={() => setMode('chauffeur')}
+                style={[styles.modeButton, mode === 'self_drive' && styles.modeButtonActive]}
+                onPress={() => setMode('self_drive')}
               >
-                <Text style={styles.modeButtonIcon}>∧</Text>
-                <Text style={[styles.modeButtonText, mode === 'chauffeur' && styles.modeButtonTextActive]}>
-                  Chauffeur
+                <Text style={styles.modeButtonIcon}>—</Text>
+                <Text style={[styles.modeButtonText, mode === 'self_drive' && styles.modeButtonTextActive]}>
+                  Self Drive
                 </Text>
               </TouchableOpacity>
-            )}
+              {vehicle?.chauffeurAvailable && (
+                <TouchableOpacity
+                  style={[styles.modeButton, mode === 'chauffeur' && styles.modeButtonActive]}
+                  onPress={() => setMode('chauffeur')}
+                >
+                  <Text style={styles.modeButtonIcon}>∧</Text>
+                  <Text style={[styles.modeButtonText, mode === 'chauffeur' && styles.modeButtonTextActive]}>
+                    Chauffeur
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Calendar */}
         <View style={styles.section}>
