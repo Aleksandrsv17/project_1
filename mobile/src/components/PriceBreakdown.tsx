@@ -18,7 +18,7 @@ export function PriceBreakdown({
   discount = 0,
   tax,
   total,
-  currency = 'AED',
+  currency = 'EUR',
 }: PriceBreakdownProps) {
   const styles = getStyles();
   const fmt = (amount: number) => formatCurrency(amount, currency);

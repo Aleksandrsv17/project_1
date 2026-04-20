@@ -550,19 +550,21 @@ function getStyles() { return StyleSheet.create({
     paddingBottom: 120,
   },
   vehicleSummary: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.white,
     borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   vehicleTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: COLORS.textPrimary,
   },
   vehicleLocation: {
     fontSize: 13,
-    color: COLORS.gray,
+    color: COLORS.textSecondary,
     marginTop: 4,
   },
   section: {
