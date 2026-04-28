@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import * as SecureStore from 'expo-secure-store';
 import { defaultTheme } from './default/theme';
 import { luxuryFlatTheme } from './luxury-flat/theme';
 import { conceptCarTheme } from './concept-car/theme';
 import { sandboxTheme } from './sandbox/theme';
 import { COLORS, BORDER_RADIUS } from '../utils/constants';
+
+const THEME_STORAGE_KEY = 'app_theme_name';
 
 export interface AppTheme {
   name: string;
@@ -150,12 +153,24 @@ function applyThemeToGlobals(theme: AppTheme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [themeName, setThemeName] = useState('default');
+  const [themeName, setThemeNameState] = useState('sandbox');
 
   const theme = THEMES[themeName] ?? defaultTheme;
 
   // Apply SYNCHRONOUSLY before render so getStyles() picks up new values
   applyThemeToGlobals(theme);
+
+  // Restore persisted choice on mount
+  useEffect(() => {
+    SecureStore.getItemAsync(THEME_STORAGE_KEY).then(saved => {
+      if (saved && THEMES[saved] && saved !== themeName) setThemeNameState(saved);
+    }).catch(() => {});
+  }, []);
+
+  const setThemeName = (name: string) => {
+    setThemeNameState(name);
+    SecureStore.setItemAsync(THEME_STORAGE_KEY, name).catch(() => {});
+  };
 
   return (
     <ThemeContext.Provider value={{

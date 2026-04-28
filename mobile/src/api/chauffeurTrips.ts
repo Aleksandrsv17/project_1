@@ -47,19 +47,18 @@ function clearAllPending(): void {
 }
 
 // Deterministic-ish fake drivers for the dev mock. Picks one per request.
-const MOCK_DRIVERS: ChauffeurDriver[] = [
-  { driverId: 'drv_001', name: 'Alex Müller',    vehicleMake: 'Mercedes-Benz', vehicleModel: 'S-Class',  vehiclePlate: 'D AB 1234' },
-  { driverId: 'drv_002', name: 'Karim Hassan',   vehicleMake: 'Mercedes-Benz', vehicleModel: 'Maybach',  vehiclePlate: 'D CD 5678' },
-  { driverId: 'drv_003', name: 'Yuki Tanaka',    vehicleMake: 'Mercedes-Benz', vehicleModel: 'V-Class',  vehiclePlate: 'D EF 9012' },
-  { driverId: 'drv_004', name: 'Mariana Costa',  vehicleMake: 'Mercedes-Benz', vehicleModel: 'S-Class',  vehiclePlate: 'D GH 3456' },
+type MockDriver = ChauffeurDriver & { carType: CarType };
+const MOCK_DRIVERS: MockDriver[] = [
+  { driverId: 'drv_001', name: 'Alex Müller',    vehicleMake: 'Toyota',    vehicleModel: 'Camry',     vehiclePlate: 'D AB 1234', carType: 'sedan' },
+  { driverId: 'drv_002', name: 'Karim Hassan',   vehicleMake: 'BMW',       vehicleModel: '5 Series',  vehiclePlate: 'D CD 5678', carType: 'sedan' },
+  { driverId: 'drv_003', name: 'Yuki Tanaka',    vehicleMake: 'Toyota',    vehicleModel: 'Highlander',vehiclePlate: 'D EF 9012', carType: 'suv' },
+  { driverId: 'drv_004', name: 'Mariana Costa',  vehicleMake: 'BMW',       vehicleModel: 'X5',        vehiclePlate: 'D GH 3456', carType: 'suv' },
+  { driverId: 'drv_005', name: 'Omar Saeed',     vehicleMake: 'Mercedes-Benz', vehicleModel: 'V-Class', vehiclePlate: 'D IJ 7890', carType: 'van' },
+  { driverId: 'drv_006', name: 'Lina Park',      vehicleMake: 'Toyota',    vehicleModel: 'Sienna',    vehiclePlate: 'D KL 2345', carType: 'van' },
 ];
 
 function pickMockDriver(carType: CarType, pickup: ChauffeurPickup): ChauffeurDriver {
-  const matches = MOCK_DRIVERS.filter(d => {
-    if (carType === 'sclass') return d.vehicleModel === 'S-Class';
-    if (carType === 'maybach') return d.vehicleModel === 'Maybach';
-    return d.vehicleModel === 'V-Class';
-  });
+  const matches = MOCK_DRIVERS.filter(d => d.carType === carType);
   const pool = matches.length > 0 ? matches : MOCK_DRIVERS;
   const driver = pool[Math.floor(Math.random() * pool.length)];
   // Start the driver ~1km away from the pickup so the "arriving" phase feels real.

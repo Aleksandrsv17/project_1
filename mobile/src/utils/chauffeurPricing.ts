@@ -1,18 +1,24 @@
-export type CarType = 'sclass' | 'maybach' | 'vclass';
+export type CarType = 'sedan' | 'suv' | 'van';
 
 export const BASE_RATE_PER_KM = 3;
 export const WAITING_RATE_PER_MIN = 0.8;
 
 export const CAR_MULTIPLIERS: Record<CarType, number> = {
-  sclass: 1.0,
-  maybach: 1.8,
-  vclass: 1.3,
+  sedan: 1.0,
+  suv: 1.3,
+  van: 1.6,
 };
 
 export const CAR_LABELS: Record<CarType, string> = {
-  sclass: 'S-Class',
-  maybach: 'Maybach',
-  vclass: 'V-Class',
+  sedan: 'Sedan',
+  suv: 'SUV',
+  van: 'Van',
+};
+
+export const CAR_CAPACITY: Record<CarType, string> = {
+  sedan: '1-3',
+  suv: '1-5',
+  van: '1-7',
 };
 
 export function legFare(distanceKm: number, carType: CarType): number {

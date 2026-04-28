@@ -18,7 +18,7 @@ import {
 import { useChauffeurStore, ChauffeurStop } from '../../store/chauffeurStore';
 import { CAR_LABELS } from '../../utils/chauffeurPricing';
 import { useLocation } from '../../hooks/useLocation';
-import { COLORS, DEFAULT_REGION } from '../../utils/constants';
+import { COLORS, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
 import { darkMapStyle } from '../../themes/mapStyles';
 
 const currSymbol = '$';
@@ -26,6 +26,7 @@ const currSymbol = '$';
 type AddStopMode = 'closed' | 'search' | 'pin';
 
 export function ChauffeurActiveScreen({ navigation }: any) {
+  const st = getStyles();
   const trip = useChauffeurStore(s => s.trip);
   const tick = useChauffeurStore(s => s.tick);
   const reset = useChauffeurStore(s => s.reset);
@@ -301,8 +302,8 @@ export function ChauffeurActiveScreen({ navigation }: any) {
       {addMode === 'pin' && (<>
         <View style={st.dropOverlay} pointerEvents="none">
           <View style={{ alignItems: 'center', marginBottom: 46 }}>
-            <View style={[st.pinHead, { backgroundColor: COLORS.textPrimary }]}>
-              <Text style={{ fontSize: 12, color: COLORS.background }}>+</Text>
+            <View style={[st.pinHead, { backgroundColor: '#d9c0a4' }]}>
+              <Text style={{ fontSize: 14, color: '#000000', fontWeight: '700' }}>+</Text>
             </View>
             <View style={st.pinNeedle} />
           </View>
@@ -693,15 +694,15 @@ export function ChauffeurActiveScreen({ navigation }: any) {
 
 // ── Monochrome line icons (replaces system emoji glyphs) ─────────────────────
 
-function CallIcon({ size = 22, color = COLORS.primary }: { size?: number; color?: string }) {
-  return <Text style={{ fontSize: size, color, fontWeight: '700' }}>☎</Text>;
+function CallIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return <Text style={{ fontSize: size, color, fontWeight: '700' }}>{'☎︎'}</Text>;
 }
 
-function MessageIcon({ size = 22, color = COLORS.primary }: { size?: number; color?: string }) {
-  return <Text style={{ fontSize: size, color, fontWeight: '700' }}>✉</Text>;
+function MessageIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
+  return <Text style={{ fontSize: size, color, fontWeight: '700' }}>{'✉︎'}</Text>;
 }
 
-function HelpIcon({ size = 22, color = COLORS.primary }: { size?: number; color?: string }) {
+function HelpIcon({ size = 22, color = '#FFFFFF' }: { size?: number; color?: string }) {
   return <Text style={{ fontSize: size, color, fontWeight: '700' }}>?</Text>;
 }
 
@@ -716,6 +717,7 @@ function StopsCarousel({
   currentIndex: number;
   scrollRef: React.RefObject<ScrollView>;
 }) {
+  const stCarStyles = getCarStyles();
   const [visibleIndex, setVisibleIndex] = useState(Math.max(0, currentIndex));
 
   // Snap to current stop when the active index changes (new stop added, or stop advanced).
@@ -789,6 +791,7 @@ function StopsCarousel({
 }
 
 function SummaryRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  const stSummaryStyles = getSummaryStyles();
   return (
     <View style={stSummaryStyles.row}>
       <Text style={[stSummaryStyles.label, bold && stSummaryStyles.bold]}>{label}</Text>
@@ -798,6 +801,7 @@ function SummaryRow({ label, value, bold }: { label: string; value: string; bold
 }
 
 function DriverInfoCentered({ driver }: { driver: { name: string; vehicleMake: string; vehicleModel: string; vehiclePlate: string } }) {
+  const stDriverStyles = getDriverStyles();
   return (
     <View style={stDriverStyles.wrap}>
       <View style={stDriverStyles.avatar}>
@@ -811,6 +815,7 @@ function DriverInfoCentered({ driver }: { driver: { name: string; vehicleMake: s
 }
 
 function DriverContactRow({ driverName }: { driverName: string }) {
+  const stDriverStyles = getDriverStyles();
   return (
     <View style={stDriverStyles.contactRow}>
       <TouchableOpacity
@@ -856,7 +861,7 @@ function formatDuration(ms: number): string {
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
-const st = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   container: { flex: 1 },
   map: { ...StyleSheet.absoluteFillObject },
   pin: { alignItems: 'center' },
@@ -870,8 +875,8 @@ const st = StyleSheet.create({
   dropBottomBar: { paddingHorizontal: 16, paddingBottom: 16 },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 4 },
   backText: { fontSize: 22, fontWeight: '600', color: COLORS.background },
-  confirmBtn: { backgroundColor: COLORS.textPrimary, borderRadius: 14, paddingVertical: 18, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 6 },
-  confirmBtnText: { color: COLORS.background, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+  confirmBtn: { backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md, paddingVertical: 18, alignItems: 'center' },
+  confirmBtnText: { color: '#000000', fontSize: 14, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase' },
   mapAddrCard: { backgroundColor: COLORS.grayLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 4, maxWidth: 160, borderWidth: 1.5, borderColor: COLORS.textPrimary, alignSelf: 'center' },
   mapAddrText: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary },
   liveDriverMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.textPrimary, borderWidth: 3, borderColor: COLORS.white, justifyContent: 'center', alignItems: 'center' },
@@ -911,21 +916,21 @@ const st = StyleSheet.create({
   headerChevronPill: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: COLORS.textPrimary, paddingHorizontal: 22, paddingVertical: 4, borderRadius: 10, minWidth: 56, alignItems: 'center', justifyContent: 'center' },
   headerChevron: { fontSize: 13, color: COLORS.textPrimary, fontWeight: '800' },
 
-  bottomCard: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.grayLight, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30, gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 10 },
+  bottomCard: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#000000', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 30, gap: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 10 },
   driverRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center' },
   avatarText: { fontSize: 18, fontWeight: '700', color: COLORS.background },
-  driverName: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
-  driverCar: { fontSize: 12, color: COLORS.textSecondary },
-  driverPlate: { fontSize: 11, fontWeight: '600', color: COLORS.textPrimary, letterSpacing: 1, marginTop: 1 },
+  driverName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  driverCar: { fontSize: 12, color: '#888888' },
+  driverPlate: { fontSize: 11, fontWeight: '600', color: '#FFFFFF', letterSpacing: 1, marginTop: 1 },
   actionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center' },
   actionIcon: { fontSize: 16, color: COLORS.textPrimary },
-  centerText: { textAlign: 'center', fontSize: 15, fontWeight: '600', color: COLORS.textPrimary, paddingVertical: 12 },
+  centerText: { textAlign: 'center', fontSize: 15, fontWeight: '600', color: '#FFFFFF', paddingVertical: 12 },
   enRouteText: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
 
-  primaryBtn: { backgroundColor: COLORS.textPrimary, borderRadius: 14, paddingVertical: 18, alignItems: 'center', minHeight: 56, justifyContent: 'center' },
+  primaryBtn: { backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md, paddingVertical: 18, alignItems: 'center', minHeight: 56, justifyContent: 'center' },
   primaryBtnDisabled: { opacity: 0.5 },
-  primaryBtnText: { color: COLORS.background, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+  primaryBtnText: { color: '#000000', fontSize: 15, fontWeight: '700', letterSpacing: 1 },
   secondaryBtn: { backgroundColor: COLORS.grayLight, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   secondaryBtnText: { color: COLORS.textPrimary, fontWeight: '700', fontSize: 14 },
   cancelBtn: { borderWidth: 1, borderColor: COLORS.error, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
@@ -952,9 +957,9 @@ const st = StyleSheet.create({
   tipLabel: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center', marginBottom: 10 },
   tipChipsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 10 },
   tipChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.grayLight },
-  tipChipActive: { backgroundColor: COLORS.textPrimary, borderColor: COLORS.textPrimary },
+  tipChipActive: { backgroundColor: '#d9c0a4', borderColor: '#d9c0a4' },
   tipChipText: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary },
-  tipChipTextActive: { color: COLORS.background },
+  tipChipTextActive: { color: '#000000' },
   customTipRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, paddingHorizontal: 14, height: 48, gap: 6, marginBottom: 8 },
   customTipSymbol: { fontSize: 16, fontWeight: '700', color: COLORS.textSecondary },
   customTipInput: { flex: 1, fontSize: 16, color: COLORS.textPrimary, paddingVertical: 0 },
@@ -995,40 +1000,40 @@ const st = StyleSheet.create({
   actionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
   actionSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   actionChevron: { fontSize: 22, color: COLORS.gray, marginLeft: 4 },
-});
+}); }
 
-const stCarStyles = StyleSheet.create({
+function getCarStyles() { return StyleSheet.create({
   wrap: { flexDirection: 'row', marginBottom: 4, alignItems: 'center' },
   empty: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center', paddingVertical: 12 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 14, height: STOP_CARD_HEIGHT, paddingHorizontal: 4, paddingVertical: 10 },
   body: { flex: 1, justifyContent: 'center' },
   badge: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
   badgeIdle: { backgroundColor: COLORS.border },
-  badgeActive: { backgroundColor: COLORS.textPrimary },
+  badgeActive: { backgroundColor: '#d9c0a4' },
   badgeDone: { backgroundColor: COLORS.success },
-  badgeText: { fontSize: 13, fontWeight: '700', color: COLORS.background },
+  badgeText: { fontSize: 13, fontWeight: '700', color: '#000000' },
   addr: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, lineHeight: 20 },
   sub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   indicatorCol: { width: 8, marginLeft: 8, gap: 4, alignItems: 'center', justifyContent: 'center' },
   indicatorDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: COLORS.border },
-  indicatorDotActive: { width: 6, height: 18, borderRadius: 3, backgroundColor: COLORS.textPrimary },
-});
+  indicatorDotActive: { width: 6, height: 18, borderRadius: 3, backgroundColor: '#d9c0a4' },
+}); }
 
-const stSummaryStyles = StyleSheet.create({
+function getSummaryStyles() { return StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 2 },
   label: { fontSize: 13, color: COLORS.textSecondary },
   value: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
   bold: { fontSize: 15, fontWeight: '800', color: COLORS.textPrimary },
-});
+}); }
 
-const stDriverStyles = StyleSheet.create({
+function getDriverStyles() { return StyleSheet.create({
   wrap: { alignItems: 'center', paddingVertical: 6, gap: 4 },
-  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
-  avatarText: { fontSize: 24, fontWeight: '700', color: COLORS.background },
-  name: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: -0.2 },
-  car: { fontSize: 13, color: COLORS.textSecondary },
-  plate: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: 1.2, marginTop: 2 },
+  avatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#d9c0a4', justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
+  avatarText: { fontSize: 24, fontWeight: '700', color: '#000000' },
+  name: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
+  car: { fontSize: 13, color: '#888888' },
+  plate: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', letterSpacing: 1.2, marginTop: 2 },
   contactRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  contactBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.grayLight, borderRadius: 14, paddingVertical: 14 },
-  contactLabel: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
-});
+  contactBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#111111', borderRadius: 14, paddingVertical: 14 },
+  contactLabel: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+}); }

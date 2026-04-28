@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard, Alert, Image, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard, Alert, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -7,7 +7,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useLocation } from '../../hooks/useLocation';
 import { searchPlaces, getPlaceDetails, reverseGeocode, PlacePrediction, LatLng } from '../../api/maps';
 import { requestChauffeurTrip } from '../../api/chauffeurTrips';
-import { CarType, CAR_LABELS, BASE_RATE_PER_KM, WAITING_RATE_PER_MIN } from '../../utils/chauffeurPricing';
+import { CarType, CAR_LABELS, CAR_CAPACITY, BASE_RATE_PER_KM, WAITING_RATE_PER_MIN } from '../../utils/chauffeurPricing';
 import { useAuthStore } from '../../store/authStore';
 import { useChauffeurStore } from '../../store/chauffeurStore';
 import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
@@ -23,6 +23,7 @@ type Props = {
 const CURRENCY_SYMBOL = '$';
 
 export function ChauffeurSearchScreen({ navigation }: Props) {
+  const st = getStyles();
   const { user } = useAuthStore();
   const { location, address: userAddress } = useLocation();
   const mapRef = useRef<MapView>(null);
@@ -142,8 +143,8 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
               <Text style={st.mapAddrText} numberOfLines={1}>{pickupText || 'Pickup'}</Text>
             </View>
             <View style={st.pin}>
-              <View style={[st.pinHead, { backgroundColor: COLORS.textPrimary }]}>
-                <Text style={{ fontSize: 14, color: COLORS.background, fontWeight: '700' }}>✦</Text>
+              <View style={[st.pinHead, { backgroundColor: '#d9c0a4' }]}>
+                <Text style={{ fontSize: 14, color: '#000000', fontWeight: '700' }}>✦</Text>
               </View>
               <View style={st.pinNeedle} />
             </View>
@@ -155,8 +156,8 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
       {dropPin && (<>
         <View style={st.dropOverlay} pointerEvents="none">
           <View style={{ alignItems: 'center', marginBottom: 46 }}>
-            <View style={[st.pinHead, { backgroundColor: COLORS.accent, borderWidth: 3, borderColor: COLORS.primary }]}>
-              <Text style={{ fontSize: 14, color: COLORS.primary, fontWeight: '700' }}>✦</Text>
+            <View style={[st.pinHead, { backgroundColor: '#d9c0a4' }]}>
+              <Text style={{ fontSize: 14, color: '#000000', fontWeight: '700' }}>✦</Text>
             </View>
             <View style={st.pinNeedle} />
           </View>
@@ -169,7 +170,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
           </View>
           <View style={st.dropBottomBar}>
             <TouchableOpacity style={st.confirmBtn} onPress={handleConfirmDropPin} activeOpacity={0.85}>
-              <Text style={st.confirmBtnText}>Confirm Pickup</Text>
+              <Text style={st.confirmBtnText}>CONFIRM LOCATION</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -255,25 +256,19 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
 
       {viewMode === 'select' && !dropPin && (
         <View style={st.bottomCard}>
-          <Text style={st.sectionTitle}>Choose a car</Text>
           <View style={st.carRow}>
-            {(['sclass', 'maybach', 'vclass'] as const).map(c => (
-              <View key={c} style={st.carCol}>
-                <TouchableOpacity
-                  style={[st.carItem, carType === c && st.carItemActive]}
-                  onPress={() => setCarType(c)}
-                >
-                  <Image
-                    source={
-                      c === 'sclass' ? require('../../../assets/cars/sclass.jpg') :
-                      c === 'maybach' ? require('../../../assets/cars/maybach.jpg') :
-                      require('../../../assets/cars/vclass.jpg')
-                    }
-                    style={st.carImage}
-                  />
-                  <Text style={[st.carLabel, carType === c && st.carLabelActive]}>{CAR_LABELS[c]}</Text>
-                </TouchableOpacity>
-              </View>
+            {(['sedan', 'suv', 'van'] as const).map(c => (
+              <TouchableOpacity
+                key={c}
+                style={[st.carItem, carType === c && st.carItemActive]}
+                onPress={() => setCarType(c)}
+              >
+                <Text style={[st.carIcon, carType === c && st.carIconActive]}>
+                  {c === 'sedan' ? '◆' : c === 'suv' ? '◆◆' : '◆◆◆'}
+                </Text>
+                <Text style={[st.carLabel, carType === c && st.carLabelActive]}>{CAR_LABELS[c]}</Text>
+                <Text style={[st.carSub, carType === c && st.carSubActive]}>{CAR_CAPACITY[c]}</Text>
+              </TouchableOpacity>
             ))}
           </View>
 
@@ -301,6 +296,8 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
                     mode={pickerMode}
                     minimumDate={new Date()}
                     display="spinner"
+                    textColor="#FFFFFF"
+                    themeVariant="dark"
                     onChange={(_, date) => { if (date) setTempDate(date); }}
                   />
                   <TouchableOpacity style={st.confirmPickerBtn} onPress={() => { setScheduleDate(tempDate); setShowPicker(false); }}>
@@ -327,7 +324,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
               style={[st.clockBtn, scheduled && st.clockBtnActive]}
               onPress={() => setScheduled(!scheduled)}
             >
-              <Text style={[st.clockIcon, scheduled && { color: COLORS.background }]}>◷</Text>
+              <Text style={[st.clockIcon, scheduled && { color: '#000000' }]}>◷</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -336,18 +333,18 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
   );
 }
 
-const st = StyleSheet.create({
+function getStyles() { return StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   map: { ...StyleSheet.absoluteFillObject },
   pin: { alignItems: 'center' },
   pinHead: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
-  pinNeedle: { width: 3, height: 16, backgroundColor: COLORS.textPrimary },
+  pinNeedle: { width: 3, height: 16, backgroundColor: '#d9c0a4' },
   dropOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 100 },
   dropUI: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', zIndex: 101 },
   dropTopBar: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
   dropBottomBar: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
-  confirmBtn: { backgroundColor: COLORS.textPrimary, borderRadius: BORDER_RADIUS.lg, paddingVertical: 18, alignItems: 'center' },
-  confirmBtnText: { color: COLORS.background, fontSize: 14, fontWeight: '800', letterSpacing: 2, textTransform: 'uppercase' },
+  confirmBtn: { backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' },
+  confirmBtnText: { fontSize: 14, fontWeight: '700', color: '#000000', letterSpacing: 2 },
   headerOverlay: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm },
   idleHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
   closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center' },
@@ -380,29 +377,30 @@ const st = StyleSheet.create({
   pickupPill: { backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.lg, paddingHorizontal: 14, paddingVertical: 10 },
   pickupPillLabel: { fontSize: 10, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 2 },
   pickupPillText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, marginTop: 2 },
-  bottomCard: { position: 'absolute', bottom: 12, left: SPACING.md, right: SPACING.md, backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 12, letterSpacing: 2, textTransform: 'uppercase' },
-  carRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  carCol: { flex: 1, alignItems: 'center' },
-  carItem: { width: '100%', paddingVertical: 14, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, alignItems: 'center', backgroundColor: COLORS.background },
-  carItemActive: { borderWidth: 2, borderColor: COLORS.textPrimary, backgroundColor: COLORS.grayLight },
-  carImage: { width: 80, height: 40, resizeMode: 'contain', marginBottom: 6 },
-  carLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 1.5, textTransform: 'uppercase' },
-  carLabelActive: { color: COLORS.textPrimary },
-  rateHint: { fontSize: 11, color: COLORS.textSecondary, textAlign: 'center', marginBottom: 12, letterSpacing: 0.5 },
-  scheduleDateRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  scheduleDateBox: { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingVertical: 12, alignItems: 'center', backgroundColor: COLORS.background },
+  bottomCard: { position: 'absolute', bottom: 12, left: SPACING.md, right: SPACING.md, backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.xl, padding: SPACING.md },
+  carRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
+  carItem: { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.sm, alignItems: 'center', gap: 2 },
+  carItemActive: { borderColor: '#d9c0a4', backgroundColor: COLORS.grayLight },
+  carIcon: { fontSize: 10, color: COLORS.textSecondary, letterSpacing: -2 },
+  carIconActive: { color: '#d9c0a4' },
+  carLabel: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
+  carLabelActive: { color: '#d9c0a4' },
+  carSub: { fontSize: 11, color: COLORS.textSecondary },
+  carSubActive: { color: COLORS.textPrimary },
+  rateHint: { fontSize: 11, color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.sm, letterSpacing: 0.5 },
+  scheduleDateRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm, alignItems: 'center' },
+  scheduleDateBox: { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingVertical: 10, alignItems: 'center' },
   scheduleDateText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   scheduleClearBtn: { width: 40, justifyContent: 'center', alignItems: 'center' },
-  scheduleClearText: { fontSize: 16, color: COLORS.textSecondary },
-  pickerContainer: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', marginBottom: 8, backgroundColor: COLORS.background },
-  confirmPickerBtn: { backgroundColor: COLORS.textPrimary, paddingVertical: 10, alignItems: 'center' },
-  confirmPickerText: { fontSize: 13, fontWeight: '800', color: COLORS.background, letterSpacing: 2, textTransform: 'uppercase' },
-  requestRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  primaryBtn: { flex: 1, backgroundColor: COLORS.textPrimary, borderRadius: BORDER_RADIUS.lg, paddingVertical: 18, alignItems: 'center' },
+  scheduleClearText: { fontSize: 16, color: COLORS.textSecondary, padding: 4 },
+  pickerContainer: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', marginBottom: SPACING.sm },
+  confirmPickerBtn: { backgroundColor: '#d9c0a4', paddingVertical: SPACING.sm, alignItems: 'center' },
+  confirmPickerText: { fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 2 },
+  requestRow: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' },
+  primaryBtn: { flex: 1, backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' },
   primaryBtnDisabled: { opacity: 0.5 },
-  primaryBtnText: { color: COLORS.background, fontSize: 14, fontWeight: '800', letterSpacing: 2, textTransform: 'uppercase' },
-  clockBtn: { width: 56, height: 56, borderRadius: BORDER_RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-  clockBtnActive: { backgroundColor: COLORS.textPrimary, borderColor: COLORS.textPrimary },
+  primaryBtnText: { color: '#000000', fontWeight: '700', fontSize: 15, letterSpacing: 1 },
+  clockBtn: { width: 52, height: 52, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
+  clockBtnActive: { backgroundColor: '#d9c0a4', borderColor: '#d9c0a4' },
   clockIcon: { fontSize: 22, color: COLORS.textSecondary },
-});
+}); }
