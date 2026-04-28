@@ -298,6 +298,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
                     display="spinner"
                     textColor="#FFFFFF"
                     themeVariant="dark"
+                    style={{ height: 150 }}
                     onChange={(_, date) => { if (date) setTempDate(date); }}
                   />
                   <TouchableOpacity style={st.confirmPickerBtn} onPress={() => { setScheduleDate(tempDate); setShowPicker(false); }}>
@@ -322,7 +323,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
             </TouchableOpacity>
             <TouchableOpacity
               style={[st.clockBtn, scheduled && st.clockBtnActive]}
-              onPress={() => setScheduled(!scheduled)}
+              onPress={() => { const next = !scheduled; setScheduled(next); if (!next) setShowPicker(false); }}
             >
               <Text style={[st.clockIcon, scheduled && { color: '#000000' }]}>◷</Text>
             </TouchableOpacity>
@@ -393,7 +394,7 @@ function getStyles() { return StyleSheet.create({
   scheduleDateText: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   scheduleClearBtn: { width: 40, justifyContent: 'center', alignItems: 'center' },
   scheduleClearText: { fontSize: 16, color: COLORS.textSecondary, padding: 4 },
-  pickerContainer: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', marginBottom: SPACING.sm },
+  pickerContainer: { borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, overflow: 'hidden', marginBottom: SPACING.sm, backgroundColor: '#000000' },
   confirmPickerBtn: { backgroundColor: '#d9c0a4', paddingVertical: SPACING.sm, alignItems: 'center' },
   confirmPickerText: { fontSize: 13, fontWeight: '700', color: '#000000', letterSpacing: 2 },
   requestRow: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' },

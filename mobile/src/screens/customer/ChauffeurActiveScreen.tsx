@@ -933,7 +933,7 @@ function getStyles() { return StyleSheet.create({
   primaryBtnText: { color: '#000000', fontSize: 15, fontWeight: '700', letterSpacing: 1 },
   secondaryBtn: { backgroundColor: COLORS.grayLight, borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   secondaryBtnText: { color: COLORS.textPrimary, fontWeight: '700', fontSize: 14 },
-  cancelBtn: { borderWidth: 1, borderColor: COLORS.error, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  cancelBtn: { borderWidth: 1, borderColor: COLORS.error, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   cancelBtnText: { color: COLORS.error, fontWeight: '600', fontSize: 14 },
 
   summaryTitle: { fontSize: 18, fontWeight: '800', color: COLORS.textPrimary, textAlign: 'center' },
@@ -952,7 +952,7 @@ function getStyles() { return StyleSheet.create({
   rateLabel: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center', marginBottom: 8 },
   starsRow: { flexDirection: 'row', justifyContent: 'center', gap: 12, marginBottom: 18 },
   star: { fontSize: 38, color: COLORS.border },
-  starActive: { color: COLORS.warning },
+  starActive: { color: '#d9c0a4' },
 
   tipLabel: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center', marginBottom: 10 },
   tipChipsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 10 },

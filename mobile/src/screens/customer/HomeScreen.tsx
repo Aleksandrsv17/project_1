@@ -13,7 +13,13 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -79,6 +85,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [tripStatus, setTripStatus] = useState<'searching' | 'matched' | 'arriving' | 'in_progress' | 'completed'>('searching');
   const [driverRating, setDriverRating] = useState(0);
   const [rideProgress, setRideProgress] = useState(0);
+  const [headerExpanded, setHeaderExpanded] = useState(false);
+  const [changingDest, setChangingDest] = useState(false);
+  const [changeDestText, setChangeDestText] = useState('');
+  const [changeDestPredictions, setChangeDestPredictions] = useState<PlacePrediction[]>([]);
+  const changeDestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const region = location
     ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 }
@@ -142,6 +153,48 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
       }
     } catch {
       // Fallback
+    }
+  }
+
+  const handleChangeDestText = useCallback((text: string) => {
+    setChangeDestText(text);
+    if (changeDestDebounceRef.current) clearTimeout(changeDestDebounceRef.current);
+    if (text.trim().length < 3) { setChangeDestPredictions([]); return; }
+    changeDestDebounceRef.current = setTimeout(async () => {
+      try {
+        const results = await searchPlaces(text, location ?? undefined);
+        setChangeDestPredictions(results);
+      } catch { setChangeDestPredictions([]); }
+    }, 300);
+  }, [location]);
+
+  async function handleSelectNewDest(prediction: PlacePrediction) {
+    setChangeDestPredictions([]);
+    Keyboard.dismiss();
+    try {
+      const details = await getPlaceDetails(prediction.placeId);
+      const newCoords = { latitude: details.latitude, longitude: details.longitude };
+      setDestText(prediction.mainText);
+      setDestCoords(newCoords);
+      // Recompute route from current driver position (if known) or pickup
+      const origin = driverLocation ?? pickupCoords;
+      if (origin) {
+        try {
+          const result = await getDirections(origin, newCoords);
+          setRouteCoords(decodePolyline(result.polyline));
+          setRouteInfo({ distance: result.distanceText, duration: result.durationText });
+        } catch {}
+      }
+      // Notify driver via socket (driver app will need to handle this event)
+      socketRef.current?.emit('customer:change_destination', {
+        destLat: newCoords.latitude,
+        destLng: newCoords.longitude,
+        destText: prediction.mainText,
+      });
+      setChangingDest(false);
+      setChangeDestText('');
+    } catch (err) {
+      Alert.alert('Could not change destination', err instanceof Error ? err.message : 'Try again');
     }
   }
 
@@ -818,7 +871,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               )}
               {showPicker && (
                 <View style={styles.pickerWrap}>
-                  <DateTimePicker value={tempDate} mode={pickerMode} minimumDate={new Date()} display="spinner" textColor={COLORS.textPrimary} themeVariant="dark"
+                  <DateTimePicker value={tempDate} mode={pickerMode} minimumDate={new Date()} display="spinner" textColor={COLORS.textPrimary} themeVariant="dark" style={{ height: 150 }}
                     onChange={(_, date) => { if (date) setTempDate(date); }} />
                   <TouchableOpacity style={styles.pickerConfirmBtn} onPress={() => { setScheduleDate(tempDate); setShowPicker(false); }}>
                     <Text style={styles.pickerConfirmText}>CONFIRM</Text>
@@ -831,8 +884,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                 <TouchableOpacity style={[styles.findVehiclesButton, { flex: 1 }]} onPress={handleRequestRide}>
                   <Text style={styles.findVehiclesText}>{scheduled ? 'Schedule' : 'Request'} {rideType === 'sedan' ? 'Sedan' : rideType === 'suv' ? 'SUV' : 'Van'}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.clockBtn, scheduled && styles.clockBtnActive]} onPress={() => setScheduled(!scheduled)}>
-                  <Text style={[styles.clockIcon, scheduled && { color: '#FFF' }]}>◷</Text>
+                <TouchableOpacity style={[styles.clockBtn, scheduled && styles.clockBtnActive]} onPress={() => { const next = !scheduled; setScheduled(next); if (!next) setShowPicker(false); }}>
+                  <Text style={[styles.clockIcon, scheduled && { color: '#000000' }]}>◷</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -944,37 +997,41 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             </Text>
           </View>
 
-          <View style={styles.matchedDriverCard}>
-            <View style={styles.matchedAvatar}><Text style={styles.matchedAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.matchedDriverName}>{matchedDriver.driverName}</Text>
-              <Text style={styles.matchedVehicle}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
-              <Text style={styles.matchedPlate}>{matchedDriver.vehiclePlate}</Text>
-            </View>
-          </View>
+          {tripStatus !== 'completed' && (
+            <>
+              <View style={styles.matchedDriverCard}>
+                <View style={styles.matchedAvatar}><Text style={styles.matchedAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.matchedDriverName}>{matchedDriver.driverName}</Text>
+                  <Text style={styles.matchedVehicle}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
+                  <Text style={styles.matchedPlate}>{matchedDriver.vehiclePlate}</Text>
+                </View>
+              </View>
 
-          <View style={styles.contactRow}>
-            <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Call Driver', `Calling ${matchedDriver.driverName}...`)}>
-              <Text style={styles.contactBtnIcon}>☎</Text>
-              <Text style={styles.contactBtnText}>Call</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Message Driver', `Opening chat with ${matchedDriver.driverName}...`)}>
-              <Text style={styles.contactBtnIcon}>✉</Text>
-              <Text style={styles.contactBtnText}>Message</Text>
-            </TouchableOpacity>
-          </View>
+              <View style={styles.contactRow}>
+                <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Call Driver', `Calling ${matchedDriver.driverName}...`)}>
+                  <Text style={styles.contactBtnIcon}>{'☎︎'}</Text>
+                  <Text style={styles.contactBtnText}>Call</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.contactBtn} onPress={() => Alert.alert('Message Driver', `Opening chat with ${matchedDriver.driverName}...`)}>
+                  <Text style={styles.contactBtnIcon}>{'✉︎'}</Text>
+                  <Text style={styles.contactBtnText}>Message</Text>
+                </TouchableOpacity>
+              </View>
 
-          <View style={styles.matchedRoute}>
-            <View style={styles.matchedRouteRow}>
-              <View style={[styles.matchedDot, { backgroundColor: '#10B981' }]} />
-              <Text style={styles.matchedRouteText} numberOfLines={1}>{pickupText}</Text>
-            </View>
-            <View style={{ width: 1, height: 12, backgroundColor: COLORS.border, marginLeft: 4.5 }} />
-            <View style={styles.matchedRouteRow}>
-              <View style={[styles.matchedDot, { backgroundColor: '#64748B' }]} />
-              <Text style={styles.matchedRouteText} numberOfLines={1}>{destText}</Text>
-            </View>
-          </View>
+              <View style={styles.matchedRoute}>
+                <View style={styles.matchedRouteRow}>
+                  <View style={[styles.matchedDot, { backgroundColor: '#10B981' }]} />
+                  <Text style={styles.matchedRouteText} numberOfLines={1}>{pickupText}</Text>
+                </View>
+                <View style={{ width: 1, height: 12, backgroundColor: COLORS.border, marginLeft: 4.5 }} />
+                <View style={styles.matchedRouteRow}>
+                  <View style={[styles.matchedDot, { backgroundColor: '#64748B' }]} />
+                  <Text style={styles.matchedRouteText} numberOfLines={1}>{destText}</Text>
+                </View>
+              </View>
+            </>
+          )}
 
           {tripStatus === 'completed' ? (
               <View style={styles.completedCard}>
@@ -1034,7 +1091,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               </View>
             ) : (
               <TouchableOpacity style={styles.cancelRideBtn} onPress={() => {
-                Alert.alert('Cancel Ride', 'Are you sure?', [
+                Alert.alert('Cancel trip', 'Are you sure?', [
                   { text: 'No', style: 'cancel' },
                   { text: 'Yes, Cancel', style: 'destructive', onPress: () => {
                     socketRef.current?.emit('customer:cancel_ride', {});
@@ -1049,42 +1106,107 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   }},
                 ]);
               }}>
-                <Text style={styles.cancelRideBtnText}>Cancel Ride</Text>
+                <Text style={styles.cancelRideBtnText}>Cancel trip</Text>
               </TouchableOpacity>
             )}
           </View>
       )}
 
-      {/* ── IN PROGRESS BUBBLE ── */}
+      {/* ── IN PROGRESS HEADER (matches chauffeur active style) ── */}
       {viewMode === 'searching' && matchedDriver && tripStatus === 'in_progress' && (
-        <View style={styles.miniBar}>
-          {/* Progress bar */}
-          <View style={styles.miniProgress}>
-            <View style={[styles.miniProgressFill, { width: `${rideProgress}%` }]} />
-          </View>
-          <View style={styles.miniProgressLabels}>
-            <Text style={styles.miniProgressText}>{rideProgress}%</Text>
-            <Text style={styles.miniProgressDest} numberOfLines={1}>{destText}</Text>
-          </View>
+        <SafeAreaView style={styles.rideHeaderOverlay} edges={['top']} pointerEvents="box-none">
+          <TouchableOpacity activeOpacity={0.95} onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setHeaderExpanded(e => !e); }} style={styles.rideHeaderCard}>
+            {/* Top row: avatar + driver info + progress */}
+            <View style={styles.rideHeaderTopRow}>
+              <View style={styles.rideHeaderAvatar}>
+                <Text style={styles.rideHeaderAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text>
+              </View>
+              <View style={styles.rideHeaderDriverCol}>
+                <Text style={styles.rideHeaderDriverName} numberOfLines={1}>{matchedDriver.driverName}</Text>
+                <View style={styles.rideHeaderMetaRow}>
+                  <Text style={styles.rideHeaderVehicleText} numberOfLines={1}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
+                  <View style={styles.rideHeaderMetaDot} />
+                  <Text style={styles.rideHeaderPlate}>{matchedDriver.vehiclePlate}</Text>
+                </View>
+              </View>
+              <View style={styles.rideHeaderProgressCol}>
+                <Text style={styles.rideHeaderProgressLabel}>ETA</Text>
+                <Text style={styles.rideHeaderProgressValue}>{rideProgress}%</Text>
+              </View>
+            </View>
 
-          {/* Driver info */}
-          <View style={styles.miniBarDriver}>
-            <View style={styles.miniBarAvatar}><Text style={styles.miniBarAvatarText}>{matchedDriver.driverName?.charAt(0) ?? 'D'}</Text></View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.miniBarName}>{matchedDriver.driverName}</Text>
-              <Text style={styles.miniBarCar}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
-              <Text style={styles.miniBarPlate}>{matchedDriver.vehiclePlate}</Text>
+            {/* Progress bar */}
+            <View style={styles.rideHeaderProgressBar}>
+              <View style={[styles.rideHeaderProgressFill, { width: `${rideProgress}%` }]} />
             </View>
-            <View style={styles.miniBarActions}>
-              <TouchableOpacity style={styles.miniBarCallBtn} onPress={() => Alert.alert('Call', `Calling ${matchedDriver.driverName}...`)}>
-                <Text style={styles.miniBarCallIcon}>☎</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.miniBarCallBtn} onPress={() => Alert.alert('Message', `Messaging ${matchedDriver.driverName}...`)}>
-                <Text style={styles.miniBarCallIcon}>✉</Text>
-              </TouchableOpacity>
+
+            {/* Status row */}
+            <View style={styles.rideHeaderStatusBar}>
+              <Text style={styles.rideHeaderStatusCentered}>On trip · {destText}</Text>
             </View>
-          </View>
-        </View>
+
+            {/* Expanded drawer — quick actions */}
+            {headerExpanded && (
+              <View style={styles.rideHeaderDrawer}>
+                <View style={styles.rideHeaderActionsRow}>
+                  <TouchableOpacity style={styles.rideHeaderActionBtn} onPress={() => Alert.alert('Call driver', `Calling ${matchedDriver.driverName}…`)}>
+                    <Text style={styles.rideHeaderActionIcon}>{'☎︎'}</Text>
+                    <Text style={styles.rideHeaderActionLabel}>Call</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.rideHeaderActionBtn} onPress={() => Alert.alert('Message driver', `Messaging ${matchedDriver.driverName}…`)}>
+                    <Text style={styles.rideHeaderActionIcon}>{'✉︎'}</Text>
+                    <Text style={styles.rideHeaderActionLabel}>Message</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.rideHeaderActionBtn} onPress={(e) => { e.stopPropagation?.(); setChangingDest(true); }}>
+                    <Text style={styles.rideHeaderActionIcon}>{'⌖'}</Text>
+                    <Text style={styles.rideHeaderActionLabel}>Change dest</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {changingDest && (
+                  <View style={styles.changeDestPanel}>
+                    <View style={styles.changeDestInputRow}>
+                      <TextInput
+                        style={styles.changeDestInput}
+                        value={changeDestText}
+                        onChangeText={handleChangeDestText}
+                        placeholder="New destination"
+                        placeholderTextColor="#888888"
+                        autoFocus
+                        returnKeyType="search"
+                      />
+                      <TouchableOpacity onPress={() => { setChangingDest(false); setChangeDestText(''); setChangeDestPredictions([]); Keyboard.dismiss(); }} style={styles.changeDestCancel}>
+                        <Text style={styles.changeDestCancelText}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                    {changeDestPredictions.length > 0 && (
+                      <View style={styles.changeDestPreds}>
+                        {changeDestPredictions.slice(0, 4).map((p, i) => (
+                          <TouchableOpacity
+                            key={p.placeId}
+                            style={[styles.changeDestPredRow, i > 0 && { borderTopWidth: 1, borderTopColor: '#222222' }]}
+                            onPress={() => handleSelectNewDest(p)}
+                            activeOpacity={0.6}
+                          >
+                            <Text style={styles.changeDestPredMain} numberOfLines={1}>{p.mainText}</Text>
+                            {p.secondaryText ? <Text style={styles.changeDestPredSub} numberOfLines={1}>{p.secondaryText}</Text> : null}
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Chevron pill */}
+            <View style={styles.rideHeaderChevronWrap}>
+              <View style={styles.rideHeaderChevronPill}>
+                <Text style={styles.rideHeaderChevron}>{headerExpanded ? '▴' : '▾'}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </SafeAreaView>
       )}
     </View>
   );
@@ -1292,7 +1414,7 @@ function getStyles() { return StyleSheet.create({
   // Schedule
   requestRow: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' },
   clockBtn: { width: 52, height: 52, borderRadius: BORDER_RADIUS.md, borderWidth: 1, borderColor: COLORS.border, justifyContent: 'center', alignItems: 'center' },
-  clockBtnActive: { backgroundColor: COLORS.textPrimary, borderColor: COLORS.textPrimary },
+  clockBtnActive: { backgroundColor: '#d9c0a4', borderColor: '#d9c0a4' },
   clockIcon: { fontSize: 22, color: COLORS.textSecondary },
   scheduleRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm, alignItems: 'center' },
   scheduleDateBox: { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: BORDER_RADIUS.md, paddingVertical: 10, alignItems: 'center' },
@@ -1330,74 +1452,74 @@ function getStyles() { return StyleSheet.create({
   searchingOverlay: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: BORDER_RADIUS.xxl, borderTopRightRadius: BORDER_RADIUS.xxl,
-    paddingTop: SPACING.lg, paddingBottom: SPACING.xl + 68, paddingHorizontal: SPACING.md,
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingTop: SPACING.md, paddingBottom: SPACING.md + 68, paddingHorizontal: SPACING.md,
     alignItems: 'center',
     shadowColor: COLORS.black, shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 16,
   },
   pulseCircleOuter: {
-    width: 100, height: 100, borderRadius: 50,
+    width: 76, height: 76, borderRadius: 38,
     backgroundColor: 'rgba(201,168,76,0.15)',
     justifyContent: 'center', alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   pulseCircleInner: {
-    width: 68, height: 68, borderRadius: 34,
+    width: 52, height: 52, borderRadius: 26,
     backgroundColor: COLORS.primary,
     justifyContent: 'center', alignItems: 'center',
   },
-  pulseIcon: { fontSize: 30, color: COLORS.textPrimary },
-  searchingTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, marginBottom: SPACING.xs },
-  searchingTimer: { fontSize: 28, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.md },
+  pulseIcon: { fontSize: 22, color: COLORS.textPrimary },
+  searchingTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 2 },
+  searchingTimer: { fontSize: 22, fontWeight: '800', color: COLORS.textPrimary, marginBottom: SPACING.sm },
   searchingRouteInfo: {
-    backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md,
-    paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, marginBottom: SPACING.sm,
+    backgroundColor: COLORS.grayLight, borderRadius: 10,
+    paddingHorizontal: SPACING.sm + 2, paddingVertical: 6, marginBottom: 6,
   },
-  searchingRouteText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
-  searchingHint: { fontSize: 13, color: COLORS.gray, marginBottom: SPACING.lg },
+  searchingRouteText: { fontSize: 12, color: COLORS.textSecondary, fontWeight: '500' },
+  searchingHint: { fontSize: 12, color: COLORS.gray, marginBottom: SPACING.sm },
   cancelSearchButton: {
     borderWidth: 1, borderColor: COLORS.grayLight, backgroundColor: COLORS.grayLight,
-    borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, paddingHorizontal: SPACING.xxl,
+    borderRadius: 12, paddingVertical: SPACING.sm + 2, paddingHorizontal: SPACING.xl,
   },
-  cancelSearchText: { fontSize: 15, fontWeight: '600', color: COLORS.error },
+  cancelSearchText: { fontSize: 14, fontWeight: '600', color: COLORS.error },
   // Matched driver
   driverMarker: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#3B82F6', borderWidth: 3, borderColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
   driverMarkerText: { fontSize: 14, color: '#FFFFFF' },
-  matchedPanel: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: SPACING.md, paddingBottom: 40 },
+  matchedPanel: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#000000', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: SPACING.md, paddingBottom: 40 },
   matchedHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.md },
-  matchedStatus: { fontSize: 18, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center' },
-  matchedDriverCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.md, backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md, padding: SPACING.md },
-  matchedAvatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center' },
-  matchedAvatarText: { fontSize: 20, fontWeight: '700', color: COLORS.background },
-  matchedDriverName: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-  matchedVehicle: { fontSize: 14, color: COLORS.textSecondary, marginTop: 2 },
-  matchedPlate: { fontSize: 12, fontWeight: '600', color: COLORS.textPrimary, marginTop: 2, letterSpacing: 1 },
+  matchedStatus: { fontSize: 14, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.3 },
+  matchedDriverCard: { alignItems: 'center', gap: 4, paddingVertical: 6, marginBottom: SPACING.sm },
+  matchedAvatar: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#d9c0a4', justifyContent: 'center', alignItems: 'center', marginBottom: 6 },
+  matchedAvatarText: { fontSize: 24, fontWeight: '700', color: '#000000' },
+  matchedDriverName: { fontSize: 18, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.2 },
+  matchedVehicle: { fontSize: 13, color: '#888888' },
+  matchedPlate: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', letterSpacing: 1.2, marginTop: 2 },
   matchedRoute: { marginBottom: SPACING.sm },
   matchedRouteRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   matchedDot: { width: 10, height: 10, borderRadius: 5 },
-  matchedRouteText: { fontSize: 13, color: COLORS.textSecondary, flex: 1 },
+  matchedRouteText: { fontSize: 13, color: '#888888', flex: 1 },
   matchedStatusDot: { width: 10, height: 10, borderRadius: 5, marginRight: SPACING.sm },
-  contactRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
-  contactBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md, paddingVertical: 10 },
-  contactBtnIcon: { fontSize: 16, color: COLORS.textPrimary },
-  contactBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
-  rateBtn: { backgroundColor: COLORS.textPrimary, borderRadius: BORDER_RADIUS.md, paddingVertical: 14, alignItems: 'center', marginTop: SPACING.md },
-  rateBtnText: { fontSize: 14, fontWeight: '800', color: COLORS.background, letterSpacing: 2 },
+  contactRow: { flexDirection: 'row', gap: 10, marginBottom: SPACING.md },
+  contactBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#111111', borderRadius: 14, paddingVertical: 14 },
+  contactBtnIcon: { fontSize: 18, color: '#FFFFFF', fontWeight: '700' },
+  contactBtnText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  rateBtn: { backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md, paddingVertical: 14, alignItems: 'center', marginTop: SPACING.md },
+  rateBtnText: { fontSize: 14, fontWeight: '800', color: '#000000', letterSpacing: 2 },
   matchedPickupPin: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center' },
   matchedDestPin: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#EF4444', justifyContent: 'center', alignItems: 'center' },
   matchedPinText: { fontSize: 12, fontWeight: '700', color: '#FFFFFF' },
-  cancelRideBtn: { alignItems: 'center', paddingVertical: SPACING.sm, marginTop: SPACING.sm },
-  cancelRideBtnText: { fontSize: 13, fontWeight: '600', color: COLORS.error },
+  cancelRideBtn: { alignItems: 'center', paddingVertical: 14, marginTop: SPACING.sm, borderWidth: 1, borderColor: COLORS.error, borderRadius: 14 },
+  cancelRideBtnText: { fontSize: 14, fontWeight: '600', color: COLORS.error },
   completedCard: { marginTop: SPACING.sm },
   completedTitle: { fontSize: 20, fontWeight: '800', color: '#10B981', textAlign: 'center', marginBottom: SPACING.md },
-  completedSummary: { backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md },
+  completedSummary: { backgroundColor: '#111111', borderRadius: BORDER_RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md },
   completedSummaryRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  completedLabel: { fontSize: 13, color: COLORS.textSecondary },
-  completedValue: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary, maxWidth: '60%', textAlign: 'right' },
-  rateLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary, textAlign: 'center', marginBottom: SPACING.sm },
+  completedLabel: { fontSize: 13, color: '#888888' },
+  completedValue: { fontSize: 13, fontWeight: '600', color: '#FFFFFF', maxWidth: '60%', textAlign: 'right' },
+  rateLabel: { fontSize: 14, fontWeight: '600', color: '#FFFFFF', textAlign: 'center', marginBottom: SPACING.sm },
   starsRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
   star: { fontSize: 36, color: COLORS.border },
-  starActive: { color: '#F59E0B' },
+  starActive: { color: '#d9c0a4' },
   // Arrived popup
   arrivedPopup: { position: 'absolute', top: '35%', left: SPACING.lg, right: SPACING.lg, backgroundColor: COLORS.background, borderRadius: BORDER_RADIUS.md, padding: SPACING.lg, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 10, zIndex: 20 },
   arrivedIcon: { fontSize: 40, color: '#10B981', marginBottom: SPACING.sm },
@@ -1405,19 +1527,39 @@ function getStyles() { return StyleSheet.create({
   arrivedSub: { fontSize: 14, color: COLORS.textSecondary, marginBottom: 4 },
   arrivedHint: { fontSize: 13, color: COLORS.textSecondary },
   // In-progress bubble
-  miniBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: COLORS.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm, paddingBottom: 34, shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 10 },
-  miniProgress: { height: 6, backgroundColor: COLORS.border, borderRadius: 3, overflow: 'hidden', marginBottom: 6 },
-  miniProgressFill: { height: '100%', backgroundColor: '#3B82F6', borderRadius: 3 },
-  miniProgressLabels: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
-  miniProgressText: { fontSize: 12, fontWeight: '700', color: '#3B82F6' },
-  miniProgressDest: { fontSize: 12, color: COLORS.textSecondary, flex: 1, textAlign: 'right', marginLeft: SPACING.sm },
-  miniBarDriver: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  miniBarAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.textPrimary, justifyContent: 'center', alignItems: 'center' },
-  miniBarAvatarText: { fontSize: 16, fontWeight: '700', color: COLORS.background },
-  miniBarName: { fontSize: 14, fontWeight: '700', color: COLORS.textPrimary },
-  miniBarCar: { fontSize: 12, color: COLORS.textSecondary },
-  miniBarPlate: { fontSize: 11, fontWeight: '600', color: COLORS.textPrimary, letterSpacing: 1, marginTop: 1 },
-  miniBarActions: { flexDirection: 'row', gap: 6 },
-  miniBarCallBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center' },
-  miniBarCallIcon: { fontSize: 16, color: COLORS.textPrimary },
+  rideHeaderOverlay: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm },
+  rideHeaderCard: { backgroundColor: '#000000', borderRadius: 16, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 6 },
+  rideHeaderTopRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  rideHeaderAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#d9c0a4', justifyContent: 'center', alignItems: 'center' },
+  rideHeaderAvatarText: { fontSize: 17, fontWeight: '700', color: '#000000' },
+  rideHeaderDriverCol: { flex: 1 },
+  rideHeaderDriverName: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  rideHeaderMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  rideHeaderVehicleText: { fontSize: 12, color: '#888888', flexShrink: 1 },
+  rideHeaderMetaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#444444' },
+  rideHeaderPlate: { fontSize: 12, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.5 },
+  rideHeaderProgressCol: { alignItems: 'flex-end' },
+  rideHeaderProgressLabel: { fontSize: 10, color: '#888888', letterSpacing: 1.5, fontWeight: '700' },
+  rideHeaderProgressValue: { fontSize: 20, fontWeight: '800', color: '#FFFFFF', marginTop: 2, fontVariant: ['tabular-nums'] },
+  rideHeaderProgressBar: { height: 3, backgroundColor: '#222222', borderRadius: 2, overflow: 'hidden', marginTop: 12 },
+  rideHeaderProgressFill: { height: '100%', backgroundColor: '#d9c0a4', borderRadius: 2 },
+  rideHeaderStatusBar: { alignItems: 'center', justifyContent: 'center', borderTopWidth: 1, borderTopColor: '#222222', marginTop: 12, paddingVertical: 10 },
+  rideHeaderStatusCentered: { fontSize: 13, fontWeight: '700', color: '#FFFFFF', letterSpacing: 0.3 },
+  rideHeaderDrawer: { borderTopWidth: 1, borderTopColor: '#222222', paddingTop: 14, paddingBottom: 4 },
+  rideHeaderActionsRow: { flexDirection: 'row', gap: 10 },
+  rideHeaderActionBtn: { flex: 1, backgroundColor: '#111111', borderRadius: 12, paddingVertical: 12, alignItems: 'center', gap: 4 },
+  rideHeaderActionIcon: { fontSize: 18, color: '#FFFFFF', fontWeight: '700' },
+  rideHeaderActionLabel: { fontSize: 11, fontWeight: '700', color: '#FFFFFF' },
+  rideHeaderChevronWrap: { alignItems: 'center', paddingTop: 6, paddingBottom: 2 },
+  rideHeaderChevronPill: { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#FFFFFF', paddingHorizontal: 22, paddingVertical: 4, borderRadius: 10, minWidth: 56, alignItems: 'center', justifyContent: 'center' },
+  rideHeaderChevron: { fontSize: 13, color: '#FFFFFF', fontWeight: '800' },
+  changeDestPanel: { marginTop: SPACING.sm, gap: SPACING.xs },
+  changeDestInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#111111', borderRadius: BORDER_RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: 4 },
+  changeDestInput: { flex: 1, fontSize: 15, color: '#FFFFFF', paddingVertical: 10 },
+  changeDestCancel: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  changeDestCancelText: { fontSize: 14, color: '#888888', fontWeight: '600' },
+  changeDestPreds: { backgroundColor: '#111111', borderRadius: BORDER_RADIUS.md },
+  changeDestPredRow: { paddingVertical: 12, paddingHorizontal: SPACING.md },
+  changeDestPredMain: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  changeDestPredSub: { fontSize: 12, color: '#888888', marginTop: 2 },
 }); }
