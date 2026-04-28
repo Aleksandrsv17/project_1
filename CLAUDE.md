@@ -1,7 +1,27 @@
 # VIP Mobility Platform — CLAUDE.md
 
 > Project intelligence file. Updated every 3 requests per CTO rule.  
-> Last updated: 2026-04-06 | Session: Server deployment
+> Last updated: 2026-04-28 | Session: Chauffeur ordering ported from bersenev
+
+---
+
+## Ecosystem (5 Projects)
+
+This project (VIP Mobility) is the **master/reference**. All sibling projects share the backend at **109.120.133.113**.
+
+| Project | Path | Role | Status |
+|---|---|---|---|
+| project_1 (VIP Mobility) | `/project_11/project_1` | Master: backend + customer + owner | Backend deployed ✓ |
+| project_2 (Bersenev) | `/project_11/project_2/bersenev` | Bersenev customer ride app | CLAUDE.md + agents ✓ |
+| project_3 (Nova Manager) | `/project_11/project_3/nova-manager` | Nova fleet/owner app | CLAUDE.md + agents ✓ |
+| project_4 (Nova Driver) | `/project_11/project_4/nova-driver` | Nova driver app | CLAUDE.md + agents ✓ |
+| project_5 (Bersenev Driver) | `/project_11/project_5/bersenev-driver` | Bersenev driver app | CLAUDE.md + agents ✓ |
+
+All 4 sibling projects now have:
+- `docs/agents/` — all 12 agent definitions (CTO + 6 engineering + 5 QA)
+- `docs/architecture/system-design.md` — C4 diagrams, ADRs, data flows
+- `docs/architecture/business-scenarios.md` — UC-01 through UC-06
+- Tailored `CLAUDE.md` with project-specific role, endpoints used, and CTO rules
 
 ---
 
@@ -309,6 +329,38 @@ GET  /v1/maps/places/:placeId     — place details (lat/lng from placeId)
 
 ---
 
+## iOS App Store — EAS Build Preparation (2026-04-20)
+
+### Decision: EAS Build (cloud) instead of local Xcode
+**Why**: Local Xcode 26 + Expo SDK 50 toolchain kept hanging on pod install. Expo SDK upgrade (50→55) also hit install hangs. EAS Build runs on Expo's supported Linux+macOS build servers, bypassing all local toolchain issues. Still produces a signed `.ipa` for App Store Connect.
+
+### Setup status (ready for tomorrow)
+- ✅ EAS CLI 18.5.0 installed globally
+- ✅ Logged in as `aleksandrsv17` (aleksandrsv@me.com)
+- ✅ Project linked — Expo projectId `7d58a451-f960-468b-bfc3-3ba707257042`
+- ✅ `package.json` reverted to stable SDK 50 / RN 0.73.2
+- ✅ `node_modules` fresh install (1372 packages)
+- ✅ `app.json` iOS config: bundleId `com.vipmobility.app`, permissions, Stripe merchant ID
+- ✅ `eas.json` updated with build profiles + submit placeholders
+- ✅ `mobile/TOMORROW.md` — exact checklist for when Apple credentials arrive
+
+### Blocked on user (tomorrow)
+- Apple ID email (developer.apple.com account)
+- Apple Team ID (from Membership Details page)
+- App Store Connect App ID (after creating app record at appstoreconnect.apple.com)
+- Optional: production API domain with valid TLS (currently self-signed on IP)
+
+### Tomorrow's single command sequence
+```bash
+cd /Users/alex/project_11/project_1/mobile
+# (fill Apple details in eas.json)
+eas credentials      # first time — generates distribution cert + provisioning profile
+eas build --platform ios --profile production
+eas submit --platform ios --profile production --latest
+```
+
+---
+
 ## CLAUDE.md Update Log
 
 | Date | Session | Changes |
@@ -318,3 +370,7 @@ GET  /v1/maps/places/:placeId     — place details (lat/lng from placeId)
 | 2026-04-06 | DB credentials shared | DB accessible via SSH tunnel: postgresql://vip_user:VipSecure2026@localhost:5432/vip_mobility |
 | 2026-04-06 | Phase 2 complete | HTTPS/SSL, admin dashboard (16 files), CI/CD GitHub Actions, Expo EAS config, Stripe setup script, mobile API URL pointed to server |
 | 2026-04-07 | Google Maps integration | Backend maps service (6 endpoints), mobile API client, PlacesAutocomplete component, upgraded 5 screens with maps features |
+| 2026-04-20 | Docs distributed to ecosystem | Agent definitions + architecture docs copied to project_2 (bersenev), project_3 (nova-manager), project_4 (nova-driver), project_5 (bersenev-driver) |
+| 2026-04-20 | iOS EAS prep | Switched from local Xcode to EAS Build. CLI installed, project linked, node_modules fresh. Awaiting Apple Developer credentials (see mobile/TOMORROW.md) |
+| 2026-04-21 | Dual simulator + backend restart | iPhone 17 + iPhone 17 Pro both running VIP Mobility via Expo Go (ports 8082/8086). Backend PM2 was dead — restarted via `pm2 start ecosystem.config.js --env production`. Backend online again. Still awaiting Apple credentials for iOS submission. |
+| 2026-04-28 | Chauffeur ordering ported from bersenev | Customer-side chauffeur flow ported from project_2 (bersenev) into VIP Mobility, restyled to match VIP's monochrome sandbox theme. New files: `mobile/src/utils/chauffeurPricing.ts`, `mobile/src/store/chauffeurStore.ts`, `mobile/src/api/chauffeurTrips.ts`, `mobile/src/screens/customer/ChauffeurActiveScreen.tsx`. Replaced: `ChauffeurSearchScreen.tsx` (now bersenev's on-demand flow + back button + VIP design tokens). Wired `ChauffeurActive` route in `MainNavigator.tsx` + `CustomerNavigator.tsx`. Removed `react-native-svg` dependency by swapping SVG icons for Unicode glyphs. Dark Google Maps style applied via existing `darkMapStyle`. Aligned Home greeting/search bars with chauffeur bars (both use `COLORS.grayLight` for theme tracking). Mock driver lifecycle runs client-side in `__DEV__` — backend `/v1/chauffeurs/trip/*` endpoints not yet built. |

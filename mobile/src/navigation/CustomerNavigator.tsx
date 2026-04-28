@@ -13,6 +13,7 @@ import { ProfileScreen } from '../screens/customer/ProfileScreen';
 import { SettingsScreen } from '../screens/customer/SettingsScreen';
 import { SupportScreen } from '../screens/customer/SupportScreen';
 import { ChauffeurSearchScreen } from '../screens/customer/ChauffeurSearchScreen';
+import { ChauffeurActiveScreen } from '../screens/customer/ChauffeurActiveScreen';
 import { RentalSearchScreen } from '../screens/customer/RentalSearchScreen';
 import { COLORS, BORDER_RADIUS } from '../utils/constants';
 
@@ -30,6 +31,7 @@ export type CustomerStackParamList = {
   EditProfile: undefined;
   KYCStatus: undefined;
   ChauffeurSearch: undefined;
+  ChauffeurActive: undefined;
   RentalSearch: undefined;
 };
 
@@ -157,6 +159,11 @@ export function CustomerNavigator() {
         name="ChauffeurSearch"
         component={ChauffeurSearchScreen}
         options={{ animation: 'slide_from_bottom' }}
+      />
+      <Stack.Screen
+        name="ChauffeurActive"
+        component={ChauffeurActiveScreen}
+        options={{ animation: 'slide_from_right', gestureEnabled: false }}
       />
       <Stack.Screen
         name="RentalSearch"

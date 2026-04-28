@@ -16,6 +16,7 @@ import { ProfileScreen } from '../screens/customer/ProfileScreen';
 import { SettingsScreen } from '../screens/customer/SettingsScreen';
 import { SupportScreen } from '../screens/customer/SupportScreen';
 import { ChauffeurSearchScreen } from '../screens/customer/ChauffeurSearchScreen';
+import { ChauffeurActiveScreen } from '../screens/customer/ChauffeurActiveScreen';
 import { RentalSearchScreen } from '../screens/customer/RentalSearchScreen';
 
 // Owner screens
@@ -44,6 +45,7 @@ export type MainStackParamList = {
   EditProfile: undefined;
   KYCStatus: undefined;
   ChauffeurSearch: undefined;
+  ChauffeurActive: undefined;
   ChauffeurVehicleList: {
     pickupCoords?: { latitude: number; longitude: number };
     destCoords?: { latitude: number; longitude: number };
@@ -154,6 +156,7 @@ export function MainNavigator() {
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Support" component={SupportScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="ChauffeurSearch" component={ChauffeurSearchScreen} options={{ animation: 'slide_from_bottom' }} />
+      <Stack.Screen name="ChauffeurActive" component={ChauffeurActiveScreen} options={{ animation: 'slide_from_right', gestureEnabled: false }} />
       <Stack.Screen name="ChauffeurVehicleList" component={ChauffeurVehicleListScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="RentalSearch" component={RentalSearchScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="RentalVehicleList" component={RentalVehicleListScreen} options={{ animation: 'slide_from_right' }} />
