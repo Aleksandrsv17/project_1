@@ -145,7 +145,7 @@ function MainTabs() {
 
 export function MainNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#000000' } }}>
       <Stack.Screen name="MainTabs" component={MainTabs} />
       <Stack.Screen name="VehicleDetail" component={VehicleDetailScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Booking" component={BookingScreen} options={{ animation: 'slide_from_bottom' }} />
@@ -155,8 +155,8 @@ export function MainNavigator() {
       <Stack.Screen name="VehicleList" component={VehicleListScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Support" component={SupportScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="ChauffeurSearch" component={ChauffeurSearchScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="ChauffeurActive" component={ChauffeurActiveScreen} options={{ animation: 'slide_from_right', gestureEnabled: false }} />
+      <Stack.Screen name="ChauffeurSearch" component={ChauffeurSearchScreen} options={{ animation: 'slide_from_bottom', presentation: 'transparentModal', contentStyle: { backgroundColor: '#000000' } }} />
+      <Stack.Screen name="ChauffeurActive" component={ChauffeurActiveScreen} options={{ animation: 'slide_from_right', gestureEnabled: false, contentStyle: { backgroundColor: '#000000' } }} />
       <Stack.Screen name="ChauffeurVehicleList" component={ChauffeurVehicleListScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="RentalSearch" component={RentalSearchScreen} options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="RentalVehicleList" component={RentalVehicleListScreen} options={{ animation: 'slide_from_right' }} />
@@ -169,7 +169,7 @@ export function MainNavigator() {
 
 function getTabStyles() { return StyleSheet.create({
   tabBar: {
-    backgroundColor: COLORS.background,
+    backgroundColor: '#000000',
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     height: 68,

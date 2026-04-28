@@ -9,6 +9,7 @@ import { ErrorBoundary } from './src/components/ErrorBoundary';
 import { ThemeProvider } from './src/themes/ThemeContext';
 import { RootNavigator } from './src/navigation';
 import { STRIPE_PUBLISHABLE_KEY } from './src/utils/constants';
+import { useLanguageStore } from './src/store/languageStore';
 
 // Configure React Query client
 const queryClient = new QueryClient({
@@ -70,6 +71,7 @@ async function registerForPushNotifications() {
 export default function App() {
   useEffect(() => {
     registerForPushNotifications();
+    useLanguageStore.getState().hydrate();
   }, []);
 
   return (

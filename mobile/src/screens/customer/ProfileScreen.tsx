@@ -13,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { CustomerTabParamList } from '../../navigation/MainNavigator';
 import { useAuthStore } from '../../store/authStore';
-import { useAppModeStore } from '../../store/appModeStore';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
 
 type ProfileScreenProps = {
@@ -23,7 +22,6 @@ type ProfileScreenProps = {
 export function ProfileScreen({ navigation }: ProfileScreenProps) {
   const styles = getStyles();
   const { user, logout } = useAuthStore();
-  const { setMode } = useAppModeStore();
 
   const [avatarUri, setAvatarUri] = useState<string | null>(user?.avatarUrl ?? null);
 
@@ -72,13 +70,8 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header with mode switch */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
-          <TouchableOpacity style={styles.modeSwitch} onPress={() => setMode('owner')}>
-            <Text style={styles.modeSwitchIcon}>◆</Text>
-            <Text style={styles.modeSwitchText}>Rent Out</Text>
-          </TouchableOpacity>
         </View>
 
         {/* User card */}

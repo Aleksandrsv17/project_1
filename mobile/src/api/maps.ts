@@ -1,4 +1,9 @@
 import apiClient from './client';
+import { useLanguageStore } from '../store/languageStore';
+
+function currentLang(): string {
+  try { return useLanguageStore.getState().language; } catch { return 'en'; }
+}
 
 // ── Types ────────────────────────────────────────────────────────────────────────
 
@@ -57,7 +62,7 @@ export async function getDirections(
   origin: LatLng,
   destination: LatLng
 ): Promise<DirectionsResult> {
-  const { data } = await apiClient.post('/maps/directions', { origin, destination });
+  const { data } = await apiClient.post('/maps/directions', { origin, destination, language: currentLang() });
   return data;
 }
 
@@ -65,17 +70,17 @@ export async function getDistance(
   origin: LatLng,
   destination: LatLng
 ): Promise<DistanceResult> {
-  const { data } = await apiClient.post('/maps/distance', { origin, destination });
+  const { data } = await apiClient.post('/maps/distance', { origin, destination, language: currentLang() });
   return data;
 }
 
 export async function geocodeAddress(address: string): Promise<GeocodeResult> {
-  const { data } = await apiClient.get('/maps/geocode', { params: { address } });
+  const { data } = await apiClient.get('/maps/geocode', { params: { address, language: currentLang() } });
   return data;
 }
 
 export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeResult> {
-  const { data } = await apiClient.get('/maps/reverse-geocode', { params: { lat, lng } });
+  const { data } = await apiClient.get('/maps/reverse-geocode', { params: { lat, lng, language: currentLang() } });
   return data;
 }
 
@@ -83,7 +88,7 @@ export async function searchPlaces(
   input: string,
   location?: LatLng
 ): Promise<PlacePrediction[]> {
-  const params: Record<string, string> = { input };
+  const params: Record<string, string> = { input, language: currentLang() };
   if (location) {
     params.lat = String(location.latitude);
     params.lng = String(location.longitude);
@@ -93,7 +98,7 @@ export async function searchPlaces(
 }
 
 export async function getPlaceDetails(placeId: string): Promise<PlaceDetails> {
-  const { data } = await apiClient.get(`/maps/places/${placeId}`);
+  const { data } = await apiClient.get(`/maps/places/${placeId}`, { params: { language: currentLang() } });
   return data;
 }
 

@@ -38,6 +38,7 @@ import { useAuthStore } from '../../store/authStore';
 import { Vehicle } from '../../api/vehicles';
 import { CustomerTabParamList } from '../../navigation/CustomerNavigator';
 import { getMapStyle } from '../../themes/mapStyles';
+import { useT } from '../../utils/i18n';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -50,6 +51,7 @@ type ViewMode = 'idle' | 'search' | 'route' | 'preferences' | 'searching';
 export function HomeScreen({ navigation }: HomeScreenProps) {
   const styles = getStyles();
   const layout = useLayout();
+  const t = useT();
   const { user } = useAuthStore();
   const { location, address: userAddress } = useLocation();
   const mapRef = useRef<MapView>(null);
@@ -522,7 +524,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           <SafeAreaView style={styles.dropPinUI} edges={['top', 'bottom']} pointerEvents="box-none">
             <View style={styles.dropPinHeader}>
               <TouchableOpacity onPress={() => setDropPinFor(null)} style={styles.dropPinCancel}>
-                <Text style={styles.dropPinCancelText}>Cancel</Text>
+                <Text style={styles.dropPinCancelText}>←</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.dropPinFooter}>
@@ -542,9 +544,9 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               <View style={styles.greetingRow}>
                 <View>
                   <Text style={styles.greetingText}>
-                    Hello, {user?.fullName?.split(' ')[0] ?? 'there'}
+                    {t('home.greeting', { name: user?.fullName?.split(' ')[0] ?? 'there' })}
                   </Text>
-                  <Text style={styles.greetingSubtitle}>Where to today?</Text>
+                  <Text style={styles.greetingSubtitle}>{t('home.where_to_today')}</Text>
                 </View>
                 <TouchableOpacity style={styles.notifButton}>
                   <Text style={styles.notifIcon}>●</Text>
@@ -556,7 +558,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             {layout.showSearchBar && (
               <TouchableOpacity style={styles.searchBar} onPress={handleStartSearch} activeOpacity={0.9}>
                 <View style={styles.searchDot} />
-                <Text style={styles.searchPlaceholder}>Where are you going?</Text>
+                <Text style={styles.searchPlaceholder}>{t('home.where_going')}</Text>
               </TouchableOpacity>
             )}
           </SafeAreaView>
@@ -960,14 +962,14 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             <Animated.View style={[styles.pulseCircleOuter, { transform: [{ scale: pulseAnim }] }]}>
               <View style={styles.pulseCircleInner}><Text style={styles.pulseIcon}>◆</Text></View>
             </Animated.View>
-            <Text style={styles.searchingTitle}>Searching for drivers nearby</Text>
+            <Text style={styles.searchingTitle}>{t('home.searching')}</Text>
             <Text style={styles.searchingTimer}>{Math.floor(searchingSeconds / 60)}:{(searchingSeconds % 60).toString().padStart(2, '0')}</Text>
             {routeInfo && (
               <View style={styles.searchingRouteInfo}>
                 <Text style={styles.searchingRouteText}>◔ {routeInfo.duration}  ·  ▼ {routeInfo.distance}</Text>
               </View>
             )}
-            <Text style={styles.searchingHint}>This usually takes less than a minute</Text>
+            <Text style={styles.searchingHint}>{t('home.search_hint')}</Text>
             <TouchableOpacity style={styles.cancelSearchButton} onPress={handleCancelSearch}>
               <Text style={styles.cancelSearchText}>Cancel</Text>
             </TouchableOpacity>
@@ -993,7 +995,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
               backgroundColor: tripStatus === 'completed' ? '#10B981' : '#F59E0B'
             }]} />
             <Text style={styles.matchedStatus}>
-              {tripStatus === 'matched' ? 'Driver is on the way' : 'Trip completed!'}
+              {tripStatus === 'matched' ? t('home.driver_on_way') : t('home.trip_completed')}
             </Text>
           </View>
 
@@ -1106,7 +1108,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   }},
                 ]);
               }}>
-                <Text style={styles.cancelRideBtnText}>Cancel trip</Text>
+                <Text style={styles.cancelRideBtnText}>{t('home.cancel_trip')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1213,7 +1215,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
 }
 
 function getStyles() { return StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: '#000000' },
   map: { ...StyleSheet.absoluteFillObject },
 
   // ── Idle mode ──
@@ -1283,8 +1285,8 @@ function getStyles() { return StyleSheet.create({
   dropPinHeader: {
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
   },
-  dropPinCancel: { padding: SPACING.xs },
-  dropPinCancelText: { fontSize: 15, color: COLORS.textSecondary },
+  dropPinCancel: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 4 },
+  dropPinCancelText: { fontSize: 22, color: '#d9c0a4', fontWeight: '600' },
   dropPinFooter: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.lg },
   dropPinConfirm: {
     backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md,
@@ -1313,16 +1315,15 @@ function getStyles() { return StyleSheet.create({
   // ── Search / Route mode ──
   searchOverlay: { paddingHorizontal: SPACING.md },
   searchBack: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.white,
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#1a1a1a',
     justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm,
-    shadowColor: COLORS.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 4,
   },
-  searchBackText: { fontSize: 22, color: COLORS.textPrimary },
+  searchBackText: { fontSize: 22, color: '#d9c0a4', fontWeight: '600' },
 
   inputCard: {
-    flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: BORDER_RADIUS.lg,
+    flexDirection: 'row', backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.md,
-    shadowColor: COLORS.black, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 8, elevation: 4,
   },
   dotsColumn: { width: 20, alignItems: 'center', paddingTop: 14, paddingBottom: 14 },
   greenDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#10b981' },
@@ -1334,7 +1335,7 @@ function getStyles() { return StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.sm,
     borderRadius: BORDER_RADIUS.sm, height: 44,
   },
-  inputRowActive: { backgroundColor: COLORS.grayLight },
+  inputRowActive: {},
   inputField: { flex: 1, fontSize: 15, color: COLORS.textPrimary },
   inputDivider: { height: 1, backgroundColor: COLORS.border, marginVertical: 2, marginLeft: SPACING.sm },
   myLocBtn: { padding: 4 },

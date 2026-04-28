@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard, Alert, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useLocation } from '../../hooks/useLocation';
@@ -12,6 +12,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useChauffeurStore } from '../../store/chauffeurStore';
 import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
 import { darkMapStyle } from '../../themes/mapStyles';
+import { useT } from '../../utils/i18n';
 import { CustomerStackParamList } from '../../navigation/MainNavigator';
 
 type ViewMode = 'idle' | 'search' | 'select';
@@ -23,7 +24,9 @@ type Props = {
 const CURRENCY_SYMBOL = '$';
 
 export function ChauffeurSearchScreen({ navigation }: Props) {
-  const st = getStyles();
+  const insets = useSafeAreaInsets();
+  const st = getStyles(insets.top);
+  const t = useT();
   const { user } = useAuthStore();
   const { location, address: userAddress } = useLocation();
   const mapRef = useRef<MapView>(null);
@@ -135,6 +138,9 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
         initialRegion={region}
         showsUserLocation
         showsMyLocationButton={false}
+        loadingEnabled
+        loadingBackgroundColor="#000000"
+        loadingIndicatorColor="#d9c0a4"
         onRegionChangeComplete={r => setMapCenter({ latitude: r.latitude, longitude: r.longitude })}
       >
         {pickupCoords && !dropPin && (
@@ -152,6 +158,25 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
         )}
       </MapView>
 
+      {/* Back button — single absolute element, identical Y across all view modes */}
+      {(viewMode !== 'idle' || dropPin) && (
+        <TouchableOpacity
+          style={st.backBtnAbsolute}
+          onPress={() => {
+            if (dropPin) { setDropPin(false); return; }
+            if (viewMode === 'select') { setViewMode('search'); return; }
+            if (viewMode === 'search') { setViewMode('idle'); setPredictions([]); return; }
+          }}
+        >
+          <Text style={st.backText}>←</Text>
+        </TouchableOpacity>
+      )}
+      {viewMode === 'idle' && !dropPin && (
+        <TouchableOpacity style={st.backBtnAbsolute} onPress={() => navigation.goBack()}>
+          <Text style={st.backText}>←</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Drop-pin overlay */}
       {dropPin && (<>
         <View style={st.dropOverlay} pointerEvents="none">
@@ -162,15 +187,10 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
             <View style={st.pinNeedle} />
           </View>
         </View>
-        <SafeAreaView style={st.dropUI} edges={['top', 'bottom']} pointerEvents="box-none">
-          <View style={st.dropTopBar}>
-            <TouchableOpacity style={st.backBtn} onPress={() => setDropPin(false)}>
-              <Text style={st.backText}>←</Text>
-            </TouchableOpacity>
-          </View>
+        <SafeAreaView style={st.dropBottomWrap} edges={['bottom']} pointerEvents="box-none">
           <View style={st.dropBottomBar}>
             <TouchableOpacity style={st.confirmBtn} onPress={handleConfirmDropPin} activeOpacity={0.85}>
-              <Text style={st.confirmBtnText}>CONFIRM LOCATION</Text>
+              <Text style={st.confirmBtnText}>{t('home.confirm_location')}</Text>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -179,18 +199,10 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
       {/* Idle */}
       {viewMode === 'idle' && !dropPin && (
         <SafeAreaView style={st.headerOverlay} edges={['top']}>
-          <View style={st.idleHeaderRow}>
-            <TouchableOpacity style={st.closeBtn} onPress={() => navigation.goBack()}>
-              <Text style={st.closeText}>←</Text>
-            </TouchableOpacity>
-            <View style={st.greetingRow}>
-              <Text style={st.greetingText}>Chauffeur</Text>
-              <Text style={st.greetingSub}>Multi-stop, on-demand</Text>
-            </View>
-          </View>
+          <View style={{ height: 40, marginBottom: SPACING.sm }} />
           <TouchableOpacity style={st.searchBar} onPress={() => setViewMode('search')} activeOpacity={0.9}>
             <Text style={st.searchIcon}>✦</Text>
-            <Text style={st.searchPlaceholder}>Set pickup location</Text>
+            <Text style={st.searchPlaceholder}>{t('chauffeur.set_pickup')}</Text>
           </TouchableOpacity>
           {hasActive && (
             <TouchableOpacity style={st.resumeBanner} onPress={() => (navigation as any).navigate('ChauffeurActive')}>
@@ -203,9 +215,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
       {/* Search */}
       {viewMode === 'search' && !dropPin && (
         <SafeAreaView style={st.headerOverlay} edges={['top']}>
-          <TouchableOpacity style={st.backBtn} onPress={() => { setViewMode('idle'); setPredictions([]); }}>
-            <Text style={st.backText}>←</Text>
-          </TouchableOpacity>
+          <View style={{ height: 40, marginBottom: SPACING.sm }} />
           <View style={st.inputCard}>
             <Text style={st.pickupLabel}>PICKUP</Text>
             <View style={st.inputRow}>
@@ -213,7 +223,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
                 style={st.inputField}
                 value={pickupText}
                 onChangeText={handleSearchText}
-                placeholder="Where should we pick you up?"
+                placeholder={t('chauffeur.where_pickup')}
                 placeholderTextColor={COLORS.gray}
                 autoFocus
               />
@@ -225,7 +235,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
           {location && (
             <TouchableOpacity style={st.myLocBtn} onPress={handleUseMyLocation}>
               <Text style={st.myLocIcon}>◎</Text>
-              <Text style={st.myLocText}>Use my current location</Text>
+              <Text style={st.myLocText}>{t('home.use_my_location')}</Text>
             </TouchableOpacity>
           )}
           {predictions.length > 0 && (
@@ -244,9 +254,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
       {/* Select */}
       {viewMode === 'select' && !dropPin && (
         <SafeAreaView style={st.headerOverlay} edges={['top']}>
-          <TouchableOpacity style={st.backBtn} onPress={() => setViewMode('search')}>
-            <Text style={st.backText}>←</Text>
-          </TouchableOpacity>
+          <View style={{ height: 40, marginBottom: SPACING.sm }} />
           <View style={st.pickupPill}>
             <Text style={st.pickupPillLabel}>PICKUP</Text>
             <Text style={st.pickupPillText} numberOfLines={1}>{pickupText}</Text>
@@ -266,7 +274,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
                 <Text style={[st.carIcon, carType === c && st.carIconActive]}>
                   {c === 'sedan' ? '◆' : c === 'suv' ? '◆◆' : '◆◆◆'}
                 </Text>
-                <Text style={[st.carLabel, carType === c && st.carLabelActive]}>{CAR_LABELS[c]}</Text>
+                <Text style={[st.carLabel, carType === c && st.carLabelActive]}>{t(`car.${c}`)}</Text>
                 <Text style={[st.carSub, carType === c && st.carSubActive]}>{CAR_CAPACITY[c]}</Text>
               </TouchableOpacity>
             ))}
@@ -316,9 +324,9 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
               disabled={!carType || requesting}
             >
               <Text style={st.primaryBtnText}>
-                {requesting ? 'Requesting…' :
-                 !carType ? 'Select a car' :
-                 scheduled ? `Schedule ${CAR_LABELS[carType]}` : `Request ${CAR_LABELS[carType]}`}
+                {requesting ? t('chauffeur.requesting') :
+                 !carType ? t('chauffeur.select_car') :
+                 scheduled ? `${t('chauffeur.schedule_car')} ${t(`car.${carType}`)}` : `${t('chauffeur.request_car')} ${t(`car.${carType}`)}`}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -334,23 +342,24 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
   );
 }
 
-function getStyles() { return StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  map: { ...StyleSheet.absoluteFillObject },
+function getStyles(topInset: number = 0) { return StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000000' },
+  map: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000000' },
   pin: { alignItems: 'center' },
   pinHead: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
   pinNeedle: { width: 3, height: 16, backgroundColor: '#d9c0a4' },
   dropOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 100 },
   dropUI: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'space-between', zIndex: 101 },
-  dropTopBar: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
+  dropTopBar: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.md, paddingHorizontal: SPACING.md, paddingTop: 0 },
+  dropBottomWrap: { position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 101 },
   dropBottomBar: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
   confirmBtn: { backgroundColor: '#d9c0a4', borderRadius: BORDER_RADIUS.md, paddingVertical: SPACING.md, alignItems: 'center' },
   confirmBtnText: { fontSize: 14, fontWeight: '700', color: '#000000', letterSpacing: 2 },
   headerOverlay: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm },
-  idleHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
-  closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center' },
-  closeText: { fontSize: 22, fontWeight: '600', color: COLORS.textPrimary },
-  greetingRow: { flex: 1, backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.lg, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm + 2 },
+  idleHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SPACING.sm, marginBottom: SPACING.sm },
+  closeBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center' },
+  closeText: { fontSize: 22, fontWeight: '600', color: '#d9c0a4' },
+  greetingRow: { flex: 1, backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.lg, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm + 2, alignItems: 'center', justifyContent: 'center' },
   greetingText: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary, letterSpacing: 0.5 },
   greetingSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2, letterSpacing: 0.3 },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.lg, paddingHorizontal: SPACING.md, paddingVertical: 14, gap: 12 },
@@ -358,8 +367,9 @@ function getStyles() { return StyleSheet.create({
   searchPlaceholder: { fontSize: 15, color: COLORS.textSecondary, flex: 1, letterSpacing: 0.3 },
   resumeBanner: { marginTop: SPACING.sm, backgroundColor: COLORS.textPrimary, borderRadius: BORDER_RADIUS.lg, paddingHorizontal: SPACING.md, paddingVertical: 14, alignItems: 'center' },
   resumeText: { color: COLORS.background, fontWeight: '800', fontSize: 13, letterSpacing: 1.5, textTransform: 'uppercase' },
-  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm },
-  backText: { fontSize: 22, fontWeight: '600', color: COLORS.textPrimary },
+  backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.white, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm },
+  backBtnAbsolute: { position: 'absolute', top: topInset, left: SPACING.md, width: 40, height: 40, borderRadius: 20, backgroundColor: '#1a1a1a', justifyContent: 'center', alignItems: 'center', zIndex: 200, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 4 },
+  backText: { fontSize: 22, fontWeight: '600', color: '#d9c0a4' },
   inputCard: { backgroundColor: COLORS.grayLight, borderRadius: BORDER_RADIUS.lg, padding: SPACING.md },
   pickupLabel: { fontSize: 10, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 2, marginBottom: 6 },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

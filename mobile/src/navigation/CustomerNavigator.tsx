@@ -158,12 +158,12 @@ export function CustomerNavigator() {
       <Stack.Screen
         name="ChauffeurSearch"
         component={ChauffeurSearchScreen}
-        options={{ animation: 'slide_from_bottom' }}
+        options={{ animation: 'slide_from_bottom', presentation: 'transparentModal', contentStyle: { backgroundColor: '#000000' } }}
       />
       <Stack.Screen
         name="ChauffeurActive"
         component={ChauffeurActiveScreen}
-        options={{ animation: 'slide_from_right', gestureEnabled: false }}
+        options={{ animation: 'slide_from_right', gestureEnabled: false, contentStyle: { backgroundColor: '#000000' } }}
       />
       <Stack.Screen
         name="RentalSearch"
@@ -176,7 +176,7 @@ export function CustomerNavigator() {
 
 const tabStyles = StyleSheet.create({
   tabBar: {
-    backgroundColor: COLORS.white,
+    backgroundColor: '#000000',
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     height: 68,

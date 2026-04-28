@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS, SPACING, BORDER_RADIUS } from '../../utils/constants';
 import { useTheme } from '../../themes/ThemeContext';
+import { useLanguageStore, LANGUAGE_LABELS, Language } from '../../store/languageStore';
 import { MainStackParamList } from '../../navigation/MainNavigator';
 
 type SettingsScreenProps = {
@@ -20,6 +21,8 @@ type SettingsScreenProps = {
 export function SettingsScreen({ navigation }: SettingsScreenProps) {
   const styles = getStyles();
   const { themeName, setThemeName, availableThemes, theme } = useTheme();
+  const language = useLanguageStore(s => s.language);
+  const setLanguage = useLanguageStore(s => s.setLanguage);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(false);
@@ -112,10 +115,30 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         </View>
 
         {/* Language */}
+        <Text style={styles.sectionTitle}>Language</Text>
+        <View style={styles.card}>
+          {(['en', 'ru', 'de'] as const).map((code, i) => (
+            <React.Fragment key={code}>
+              {i > 0 && <View style={styles.divider} />}
+              <TouchableOpacity
+                style={[styles.settingRow, language === code && { backgroundColor: COLORS.grayLight }]}
+                onPress={() => setLanguage(code)}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.grayLight, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: COLORS.textPrimary, letterSpacing: 1 }}>{code.toUpperCase()}</Text>
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={styles.settingLabel}>{LANGUAGE_LABELS[code]}</Text>
+                </View>
+                {language === code && <Text style={{ fontSize: 16, color: '#d9c0a4', fontWeight: '700' }}>✓</Text>}
+              </TouchableOpacity>
+            </React.Fragment>
+          ))}
+        </View>
+
+        {/* Preferences */}
         <Text style={styles.sectionTitle}>Preferences</Text>
         <View style={styles.card}>
-          <SettingRow icon="◯" label="Language" value="English" />
-          <View style={styles.divider} />
           <SettingRow icon="¤" label="Currency" value="AED" />
           <View style={styles.divider} />
           <SettingRow icon="⊡" label="Distance Unit" value="Kilometers" />

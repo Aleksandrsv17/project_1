@@ -32,8 +32,8 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <NavigationContainer theme={{ dark: true, colors: { primary: '#d9c0a4', background: '#000000', card: '#000000', text: '#FFFFFF', border: '#222222', notification: '#d9c0a4' } } as any}>
+      <Stack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#000000' } }}>
         {!user ? (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         ) : (

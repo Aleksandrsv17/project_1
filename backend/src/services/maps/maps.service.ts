@@ -24,11 +24,17 @@ export interface DirectionsResult {
   }>;
 }
 
+function langParam(lang?: string): string {
+  const safe = lang === 'en' || lang === 'ru' || lang === 'de' ? lang : 'en';
+  return `&language=${safe}`;
+}
+
 export async function getDirections(
   origin: LatLng,
-  destination: LatLng
+  destination: LatLng,
+  language?: string
 ): Promise<DirectionsResult | null> {
-  const url = `${GOOGLE_MAPS_BASE}/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=${config.google.mapsApiKey}`;
+  const url = `${GOOGLE_MAPS_BASE}/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=${config.google.mapsApiKey}${langParam(language)}`;
 
   try {
     const res = await fetch(url);
@@ -72,9 +78,10 @@ export interface DistanceMatrixResult {
 
 export async function getDistanceMatrix(
   origin: LatLng,
-  destination: LatLng
+  destination: LatLng,
+  language?: string
 ): Promise<DistanceMatrixResult | null> {
-  const url = `${GOOGLE_MAPS_BASE}/distancematrix/json?origins=${origin.latitude},${origin.longitude}&destinations=${destination.latitude},${destination.longitude}&key=${config.google.mapsApiKey}`;
+  const url = `${GOOGLE_MAPS_BASE}/distancematrix/json?origins=${origin.latitude},${origin.longitude}&destinations=${destination.latitude},${destination.longitude}&key=${config.google.mapsApiKey}${langParam(language)}`;
 
   try {
     const res = await fetch(url);
@@ -110,8 +117,8 @@ export interface GeocodeResult {
   country: string;
 }
 
-export async function geocodeAddress(address: string): Promise<GeocodeResult | null> {
-  const url = `${GOOGLE_MAPS_BASE}/geocode/json?address=${encodeURIComponent(address)}&key=${config.google.mapsApiKey}`;
+export async function geocodeAddress(address: string, language?: string): Promise<GeocodeResult | null> {
+  const url = `${GOOGLE_MAPS_BASE}/geocode/json?address=${encodeURIComponent(address)}&key=${config.google.mapsApiKey}${langParam(language)}`;
 
   try {
     const res = await fetch(url);
@@ -144,8 +151,8 @@ export async function geocodeAddress(address: string): Promise<GeocodeResult | n
   }
 }
 
-export async function reverseGeocode(lat: number, lng: number): Promise<GeocodeResult | null> {
-  const url = `${GOOGLE_MAPS_BASE}/geocode/json?latlng=${lat},${lng}&key=${config.google.mapsApiKey}`;
+export async function reverseGeocode(lat: number, lng: number, language?: string): Promise<GeocodeResult | null> {
+  const url = `${GOOGLE_MAPS_BASE}/geocode/json?latlng=${lat},${lng}&key=${config.google.mapsApiKey}${langParam(language)}`;
 
   try {
     const res = await fetch(url);
@@ -189,9 +196,10 @@ export interface PlacePrediction {
 export async function placesAutocomplete(
   input: string,
   location?: LatLng,
-  radiusMeters = 50000
+  radiusMeters = 50000,
+  language?: string
 ): Promise<PlacePrediction[]> {
-  let url = `${GOOGLE_MAPS_BASE}/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${config.google.mapsApiKey}`;
+  let url = `${GOOGLE_MAPS_BASE}/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${config.google.mapsApiKey}${langParam(language)}`;
 
   if (location) {
     url += `&location=${location.latitude},${location.longitude}&radius=${radiusMeters}`;
@@ -227,8 +235,8 @@ export interface PlaceDetails {
   longitude: number;
 }
 
-export async function getPlaceDetails(placeId: string): Promise<PlaceDetails | null> {
-  const url = `${GOOGLE_MAPS_BASE}/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry&key=${config.google.mapsApiKey}`;
+export async function getPlaceDetails(placeId: string, language?: string): Promise<PlaceDetails | null> {
+  const url = `${GOOGLE_MAPS_BASE}/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry&key=${config.google.mapsApiKey}${langParam(language)}`;
 
   try {
     const res = await fetch(url);
