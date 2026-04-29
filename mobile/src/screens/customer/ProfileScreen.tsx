@@ -204,7 +204,7 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
         </TouchableOpacity>
 
         {/* App version */}
-        <Text style={styles.versionText}>VIP Mobility v1.0.0</Text>
+        <Text style={styles.versionText}>NOVA v1.0.0</Text>
 
         <View style={{ height: SPACING.xxl }} />
       </ScrollView>

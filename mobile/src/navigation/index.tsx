@@ -28,7 +28,7 @@ export function RootNavigator() {
   }, [logout]);
 
   if (!isInitialized || isLoading) {
-    return <LoadingSpinner fullScreen message="Loading VIP Mobility..." />;
+    return <LoadingSpinner fullScreen message="Loading NOVA..." />;
   }
 
   return (

@@ -41,7 +41,7 @@ export function SupportScreen({ navigation }: SupportScreenProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: `Hi ${user?.fullName?.split(' ')[0] || 'there'}! Welcome to VIP Mobility support. How can we help you today?`,
+      text: `Hi ${user?.fullName?.split(' ')[0] || 'there'}! Welcome to NOVA support. How can we help you today?`,
       sender: 'support',
       timestamp: new Date(),
     },

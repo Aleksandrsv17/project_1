@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "VIP Mobility",
+    "name": "NOVA",
     "slug": "vip-mobility",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -16,15 +16,24 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.vipmobility.app",
+      "bundleIdentifier": "com.aleksandrsvch.nova",
       "config": {
         "googleMapsApiKey": "AIzaSyD5wNSv6trG1uOBHjsaXkQJzrcgpHGGJI0"
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "VIP Mobility needs your location to show nearby vehicles and track your trip.",
-        "NSLocationAlwaysUsageDescription": "VIP Mobility needs your location for active trip tracking.",
-        "NSCameraUsageDescription": "VIP Mobility needs camera access to upload vehicle photos.",
-        "NSPhotoLibraryUsageDescription": "VIP Mobility needs photo library access to upload vehicle photos."
+        "NSLocationWhenInUseUsageDescription": "NOVA needs your location to show nearby vehicles and track your trip.",
+        "NSLocationAlwaysUsageDescription": "NOVA needs your location for active trip tracking.",
+        "NSCameraUsageDescription": "NOVA needs camera access to upload vehicle photos.",
+        "NSPhotoLibraryUsageDescription": "NOVA needs photo library access to upload vehicle photos.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSExceptionDomains": {
+            "109.120.133.113": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        }
       }
     },
     "android": {
@@ -32,7 +41,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1a1a2e"
       },
-      "package": "com.vipmobility.app",
+      "package": "com.aleksandrsvch.nova",
       "usesCleartextTraffic": true,
       "config": {
         "googleMaps": {
@@ -66,13 +75,13 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Allow VIP Mobility to use your location."
+          "locationAlwaysAndWhenInUsePermission": "Allow NOVA to use your location."
         }
       ],
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.com.vipmobility.app",
+          "merchantIdentifier": "merchant.com.aleksandrsvch.nova",
           "enableGooglePay": true
         }
       ]

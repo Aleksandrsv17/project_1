@@ -118,7 +118,7 @@ export function RegisterScreen({ navigation }: RegisterScreenProps) {
 
           <View style={styles.header}>
             <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Join VIP Mobility today</Text>
+            <Text style={styles.subtitle}>Join NOVA today</Text>
           </View>
 
           {/* Fields */}

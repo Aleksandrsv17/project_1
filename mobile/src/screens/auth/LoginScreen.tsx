@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Animated,
 } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuthStore } from '../../store/authStore';
@@ -111,13 +112,14 @@ export function LoginScreen({ navigation }: LoginScreenProps) {
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: SPACING.lg }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {/* Header */}
           <View style={{ alignItems: 'center', marginBottom: SPACING.xl }}>
-            <Text style={{
-              fontSize: theme.typography.headerSize + 10,
-              fontWeight: theme.typography.headerWeight,
-              color: theme.colors.accent,
-              letterSpacing: theme.typography.headerLetterSpacing,
-              textTransform: theme.button.textTransform,
-            }}>VIP Mobility</Text>
+            <Video
+              source={require('../../../assets/novalogo.mp4')}
+              style={{ width: 280, height: 200, marginBottom: SPACING.md, backgroundColor: theme.colors.primary }}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay
+              isLooping
+              isMuted
+            />
             <Text style={{ fontSize: 14, color: theme.colors.gray, marginTop: 4, letterSpacing: theme.typography.headerLetterSpacing }}>
               Premium Vehicle Rentals
             </Text>

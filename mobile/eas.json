@@ -8,6 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
+        "image": "latest",
         "resourceClass": "m-medium"
       },
       "env": {
@@ -19,6 +20,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
+        "image": "latest",
         "simulator": true,
         "resourceClass": "m-medium"
       },
@@ -30,6 +32,7 @@
     "preview": {
       "distribution": "internal",
       "ios": {
+        "image": "latest",
         "resourceClass": "m-medium"
       },
       "android": {
@@ -43,20 +46,21 @@
     "production": {
       "autoIncrement": true,
       "ios": {
+        "image": "latest",
         "resourceClass": "m-medium"
       },
       "env": {
-        "API_BASE_URL": "https://api.vipmobility.com/v1",
-        "WS_URL": "wss://api.vipmobility.com"
+        "API_BASE_URL": "https://api.novadrive.app/v1",
+        "WS_URL": "wss://api.novadrive.app"
       }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appleId": "REPLACE_WITH_APPLE_ID_EMAIL",
-        "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "REPLACE_WITH_APPLE_TEAM_ID"
+        "appleId": "aleksandrsvch@icloud.com",
+        "ascAppId": "6764670213",
+        "appleTeamId": "TMU9V5MBJ9"
       },
       "android": {
         "serviceAccountKeyPath": "./google-play-key.json",

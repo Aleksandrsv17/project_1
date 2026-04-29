@@ -71,7 +71,7 @@ export function OwnerProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
           <MenuItem icon="⊟" label="Contact Support" subtitle="Get help from our team"
-            onPress={() => Alert.alert('Support', 'Email: support@vipmobility.com\nPhone: +971 800 VIP')} />
+            onPress={() => Alert.alert('Support', 'Email: support@novadrive.app\nPhone: +971 800 NOVA')} />
           <MenuItem icon="≡" label="Terms & Conditions" subtitle="Legal information"
             onPress={() => Alert.alert('Terms', 'Terms & Conditions — coming soon.')} />
         </View>
@@ -82,7 +82,7 @@ export function OwnerProfileScreen() {
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>VIP Mobility v1.0.0</Text>
+        <Text style={styles.versionText}>NOVA v1.0.0</Text>
         <View style={{ height: 80 }} />
       </ScrollView>
     </SafeAreaView>

@@ -116,7 +116,7 @@ export function KYCScreen({ navigation }: KYCScreenProps) {
           <Text style={styles.stepBadge}>Identity Verification</Text>
           <Text style={styles.title}>Verify Your Identity</Text>
           <Text style={styles.subtitle}>
-            This helps us keep VIP Mobility safe and secure for everyone.
+            This helps us keep NOVA safe and secure for everyone.
           </Text>
         </View>
 
