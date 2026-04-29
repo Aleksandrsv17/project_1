@@ -62,11 +62,6 @@ export function ChauffeurActiveScreen({ navigation }: any) {
     return () => clearInterval(interval);
   }, [tick]);
 
-  // If someone lands here without a trip, bounce back.
-  useEffect(() => {
-    if (!trip) navigation.goBack();
-  }, [trip, navigation]);
-
   const currentStop = trip && trip.currentStopIndex >= 0 ? trip.stops[trip.currentStopIndex] : null;
   const waitingStop = currentStop?.status === 'arrived' ? currentStop : null;
   const awaitingNextDestination =
@@ -259,11 +254,11 @@ export function ChauffeurActiveScreen({ navigation }: any) {
         onPress={scrollCarouselToCurrent}
       >
         {addMode !== 'pin' && (
-          <Marker coordinate={trip.pickup} anchor={{ x: 0.5, y: 1 }}>
+          <Marker coordinate={trip.pickup} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false}>
             <View style={st.mapAddrCard}><Text style={st.mapAddrText} numberOfLines={1}>Pickup</Text></View>
             <View style={st.pin}>
-              <View style={[st.pinHead, { backgroundColor: COLORS.grayLight, borderWidth: 3, borderColor: COLORS.textPrimary }]}>
-                <Text style={{ fontSize: 12, color: COLORS.textPrimary }}>✦</Text>
+              <View style={[st.pinHead, { backgroundColor: '#FFFFFF', borderWidth: 2, borderColor: '#000000' }]}>
+                <Text style={{ fontSize: 12, color: '#000000', fontWeight: '700' }}>✦</Text>
               </View>
               <View style={st.pinNeedle} />
             </View>
@@ -271,11 +266,11 @@ export function ChauffeurActiveScreen({ navigation }: any) {
         )}
 
         {addMode !== 'pin' && trip.stops.map((s, i) => (
-          <Marker key={s.id} coordinate={{ latitude: s.latitude, longitude: s.longitude }} anchor={{ x: 0.5, y: 1 }}>
+          <Marker key={s.id} coordinate={{ latitude: s.latitude, longitude: s.longitude }} anchor={{ x: 0.5, y: 1 }} tracksViewChanges={false}>
             <View style={st.mapAddrCard}><Text style={st.mapAddrText} numberOfLines={1}>{`Stop ${i + 1}`}</Text></View>
             <View style={st.pin}>
-              <View style={[st.pinHead, { backgroundColor: s.status === 'completed' ? COLORS.gray : COLORS.primary }]}>
-                <Text style={{ fontSize: 12, color: COLORS.background }}>{i + 1}</Text>
+              <View style={[st.pinHead, { backgroundColor: s.status === 'completed' ? '#888888' : '#d9c0a4' }]}>
+                <Text style={{ fontSize: 13, color: '#000000', fontWeight: '800' }}>{i + 1}</Text>
               </View>
               <View style={st.pinNeedle} />
             </View>
@@ -283,7 +278,7 @@ export function ChauffeurActiveScreen({ navigation }: any) {
         ))}
 
         {addMode !== 'pin' && trip.driver?.location && (
-          <Marker coordinate={trip.driver.location} anchor={{ x: 0.5, y: 0.5 }}>
+          <Marker coordinate={trip.driver.location} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
             <View style={st.liveDriverMarker}><Text style={st.liveDriverIcon}>◆</Text></View>
           </Marker>
         )}

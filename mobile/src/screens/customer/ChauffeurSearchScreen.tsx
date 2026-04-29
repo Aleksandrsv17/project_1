@@ -9,13 +9,12 @@ import { searchPlaces, getPlaceDetails, reverseGeocode, PlacePrediction, LatLng 
 import { requestChauffeurTrip } from '../../api/chauffeurTrips';
 import { CarType, CAR_LABELS, CAR_CAPACITY, BASE_RATE_PER_KM, WAITING_RATE_PER_MIN } from '../../utils/chauffeurPricing';
 import { useAuthStore } from '../../store/authStore';
-import { useChauffeurStore } from '../../store/chauffeurStore';
 import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION } from '../../utils/constants';
 import { darkMapStyle } from '../../themes/mapStyles';
 import { useT } from '../../utils/i18n';
 import { CustomerStackParamList } from '../../navigation/MainNavigator';
 
-type ViewMode = 'idle' | 'search' | 'select';
+type ViewMode = 'search' | 'select';
 
 type Props = {
   navigation: NativeStackNavigationProp<CustomerStackParamList, 'ChauffeurSearch'>;
@@ -31,7 +30,7 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
   const { location, address: userAddress } = useLocation();
   const mapRef = useRef<MapView>(null);
 
-  const [viewMode, setViewMode] = useState<ViewMode>('idle');
+  const [viewMode, setViewMode] = useState<ViewMode>('search');
   const [pickupText, setPickupText] = useState('');
   const [pickupCoords, setPickupCoords] = useState<LatLng | null>(null);
   const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
@@ -116,17 +115,12 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
         scheduledAt: scheduled ? scheduleDate.getTime() : undefined,
       });
       setRequesting(false);
-      (navigation as any).navigate('ChauffeurActive');
-      setViewMode('idle');
-      setPickupText(''); setPickupCoords(null); setCarType(null); setScheduled(false);
+      (navigation as any).replace('ChauffeurActive');
     } catch (err: unknown) {
       setRequesting(false);
       Alert.alert('Request Failed', err instanceof Error ? err.message : 'Could not request chauffeur');
     }
   }
-
-  const activeTrip = useChauffeurStore(s => s.trip);
-  const hasActive = activeTrip && activeTrip.status !== 'finished' && activeTrip.status !== 'cancelled';
 
   return (
     <View style={st.container}>
@@ -158,24 +152,17 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
         )}
       </MapView>
 
-      {/* Back button — single absolute element, identical Y across all view modes */}
-      {(viewMode !== 'idle' || dropPin) && (
-        <TouchableOpacity
-          style={st.backBtnAbsolute}
-          onPress={() => {
-            if (dropPin) { setDropPin(false); return; }
-            if (viewMode === 'select') { setViewMode('search'); return; }
-            if (viewMode === 'search') { setViewMode('idle'); setPredictions([]); return; }
-          }}
-        >
-          <Text style={st.backText}>←</Text>
-        </TouchableOpacity>
-      )}
-      {viewMode === 'idle' && !dropPin && (
-        <TouchableOpacity style={st.backBtnAbsolute} onPress={() => navigation.goBack()}>
-          <Text style={st.backText}>←</Text>
-        </TouchableOpacity>
-      )}
+      {/* Back button — single absolute element */}
+      <TouchableOpacity
+        style={st.backBtnAbsolute}
+        onPress={() => {
+          if (dropPin) { setDropPin(false); return; }
+          if (viewMode === 'select') { setViewMode('search'); return; }
+          navigation.goBack();
+        }}
+      >
+        <Text style={st.backText}>←</Text>
+      </TouchableOpacity>
 
       {/* Drop-pin overlay */}
       {dropPin && (<>
@@ -195,22 +182,6 @@ export function ChauffeurSearchScreen({ navigation }: Props) {
           </View>
         </SafeAreaView>
       </>)}
-
-      {/* Idle */}
-      {viewMode === 'idle' && !dropPin && (
-        <SafeAreaView style={st.headerOverlay} edges={['top']}>
-          <View style={{ height: 40, marginBottom: SPACING.sm }} />
-          <TouchableOpacity style={st.searchBar} onPress={() => setViewMode('search')} activeOpacity={0.9}>
-            <Text style={st.searchIcon}>✦</Text>
-            <Text style={st.searchPlaceholder}>{t('chauffeur.set_pickup')}</Text>
-          </TouchableOpacity>
-          {hasActive && (
-            <TouchableOpacity style={st.resumeBanner} onPress={() => (navigation as any).navigate('ChauffeurActive')}>
-              <Text style={st.resumeText}>Resume active chauffeur trip →</Text>
-            </TouchableOpacity>
-          )}
-        </SafeAreaView>
-      )}
 
       {/* Search */}
       {viewMode === 'search' && !dropPin && (

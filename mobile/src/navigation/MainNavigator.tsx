@@ -155,7 +155,7 @@ export function MainNavigator() {
       <Stack.Screen name="VehicleList" component={VehicleListScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="Support" component={SupportScreen} options={{ animation: 'slide_from_bottom' }} />
-      <Stack.Screen name="ChauffeurSearch" component={ChauffeurSearchScreen} options={{ animation: 'slide_from_bottom', presentation: 'transparentModal', contentStyle: { backgroundColor: '#000000' } }} />
+      <Stack.Screen name="ChauffeurSearch" component={ChauffeurSearchScreen} options={{ animation: 'slide_from_bottom', contentStyle: { backgroundColor: '#000000' } }} />
       <Stack.Screen name="ChauffeurActive" component={ChauffeurActiveScreen} options={{ animation: 'slide_from_right', gestureEnabled: false, contentStyle: { backgroundColor: '#000000' } }} />
       <Stack.Screen name="ChauffeurVehicleList" component={ChauffeurVehicleListScreen} options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="RentalSearch" component={RentalSearchScreen} options={{ animation: 'slide_from_bottom' }} />

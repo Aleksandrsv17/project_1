@@ -30,6 +30,7 @@ import { searchPlaces, getPlaceDetails, getDirections, decodePolyline, reverseGe
 import { VehicleCard } from '../../components/VehicleCard';
 import { LoadingSpinner } from '../../components/LoadingSpinner';
 import { COLORS, SPACING, BORDER_RADIUS, DEFAULT_REGION, SOCKET_URL, API_BASE_URL } from '../../utils/constants';
+import { useChauffeurStore } from '../../store/chauffeurStore';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { io, Socket } from 'socket.io-client';
 import * as SecureStore from 'expo-secure-store';
@@ -86,6 +87,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
   const [driverLocation, setDriverLocation] = useState<LatLng | null>(null);
   const [tripStatus, setTripStatus] = useState<'searching' | 'matched' | 'arriving' | 'in_progress' | 'completed'>('searching');
   const [driverRating, setDriverRating] = useState(0);
+  const [tipPreset, setTipPreset] = useState<'none' | 'p10' | 'p15' | 'p20' | 'custom'>('none');
+  const [customTipText, setCustomTipText] = useState('');
   const [rideProgress, setRideProgress] = useState(0);
   const [headerExpanded, setHeaderExpanded] = useState(false);
   const [changingDest, setChangingDest] = useState(false);
@@ -612,7 +615,11 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   borderColor: COLORS.border,
                 }}
                 activeOpacity={0.85}
-                onPress={() => (navigation as any).navigate('ChauffeurSearch')}
+                onPress={() => {
+                  const active = useChauffeurStore.getState().trip;
+                  const isActive = active && active.status !== 'finished' && active.status !== 'cancelled';
+                  (navigation as any).navigate(isActive ? 'ChauffeurActive' : 'ChauffeurSearch');
+                }}
               >
                 <Image
                   source={require('../../../assets/chauffeur-hat.png')}
@@ -1035,7 +1042,21 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
             </>
           )}
 
-          {tripStatus === 'completed' ? (
+          {tripStatus === 'completed' ? (() => {
+              const distanceKm = routeInfo ? parseFloat(routeInfo.distance.replace(/[^0-9.]/g, '')) : 0;
+              const priceMultiplier = rideType === 'van' ? 1.6 : rideType === 'suv' ? 1.3 : 1;
+              const estimatedPrice = Math.round(distanceKm * 2.5 * priceMultiplier);
+              const tipAmount =
+                tipPreset === 'none' ? 0 :
+                tipPreset === 'p10'  ? estimatedPrice * 0.10 :
+                tipPreset === 'p15'  ? estimatedPrice * 0.15 :
+                tipPreset === 'p20'  ? estimatedPrice * 0.20 :
+                (() => {
+                  const v = parseFloat(customTipText.replace(',', '.'));
+                  return isNaN(v) || v < 0 ? 0 : v;
+                })();
+              const totalWithTip = estimatedPrice + tipAmount;
+              return (
               <View style={styles.completedCard}>
                 <Text style={styles.completedTitle}>Trip Completed!</Text>
 
@@ -1063,13 +1084,28 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                     <Text style={styles.completedLabel}>Vehicle</Text>
                     <Text style={styles.completedValue}>{matchedDriver.vehicleMake} {matchedDriver.vehicleModel}</Text>
                   </View>
+                  <View style={styles.completedSummaryRow}>
+                    <Text style={styles.completedLabel}>Fare</Text>
+                    <Text style={styles.completedValue}>€{estimatedPrice.toFixed(2)}</Text>
+                  </View>
+                  {tipAmount > 0 && (
+                    <View style={styles.completedSummaryRow}>
+                      <Text style={styles.completedLabel}>Tip</Text>
+                      <Text style={styles.completedValue}>€{tipAmount.toFixed(2)}</Text>
+                    </View>
+                  )}
+                  <View style={styles.tipDivider} />
+                  <View style={styles.completedSummaryRow}>
+                    <Text style={[styles.completedLabel, styles.totalLabel]}>Total</Text>
+                    <Text style={[styles.completedValue, styles.totalValue]}>€{totalWithTip.toFixed(2)}</Text>
+                  </View>
                 </View>
 
                 {/* Rating */}
                 <Text style={styles.rateLabel}>Rate your driver (optional)</Text>
                 <View style={styles.starsRow}>
                   {[1, 2, 3, 4, 5].map(star => (
-                    <TouchableOpacity key={star} onPress={() => setDriverRating(star)}>
+                    <TouchableOpacity key={star} onPress={() => setDriverRating(star)} hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}>
                       <Text style={[styles.star, star <= driverRating && styles.starActive]}>
                         ★
                       </Text>
@@ -1077,13 +1113,52 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   ))}
                 </View>
 
+                {/* Tip */}
+                <Text style={styles.tipLabel}>Add a tip</Text>
+                <View style={styles.tipChipsRow}>
+                  {([
+                    { key: 'none',   label: 'No tip' },
+                    { key: 'p10',    label: '10%' },
+                    { key: 'p15',    label: '15%' },
+                    { key: 'p20',    label: '20%' },
+                    { key: 'custom', label: 'Custom' },
+                  ] as const).map(c => (
+                    <TouchableOpacity
+                      key={c.key}
+                      style={[styles.tipChip, tipPreset === c.key && styles.tipChipActive]}
+                      onPress={() => setTipPreset(c.key)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.tipChipText, tipPreset === c.key && styles.tipChipTextActive]}>{c.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {tipPreset === 'custom' && (
+                  <View style={styles.customTipRow}>
+                    <Text style={styles.customTipSymbol}>€</Text>
+                    <TextInput
+                      style={styles.customTipInput}
+                      value={customTipText}
+                      onChangeText={setCustomTipText}
+                      placeholder="0.00"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="decimal-pad"
+                      returnKeyType="done"
+                    />
+                  </View>
+                )}
+
                 <TouchableOpacity style={styles.rateBtn} onPress={() => {
+                  console.log('[ride] rating submitted', { rating: driverRating, tipAmount });
                   socketRef.current?.disconnect();
                   socketRef.current = null;
                   setViewMode('idle');
                   setMatchedDriver(null);
                   setDriverLocation(null);
                   setDriverRating(0);
+                  setTipPreset('none');
+                  setCustomTipText('');
                   setPickupText(''); setDestText('');
                   setPickupCoords(null); setDestCoords(null);
                   setRouteCoords([]); setRouteInfo(null);
@@ -1091,7 +1166,8 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
                   <Text style={styles.rateBtnText}>CONFIRM</Text>
                 </TouchableOpacity>
               </View>
-            ) : (
+              );
+            })() : (
               <TouchableOpacity style={styles.cancelRideBtn} onPress={() => {
                 Alert.alert('Cancel trip', 'Are you sure?', [
                   { text: 'No', style: 'cancel' },
@@ -1521,6 +1597,18 @@ function getStyles() { return StyleSheet.create({
   starsRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.sm, marginBottom: SPACING.md },
   star: { fontSize: 36, color: COLORS.border },
   starActive: { color: '#d9c0a4' },
+  tipDivider: { height: 1, backgroundColor: '#222222', marginVertical: 6 },
+  totalLabel: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  totalValue: { fontSize: 15, fontWeight: '800', color: '#d9c0a4' },
+  tipLabel: { fontSize: 14, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', marginBottom: 10 },
+  tipChipsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 10 },
+  tipChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.grayLight },
+  tipChipActive: { backgroundColor: '#d9c0a4', borderColor: '#d9c0a4' },
+  tipChipText: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary },
+  tipChipTextActive: { color: '#000000' },
+  customTipRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, paddingHorizontal: 14, height: 48, gap: 6, marginBottom: 8 },
+  customTipSymbol: { fontSize: 16, fontWeight: '700', color: COLORS.textSecondary },
+  customTipInput: { flex: 1, fontSize: 16, color: COLORS.textPrimary, paddingVertical: 0 },
   // Arrived popup
   arrivedPopup: { position: 'absolute', top: '35%', left: SPACING.lg, right: SPACING.lg, backgroundColor: COLORS.background, borderRadius: BORDER_RADIUS.md, padding: SPACING.lg, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 10, zIndex: 20 },
   arrivedIcon: { fontSize: 40, color: '#10B981', marginBottom: SPACING.sm },
