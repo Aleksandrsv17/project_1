@@ -67,6 +67,10 @@ class TrackingGateway {
   }
 
   initialize(server: HttpServer): SocketServer {
+    // Restore in-progress rides persisted before the last restart/crash so
+    // customers/drivers can resume them instead of seeing them "finish by itself".
+    rideService.loadActiveRides();
+
     this.io = new SocketServer(server, {
       cors: {
         origin: config.cors.origin,
@@ -294,10 +298,11 @@ class TrackingGateway {
 
       socket.on('driver:offline', () => {
         rideService.driverGoOffline(authSocket.userId);
-        // Going offline abandons any active ride — clear it and tell the customer
-        // so the customer app stops showing a phantom ride.
+        // Going offline abandons a PRE-PICKUP ride (matched/arriving) — clear it and
+        // tell the customer so they aren't stranded. An in_progress trip is NEVER
+        // cancelled here: real trips must survive network drops and resume.
         const ride = rideService.getActiveRideForUser(authSocket.userId);
-        if (ride && ride.driverId === authSocket.userId) {
+        if (ride && ride.driverId === authSocket.userId && ride.status !== 'in_progress') {
           this.cancelActiveRide(ride.rideId, 'Driver went offline');
         }
         socket.emit('driver:offline:ack', { success: true });
@@ -864,6 +869,7 @@ class TrackingGateway {
           r.stops = r.stops || [];
           r.stops.push({ address: data.address, lat: data.lat, lng: data.lng, status: 'en_route' });
           const stopIndex = r.stops.length - 1;
+          rideService.persistActiveRide(ride.rideId);
           if (ride.driverSocketId) {
             this.io?.to(ride.driverSocketId).emit('chauffeur:stop_added', {
               rideId: ride.rideId, stopIndex, address: data.address, lat: data.lat, lng: data.lng,
@@ -882,6 +888,7 @@ class TrackingGateway {
           if (!ride || ride.driverId !== authSocket.userId) return;
           const r = ride as any;
           if (r.stops?.[data.stopIndex]) r.stops[data.stopIndex].status = 'arrived';
+          rideService.persistActiveRide(ride.rideId);
           if (ride.customerSocketId) {
             this.io?.to(ride.customerSocketId).emit('chauffeur:stop_arrived', {
               rideId: ride.rideId, stopIndex: data.stopIndex,
@@ -939,20 +946,29 @@ class TrackingGateway {
           this.trackingRooms.set(bookingId, room);
         }
 
-        // If a DRIVER with an active ride drops, give them a grace period to
-        // reconnect (driver:resume_ride clears this timer). If they don't come
-        // back, cancel the ride so the customer stops seeing a phantom ride.
+        // If a DRIVER with a PRE-PICKUP ride (matched/arriving) drops, give them a
+        // grace period to reconnect (driver:resume_ride clears the timer); if they
+        // don't return, cancel so the customer isn't stranded. An in_progress trip
+        // is NEVER auto-cancelled — it must survive network drops and resume.
         const ride = rideService.getActiveRideForUser(authSocket.userId);
-        if (ride && ride.driverId === authSocket.userId && !this.abandonTimers.has(ride.rideId)) {
+        if (
+          ride &&
+          ride.driverId === authSocket.userId &&
+          ride.status !== 'in_progress' &&
+          !this.abandonTimers.has(ride.rideId)
+        ) {
           const rideId = ride.rideId;
           const timer = setTimeout(() => {
             this.abandonTimers.delete(rideId);
-            if (rideService.getActiveRideById(rideId)) {
+            const r = rideService.getActiveRideById(rideId);
+            // Re-check status at fire time: if the trip started during the grace
+            // window (e.g. driver resumed + arrived), leave it alone.
+            if (r && r.status !== 'in_progress') {
               this.cancelActiveRide(rideId, 'Driver disconnected');
             }
           }, this.ABANDON_GRACE_MS);
           this.abandonTimers.set(rideId, timer);
-          logger.info('Driver disconnected mid-ride; grace timer started', { rideId, reason });
+          logger.info('Driver disconnected pre-pickup; grace timer started', { rideId, reason });
         }
 
         // Clean up driver from online pool

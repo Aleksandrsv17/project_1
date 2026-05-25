@@ -49,6 +49,7 @@ export interface ActiveRideRecord {
   pickup: { lat: number; lng: number; address: string };
   dest: { lat: number; lng: number; address: string };
   fare: number;
+  stops?: Array<{ address: string; lat: number; lng: number; status: 'en_route' | 'arrived' }>;
 }
 
 class RideService {
@@ -169,11 +170,43 @@ class RideService {
     return null;
   }
 
-  // ── Active ride persistence (survives disconnects) ──────────────────────────
+  // ── Active ride persistence (survives disconnects AND restarts) ─────────────
+  // The in-memory Map is the hot path; the active_rides table is the durable
+  // backup. Meaningful state changes write through to the DB; on boot we reload
+  // the table so in-progress rides survive a restart/crash. Socket ids and live
+  // location are transient — repopulated when clients reconnect (resume_ride /
+  // driver:location), so we don't churn the DB on every GPS tick.
+
+  /** UPSERT the durable snapshot of a ride. Fire-and-forget (logs on failure). */
+  private persist(record: ActiveRideRecord): void {
+    query(
+      `INSERT INTO active_rides (ride_id, customer_id, driver_id, status, record, updated_at)
+       VALUES ($1,$2,$3,$4,$5,NOW())
+       ON CONFLICT (ride_id) DO UPDATE SET status = EXCLUDED.status, record = EXCLUDED.record, updated_at = NOW()`,
+      [record.rideId, record.customerId, record.driverId, record.status, JSON.stringify(record)]
+    ).catch((err) => logger.error('Failed to persist active ride', { rideId: record.rideId, error: err }));
+  }
+
+  /** Load all persisted active rides into memory on boot (sockets reset to null). */
+  async loadActiveRides(): Promise<void> {
+    try {
+      const res = await query<{ record: ActiveRideRecord }>('SELECT record FROM active_rides');
+      for (const row of res.rows) {
+        const r = row.record;
+        r.customerSocketId = null;
+        r.driverSocketId = null;
+        this.activeRides.set(r.rideId, r);
+      }
+      logger.info('Loaded active rides from DB', { count: res.rows.length });
+    } catch (err) {
+      logger.error('Failed to load active rides on boot', { error: err });
+    }
+  }
 
   /** Record a newly accepted ride so it can be resumed after a reconnect/restart. */
   startActiveRide(record: ActiveRideRecord): void {
     this.activeRides.set(record.rideId, record);
+    this.persist(record);
     logger.info('Active ride started', { rideId: record.rideId, customerId: record.customerId, driverId: record.driverId });
   }
 
@@ -191,7 +224,7 @@ class RideService {
 
   updateActiveRideStatus(rideId: string, status: ActiveRideStatus): void {
     const ride = this.activeRides.get(rideId);
-    if (ride) ride.status = status;
+    if (ride) { ride.status = status; this.persist(ride); }
   }
 
   /** Update the driver's latest location on any active ride they're driving. */
@@ -208,11 +241,19 @@ class RideService {
     else ride.driverSocketId = socketId;
   }
 
+  /** Re-persist a ride after an in-place mutation (e.g. chauffeur stops). */
+  persistActiveRide(rideId: string): void {
+    const ride = this.activeRides.get(rideId);
+    if (ride) this.persist(ride);
+  }
+
   /** End a ride (explicit complete or cancel only). */
   endActiveRide(rideId: string): ActiveRideRecord | undefined {
     const ride = this.activeRides.get(rideId);
     if (ride) {
       this.activeRides.delete(rideId);
+      query('DELETE FROM active_rides WHERE ride_id = $1', [rideId])
+        .catch((err) => logger.error('Failed to delete active ride', { rideId, error: err }));
       logger.info('Active ride ended', { rideId });
     }
     return ride;
