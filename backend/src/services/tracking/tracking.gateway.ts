@@ -48,6 +48,23 @@ class TrackingGateway {
   private driverTrackers = new Map<string, Set<string>>();
   /** Map of bookingId -> customer socketId for direct event delivery */
   private rideCustomerSockets = new Map<string, string>();
+  /** rideId -> grace timer: cancels an active ride if the driver doesn't reconnect */
+  private abandonTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  private readonly ABANDON_GRACE_MS = 120_000;
+
+  /** End an active ride and tell the customer it was cancelled. */
+  private cancelActiveRide(rideId: string, message: string): void {
+    const ride = rideService.getActiveRideById(rideId);
+    if (!ride) return;
+    rideService.endActiveRide(rideId);
+    const sid = ride.customerSocketId || this.rideCustomerSockets.get(rideId);
+    if (sid) this.io?.to(sid).emit('ride:cancelled', { rideId, bookingId: rideId, message });
+    this.rideCustomerSockets.delete(rideId);
+    const t = this.abandonTimers.get(rideId);
+    if (t) { clearTimeout(t); this.abandonTimers.delete(rideId); }
+    logger.info('Active ride cancelled', { rideId, message });
+  }
 
   initialize(server: HttpServer): SocketServer {
     this.io = new SocketServer(server, {
@@ -277,6 +294,12 @@ class TrackingGateway {
 
       socket.on('driver:offline', () => {
         rideService.driverGoOffline(authSocket.userId);
+        // Going offline abandons any active ride — clear it and tell the customer
+        // so the customer app stops showing a phantom ride.
+        const ride = rideService.getActiveRideForUser(authSocket.userId);
+        if (ride && ride.driverId === authSocket.userId) {
+          this.cancelActiveRide(ride.rideId, 'Driver went offline');
+        }
         socket.emit('driver:offline:ack', { success: true });
       });
 
@@ -635,6 +658,9 @@ class TrackingGateway {
             socket.emit('ride:resume_failed', { rideId: data.rideId });
             return;
           }
+          // A real reconnect — cancel any pending abandon grace timer.
+          const t = this.abandonTimers.get(ride.rideId);
+          if (t) { clearTimeout(t); this.abandonTimers.delete(ride.rideId); }
           rideService.setActiveRideSocketId(ride.rideId, 'driver', socket.id);
           // Re-register the driver in the online pool so their location updates
           // (and getDriver lookups) work again after the reconnect.
@@ -911,6 +937,22 @@ class TrackingGateway {
           if (room.chauffeurSocketId === socket.id) room.chauffeurSocketId = null;
           if (room.customerSocketId === socket.id) room.customerSocketId = null;
           this.trackingRooms.set(bookingId, room);
+        }
+
+        // If a DRIVER with an active ride drops, give them a grace period to
+        // reconnect (driver:resume_ride clears this timer). If they don't come
+        // back, cancel the ride so the customer stops seeing a phantom ride.
+        const ride = rideService.getActiveRideForUser(authSocket.userId);
+        if (ride && ride.driverId === authSocket.userId && !this.abandonTimers.has(ride.rideId)) {
+          const rideId = ride.rideId;
+          const timer = setTimeout(() => {
+            this.abandonTimers.delete(rideId);
+            if (rideService.getActiveRideById(rideId)) {
+              this.cancelActiveRide(rideId, 'Driver disconnected');
+            }
+          }, this.ABANDON_GRACE_MS);
+          this.abandonTimers.set(rideId, timer);
+          logger.info('Driver disconnected mid-ride; grace timer started', { rideId, reason });
         }
 
         // Clean up driver from online pool
