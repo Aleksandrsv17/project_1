@@ -279,14 +279,21 @@ export class BookingService {
     page = 1,
     limit = 20
   ): Promise<{ bookings: BookingWithDetails[]; total: number }> {
-    // Get driver's UID
-    const userResult = await query<{ driver_uid: string }>('SELECT driver_uid FROM users WHERE id = $1', [driverId]);
-    const driverUid = userResult.rows[0]?.driver_uid;
-    if (!driverUid) return { bookings: [], total: 0 };
+    // A booking belongs to this driver if it was dispatched to them
+    // (b.chauffeur_user_id = their user id) OR it's on a vehicle assigned to them
+    // (v.assigned_driver_uid). LEFT JOIN vehicles so dispatch rides with a null
+    // vehicle_id (Bersenev local vehicles) are still included.
+    const userResult = await query<{ driver_uid: string | null }>('SELECT driver_uid FROM users WHERE id = $1', [driverId]);
+    const driverUid = userResult.rows[0]?.driver_uid ?? null;
 
-    const conditions = ['v.assigned_driver_uid = $1'];
-    const values: unknown[] = [driverUid];
-    let paramIdx = 2;
+    const values: unknown[] = [driverId];
+    let ownership = 'b.chauffeur_user_id = $1';
+    if (driverUid) {
+      values.push(driverUid);
+      ownership = '(b.chauffeur_user_id = $1 OR v.assigned_driver_uid = $2)';
+    }
+    const conditions = [ownership];
+    let paramIdx = values.length + 1;
 
     if (status) {
       conditions.push(`b.status = $${paramIdx++}`);
@@ -297,7 +304,7 @@ export class BookingService {
     const offset = (page - 1) * limit;
 
     const countResult = await query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM bookings b JOIN vehicles v ON v.id = b.vehicle_id ${whereClause}`,
+      `SELECT COUNT(*) as count FROM bookings b LEFT JOIN vehicles v ON v.id = b.vehicle_id ${whereClause}`,
       values
     );
     const total = parseInt(countResult.rows[0]?.count ?? '0', 10);
@@ -314,7 +321,7 @@ export class BookingService {
         u.first_name AS u_first_name, u.last_name AS u_last_name,
         u.email AS u_email, u.phone AS u_phone
        FROM bookings b
-       JOIN vehicles v ON v.id = b.vehicle_id
+       LEFT JOIN vehicles v ON v.id = b.vehicle_id
        LEFT JOIN users u ON u.id = b.customer_id
        ${whereClause}
        ORDER BY b.created_at DESC
@@ -777,6 +784,40 @@ export class BookingService {
       total_bookings: parseInt(totalResult.rows[0]?.count ?? '0', 10),
       active_bookings: parseInt(activeResult.rows[0]?.count ?? '0', 10),
       pending_payouts: parseFloat(pendingResult.rows[0]?.total ?? '0'),
+    };
+  }
+
+  /** Earnings for a driver (chauffeur), summed from their completed dispatched rides. */
+  async getDriverEarnings(driverId: string) {
+    const userResult = await query<{ driver_uid: string | null }>('SELECT driver_uid FROM users WHERE id = $1', [driverId]);
+    const driverUid = userResult.rows[0]?.driver_uid ?? null;
+
+    // Own the ride via dispatch (chauffeur_user_id) OR assigned vehicle.
+    const values: unknown[] = [driverId];
+    let ownership = 'b.chauffeur_user_id = $1';
+    if (driverUid) {
+      values.push(driverUid);
+      ownership = '(b.chauffeur_user_id = $1 OR v.assigned_driver_uid = $2)';
+    }
+    const from = `FROM bookings b LEFT JOIN vehicles v ON v.id = b.vehicle_id`;
+
+    const totalRow = await query<{ total: string; count: string }>(
+      `SELECT COALESCE(SUM(b.total_amount),0) as total, COUNT(*)::text as count
+       ${from} WHERE ${ownership} AND b.status = 'completed'`, values);
+    const todayRow = await query<{ total: string; count: string }>(
+      `SELECT COALESCE(SUM(b.total_amount),0) as total, COUNT(*)::text as count
+       ${from} WHERE ${ownership} AND b.status = 'completed' AND b.updated_at >= date_trunc('day', NOW())`, values);
+    const weekRow = await query<{ total: string; count: string }>(
+      `SELECT COALESCE(SUM(b.total_amount),0) as total, COUNT(*)::text as count
+       ${from} WHERE ${ownership} AND b.status = 'completed' AND b.updated_at >= NOW() - INTERVAL '7 days'`, values);
+
+    return {
+      total_earnings: parseFloat(totalRow.rows[0]?.total ?? '0'),
+      total_trips: parseInt(totalRow.rows[0]?.count ?? '0', 10),
+      today_earnings: parseFloat(todayRow.rows[0]?.total ?? '0'),
+      today_trips: parseInt(todayRow.rows[0]?.count ?? '0', 10),
+      this_week_earnings: parseFloat(weekRow.rows[0]?.total ?? '0'),
+      this_week_trips: parseInt(weekRow.rows[0]?.count ?? '0', 10),
     };
   }
 

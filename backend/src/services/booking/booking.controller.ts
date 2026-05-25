@@ -218,6 +218,16 @@ export class BookingController {
     }
   }
 
+  async driverEarnings(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const authReq = req as AuthenticatedRequest;
+      const summary = await bookingService.getDriverEarnings(authReq.user.sub);
+      res.status(200).json({ success: true, data: summary });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async rate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const authReq = req as AuthenticatedRequest;

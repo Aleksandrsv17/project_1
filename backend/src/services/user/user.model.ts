@@ -16,6 +16,8 @@ export interface User {
   updated_at: Date;
   deleted_at: Date | null;
   driver_uid: string | null;
+  rating: string | number | null;   // avg of received ratings; null = "New"
+  rating_count: number;
 }
 
 export type PublicUser = Omit<User, 'password_hash' | 'deleted_at'>;

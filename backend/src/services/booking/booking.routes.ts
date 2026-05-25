@@ -13,6 +13,7 @@ router.get('/my', bookingController.myBookings.bind(bookingController));
 router.get('/owner-vehicles', bookingController.ownerBookings.bind(bookingController));
 router.get('/driver-vehicles', bookingController.driverBookings.bind(bookingController));
 router.get('/earnings-summary', bookingController.earningsSummary.bind(bookingController));
+router.get('/driver-earnings', bookingController.driverEarnings.bind(bookingController));
 router.post('/confirm-payment', bookingController.confirm.bind(bookingController));
 
 // Parametrized routes

@@ -49,7 +49,9 @@ export const config = {
     accessSecret: required('JWT_ACCESS_SECRET'),
     refreshSecret: required('JWT_REFRESH_SECRET'),
     accessExpiresIn: optional('JWT_ACCESS_EXPIRES_IN', '15m'),
-    refreshExpiresIn: optional('JWT_REFRESH_EXPIRES_IN', '7d'),
+    // Long-lived sessions: refresh tokens last ~1 year and rotate on every use
+    // (old token invalidated in refresh()). Session ends only on logout/revoke.
+    refreshExpiresIn: optional('JWT_REFRESH_EXPIRES_IN', '365d'),
   },
 
   stripe: {

@@ -26,8 +26,35 @@ export interface NearbyDriver extends OnlineDriver {
   distanceKm: number;
 }
 
+export type ActiveRideStatus = 'matched' | 'arriving' | 'in_progress';
+
+/**
+ * A non-terminal ride that has been accepted by a driver. Kept in memory so it
+ * survives socket disconnects / app restarts (it is NOT removed on disconnect —
+ * only on explicit complete or cancel). rideId === the bookings table id.
+ */
+export interface ActiveRideRecord {
+  rideId: string;
+  status: ActiveRideStatus;
+  customerId: string;
+  driverId: string;
+  customerSocketId: string | null;
+  driverSocketId: string | null;
+  driverName: string;
+  driverRating: number | null;
+  driverTrips: number;
+  vehicleId: string;
+  vehicleInfo: DriverVehicleInfo;
+  driverLocation: DriverLocation;
+  pickup: { lat: number; lng: number; address: string };
+  dest: { lat: number; lng: number; address: string };
+  fare: number;
+}
+
 class RideService {
   private onlineDrivers: Map<string, OnlineDriver> = new Map();
+  // rideId -> active ride. Survives disconnects; cleared only on complete/cancel.
+  private activeRides: Map<string, ActiveRideRecord> = new Map();
 
   async driverGoOnline(
     userId: string,
@@ -140,6 +167,55 @@ class RideService {
       }
     }
     return null;
+  }
+
+  // ── Active ride persistence (survives disconnects) ──────────────────────────
+
+  /** Record a newly accepted ride so it can be resumed after a reconnect/restart. */
+  startActiveRide(record: ActiveRideRecord): void {
+    this.activeRides.set(record.rideId, record);
+    logger.info('Active ride started', { rideId: record.rideId, customerId: record.customerId, driverId: record.driverId });
+  }
+
+  getActiveRideById(rideId: string): ActiveRideRecord | undefined {
+    return this.activeRides.get(rideId);
+  }
+
+  /** The caller's current non-terminal ride (as customer OR driver), if any. */
+  getActiveRideForUser(userId: string): ActiveRideRecord | undefined {
+    for (const ride of this.activeRides.values()) {
+      if (ride.customerId === userId || ride.driverId === userId) return ride;
+    }
+    return undefined;
+  }
+
+  updateActiveRideStatus(rideId: string, status: ActiveRideStatus): void {
+    const ride = this.activeRides.get(rideId);
+    if (ride) ride.status = status;
+  }
+
+  /** Update the driver's latest location on any active ride they're driving. */
+  updateActiveRideDriverLocation(driverId: string, lat: number, lng: number): void {
+    for (const ride of this.activeRides.values()) {
+      if (ride.driverId === driverId) ride.driverLocation = { lat, lng };
+    }
+  }
+
+  setActiveRideSocketId(rideId: string, party: 'customer' | 'driver', socketId: string): void {
+    const ride = this.activeRides.get(rideId);
+    if (!ride) return;
+    if (party === 'customer') ride.customerSocketId = socketId;
+    else ride.driverSocketId = socketId;
+  }
+
+  /** End a ride (explicit complete or cancel only). */
+  endActiveRide(rideId: string): ActiveRideRecord | undefined {
+    const ride = this.activeRides.get(rideId);
+    if (ride) {
+      this.activeRides.delete(rideId);
+      logger.info('Active ride ended', { rideId });
+    }
+    return ride;
   }
 }
 

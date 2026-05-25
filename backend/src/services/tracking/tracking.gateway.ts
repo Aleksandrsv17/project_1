@@ -5,7 +5,7 @@ import { verifyAccessToken } from '../../utils/jwt';
 import { query } from '../../db';
 import { logger } from '../../utils/logger';
 import { config } from '../../config';
-import { rideService, NearbyDriver } from '../ride/ride.service';
+import { rideService, NearbyDriver, ActiveRideRecord } from '../ride/ride.service';
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -288,6 +288,8 @@ class TrackingGateway {
           }
 
           rideService.updateDriverLocation(authSocket.userId, data.lat, data.lng);
+          // Persist latest location on the active ride so a resume re-emits it.
+          rideService.updateActiveRideDriverLocation(authSocket.userId, data.lat, data.lng);
 
           // Broadcast to any customers tracking this driver
           const trackers = this.driverTrackers.get(authSocket.userId);
@@ -333,20 +335,25 @@ class TrackingGateway {
           // Check if vehicleId is a valid UUID, otherwise use null (Bersenev driver local vehicle)
           const isUuidVid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(driver.vehicleId);
           const vehicleIdForDb = isUuidVid ? driver.vehicleId : null;
+          const fareAmount = (pending as any).estimatedPrice ?? 0;
 
+          // chauffeur_user_id links the booking to the driver (users.id) so it
+          // shows in the driver's history/earnings even when vehicle_id is null
+          // (Bersenev local vehicles). total_amount holds the fare for earnings.
           const bookingResult = await query<{ id: string }>(
             `INSERT INTO bookings
-              (customer_id, vehicle_id, type, mode, status,
+              (customer_id, vehicle_id, chauffeur_user_id, type, mode, status,
                start_time, end_time, pickup_address, pickup_lat, pickup_lng,
                dropoff_address, dropoff_lat, dropoff_lng,
                base_amount, chauffeur_fee, insurance_fee, mileage_overage,
                platform_commission, total_amount, deposit_amount)
-             VALUES ($1,$2,'instant_ride','chauffeur','confirmed',$3,$4,$5,$6,$7,$8,$9,$10,
-                     0,0,0,0,0,0,0)
+             VALUES ($1,$2,$3,'instant_ride','chauffeur','confirmed',$4,$5,$6,$7,$8,$9,$10,$11,
+                     $12,0,0,0,0,$12,0)
              RETURNING id`,
             [
               pending.customerId,
               vehicleIdForDb,
+              driver.userId,
               now,
               endTime,
               pending.pickup.text,
@@ -355,6 +362,7 @@ class TrackingGateway {
               pending.dest.text,
               pending.dest.lat,
               pending.dest.lng,
+              fareAmount,
             ]
           );
 
@@ -369,36 +377,70 @@ class TrackingGateway {
             ? `${customerResult.rows[0].first_name} ${customerResult.rows[0].last_name}`
             : 'Customer';
 
-          // Get driver's real name
-          const driverUserResult = await query<{ first_name: string; last_name: string }>(
-            'SELECT first_name, last_name FROM users WHERE id = $1',
+          // Get driver's real name + rating aggregate
+          const driverUserResult = await query<{ first_name: string; last_name: string; rating: string | null; rating_count: number | null }>(
+            'SELECT first_name, last_name, rating, rating_count FROM users WHERE id = $1',
             [authSocket.userId]
           );
-          const driverName = driverUserResult.rows[0]
-            ? `${driverUserResult.rows[0].first_name} ${driverUserResult.rows[0].last_name}`
+          const driverRow = driverUserResult.rows[0];
+          const driverName = driverRow
+            ? `${driverRow.first_name} ${driverRow.last_name}`
             : authSocket.email;
+          const driverRating = driverRow?.rating != null ? Number(driverRow.rating) : null;
+          const driverTrips = driverRow?.rating_count ?? 0;
 
           // Store customer socket for this booking
           this.rideCustomerSockets.set(bookingId, pending.socketId);
           this.rideCustomerSockets.set(data.rideRequestId, pending.socketId);
 
+          const fare = fareAmount;
+
+          // Persist the active ride so it survives reconnects / app restarts.
+          // rideId === bookingId. Cleared only on explicit complete or cancel.
+          rideService.startActiveRide({
+            rideId: bookingId,
+            status: 'matched',
+            customerId: pending.customerId,
+            driverId: driver.userId,
+            customerSocketId: pending.socketId,
+            driverSocketId: socket.id,
+            driverName,
+            driverRating,
+            driverTrips,
+            vehicleId: driver.vehicleId,
+            vehicleInfo: driver.vehicleInfo,
+            driverLocation: driver.location,
+            pickup: { lat: pending.pickup.lat, lng: pending.pickup.lng, address: pending.pickup.text },
+            dest: { lat: pending.dest.lat, lng: pending.dest.lng, address: pending.dest.text },
+            fare,
+          });
+
           // Notify customer: ride matched
           this.io?.to(pending.socketId).emit('ride:matched', {
             rideRequestId: data.rideRequestId,
             bookingId,
+            rideId: bookingId,
             driverId: driver.userId,
+            status: 'matched',
+            tripType: (pending as any).tripType || 'ride',
+            fare,
             driver: {
               userId: driver.userId,
               name: driverName,
+              rating: driverRating,
+              trips: driverTrips,
               vehicleInfo: driver.vehicleInfo,
               location: driver.location,
             },
+            pickup: { lat: pending.pickup.lat, lng: pending.pickup.lng, address: pending.pickup.text },
+            dest: { lat: pending.dest.lat, lng: pending.dest.lng, address: pending.dest.text },
           });
 
           // Notify driver: confirmed
           socket.emit('ride:confirmed', {
             rideRequestId: data.rideRequestId,
             bookingId,
+            rideId: bookingId,
             customerName,
             pickup: pending.pickup,
             dest: pending.dest,
@@ -446,6 +488,7 @@ class TrackingGateway {
       });
 
       socket.on('driver:arrived', (data: { bookingId: string }) => {
+        rideService.updateActiveRideStatus(data.bookingId, 'arriving');
         // Notify customer via stored socket
         const arrivedSid = this.rideCustomerSockets.get(data.bookingId);
         if (arrivedSid) {
@@ -467,6 +510,7 @@ class TrackingGateway {
             "UPDATE bookings SET status = 'active', updated_at = NOW() WHERE id = $1",
             [data.bookingId]
           );
+          rideService.updateActiveRideStatus(data.bookingId, 'in_progress');
 
           // Notify customer
           const booking = await query<{ customer_id: string }>(
@@ -501,6 +545,8 @@ class TrackingGateway {
             "UPDATE bookings SET status = 'completed', actual_end_time = NOW(), updated_at = NOW() WHERE id = $1",
             [data.bookingId]
           );
+          // Ride is terminal — clear the persisted active ride.
+          rideService.endActiveRide(data.bookingId);
 
           // Emit to customer via stored socket
           const completedCustomerSid = this.rideCustomerSockets.get(data.bookingId);
@@ -526,6 +572,81 @@ class TrackingGateway {
       });
 
       // ════════════════════════════════════════════════════════════════════
+      // ══  RIDE RESUME — re-attach to an active ride after reconnect  ═════
+      // ════════════════════════════════════════════════════════════════════
+
+      // Re-emit the full current state of an active ride to the (re)joining socket:
+      // ride:matched (driver+pickup+dest+fare+status), latest driver location, and
+      // the status event. Shared by both customer and driver resume.
+      const reemitActiveRideState = (ride: ActiveRideRecord) => {
+        socket.join(`ride:${ride.rideId}`);
+        socket.emit('ride:matched', {
+          rideRequestId: ride.rideId,
+          bookingId: ride.rideId,
+          rideId: ride.rideId,
+          driverId: ride.driverId,
+          status: ride.status,
+          fare: ride.fare,
+          driver: {
+            userId: ride.driverId,
+            name: ride.driverName,
+            rating: ride.driverRating,
+            trips: ride.driverTrips,
+            vehicleInfo: ride.vehicleInfo,
+            location: ride.driverLocation,
+          },
+          pickup: ride.pickup,
+          dest: ride.dest,
+        });
+        socket.emit('driver:location:updated', {
+          driverId: ride.driverId,
+          lat: ride.driverLocation.lat,
+          lng: ride.driverLocation.lng,
+          timestamp: Date.now(),
+        });
+        if (ride.status === 'arriving') {
+          socket.emit('ride:driver_arrived', { bookingId: ride.rideId });
+        } else if (ride.status === 'in_progress') {
+          socket.emit('ride:trip_started', { bookingId: ride.rideId });
+        }
+      };
+
+      socket.on('customer:resume_ride', (data: { rideId: string }) => {
+        try {
+          const ride = rideService.getActiveRideById(data.rideId);
+          if (!ride || ride.customerId !== authSocket.userId) {
+            socket.emit('ride:resume_failed', { rideId: data.rideId });
+            return;
+          }
+          // Update the customer's socket so trip events reach the new connection.
+          rideService.setActiveRideSocketId(ride.rideId, 'customer', socket.id);
+          this.rideCustomerSockets.set(ride.rideId, socket.id);
+          reemitActiveRideState(ride);
+          logger.info('Customer resumed ride', { rideId: ride.rideId, customerId: authSocket.userId });
+        } catch (err) {
+          logger.error('Error in customer:resume_ride', { error: err });
+        }
+      });
+
+      socket.on('driver:resume_ride', (data: { rideId: string }) => {
+        try {
+          const ride = rideService.getActiveRideById(data.rideId);
+          if (!ride || ride.driverId !== authSocket.userId) {
+            socket.emit('ride:resume_failed', { rideId: data.rideId });
+            return;
+          }
+          rideService.setActiveRideSocketId(ride.rideId, 'driver', socket.id);
+          // Re-register the driver in the online pool so their location updates
+          // (and getDriver lookups) work again after the reconnect.
+          rideService.driverGoOnline(ride.driverId, socket.id, ride.vehicleId, ride.driverLocation, ride.vehicleInfo);
+          reemitActiveRideState(ride);
+          logger.info('Driver resumed ride', { rideId: ride.rideId, driverId: authSocket.userId });
+        } catch (err) {
+          logger.error('Error in driver:resume_ride', { error: err });
+        }
+      });
+
+      // ════════════════════════════════════════════════════════════════════
       // ══  RIDE MATCHING — Customer Events  ═══════════════════════════════
       // ════════════════════════════════════════════════════════════════════
 
@@ -537,10 +658,12 @@ class TrackingGateway {
         pickupText: string;
         destText: string;
         vehicleCategory?: string;
+        tripType?: string;
         preferences?: { temperature?: number; music?: string; notes?: string };
       }) => {
         try {
           const { pickupLat, pickupLng, destLat, destLng, pickupText, destText, vehicleCategory, preferences } = data;
+          const tripType = data.tripType || 'ride';
 
           // Find nearby drivers (no radius limit for testing)
           const nearbyDrivers = rideService.findNearbyDrivers(pickupLat, pickupLng, 10000);
@@ -574,6 +697,7 @@ class TrackingGateway {
             timeoutHandle: null,
           };
           (pending as any).preferences = preferences;
+          (pending as any).tripType = tripType;
 
           this.pendingRides.set(rideRequestId, pending);
 
@@ -586,17 +710,19 @@ class TrackingGateway {
             estimatedDuration,
           });
 
-          // Get customer name
-          const customerResult = await query<{ first_name: string; last_name: string }>(
-            'SELECT first_name, last_name FROM users WHERE id = $1',
+          // Get customer name + rating
+          const customerResult = await query<{ first_name: string; last_name: string; rating: string | null }>(
+            'SELECT first_name, last_name, rating FROM users WHERE id = $1',
             [authSocket.userId]
           );
           const customerName = customerResult.rows[0]
             ? `${customerResult.rows[0].first_name} ${customerResult.rows[0].last_name}`
             : 'Customer';
+          const customerRating = customerResult.rows[0]?.rating != null ? Number(customerResult.rows[0].rating) : null;
 
           // Store customer name on the pending ride for later use
           (pending as any).customerName = customerName;
+          (pending as any).customerRating = customerRating;
           (pending as any).estimatedPrice = estimatedPrice;
           (pending as any).estimatedDistance = Math.round(distanceKm * 10) / 10;
           (pending as any).estimatedDuration = estimatedDuration;
@@ -616,41 +742,58 @@ class TrackingGateway {
         }
       });
 
-      socket.on('customer:cancel_ride', (data: { rideRequestId: string }) => {
+      socket.on('customer:cancel_ride', async (data: { rideId?: string; rideRequestId?: string }) => {
         try {
-          const pending = this.pendingRides.get(data.rideRequestId);
-          if (!pending) {
-            socket.emit('error', { message: 'Ride request not found' });
+          const id = data.rideId ?? data.rideRequestId;
+          if (!id) { socket.emit('error', { message: 'Missing rideId' }); return; }
+
+          // Case 1: still a pending (pre-accept) request.
+          const pending = this.pendingRides.get(id);
+          if (pending) {
+            if (pending.customerId !== authSocket.userId) {
+              socket.emit('error', { message: 'Not authorized to cancel this ride' });
+              return;
+            }
+            if (pending.timeoutHandle) clearTimeout(pending.timeoutHandle);
+            // Notify current driver if one was being asked
+            if (pending.currentDriverIndex < pending.driverQueue.length) {
+              const currentDriver = pending.driverQueue[pending.currentDriverIndex];
+              this.io?.to(currentDriver.socketId).emit('ride:cancelled', {
+                rideRequestId: id,
+                rideId: id,
+                message: 'Customer cancelled the ride request',
+              });
+            }
+            this.pendingRides.delete(id);
+            socket.emit('ride:cancelled:ack', { rideRequestId: id, rideId: id });
+            logger.info('Pending ride cancelled by customer', { rideRequestId: id, customerId: authSocket.userId });
             return;
           }
 
-          // Only the requesting customer can cancel
-          if (pending.customerId !== authSocket.userId) {
+          // Case 2: an active (accepted) ride — cancel and notify BOTH parties.
+          const ride = rideService.getActiveRideById(id);
+          if (!ride) { socket.emit('error', { message: 'Ride not found' }); return; }
+          if (ride.customerId !== authSocket.userId) {
             socket.emit('error', { message: 'Not authorized to cancel this ride' });
             return;
           }
 
-          // Clear timeout
-          if (pending.timeoutHandle) {
-            clearTimeout(pending.timeoutHandle);
+          try {
+            await query("UPDATE bookings SET status = 'cancelled', updated_at = NOW() WHERE id = $1", [ride.rideId]);
+          } catch (e) {
+            logger.error('Failed to mark booking cancelled', { rideId: ride.rideId, error: e });
           }
 
-          // Notify current driver if one was being asked
-          if (pending.currentDriverIndex < pending.driverQueue.length) {
-            const currentDriver = pending.driverQueue[pending.currentDriverIndex];
-            this.io?.to(currentDriver.socketId).emit('ride:cancelled', {
-              rideRequestId: data.rideRequestId,
-              message: 'Customer cancelled the ride request',
-            });
-          }
+          const payload = { rideId: ride.rideId, bookingId: ride.rideId, message: 'Customer cancelled the ride' };
+          // Notify the driver (current socket) and the customer (this socket).
+          if (ride.driverSocketId) this.io?.to(ride.driverSocketId).emit('ride:cancelled', payload);
+          if (ride.customerSocketId) this.io?.to(ride.customerSocketId).emit('ride:cancelled', payload);
+          socket.emit('ride:cancelled', payload);
 
-          this.pendingRides.delete(data.rideRequestId);
-          socket.emit('ride:cancelled:ack', { rideRequestId: data.rideRequestId });
-
-          logger.info('Ride cancelled by customer', {
-            rideRequestId: data.rideRequestId,
-            customerId: authSocket.userId,
-          });
+          rideService.endActiveRide(ride.rideId);
+          this.rideCustomerSockets.delete(ride.rideId);
+          socket.emit('ride:cancelled:ack', { rideId: ride.rideId });
+          logger.info('Active ride cancelled by customer', { rideId: ride.rideId, customerId: authSocket.userId });
         } catch (err) {
           logger.error('Error in customer:cancel_ride', { error: err });
         }
@@ -679,6 +822,85 @@ class TrackingGateway {
           socket.emit('customer:track_driver:ack', { success: true, driverId: data.driverId });
         } catch (err) {
           logger.error('Error in customer:track_driver', { error: err });
+        }
+      });
+
+      // ════════════════════════════════════════════════════════════════════
+      // ══  CHAUFFEUR multi-stop relay (tripType === 'chauffeur')  ═════════
+      // ════════════════════════════════════════════════════════════════════
+
+      // Customer adds the next destination → relay it to the driver.
+      socket.on('customer:add_stop', (data: { rideId: string; address: string; lat: number; lng: number }) => {
+        try {
+          const ride = rideService.getActiveRideById(data.rideId);
+          if (!ride || ride.customerId !== authSocket.userId) return;
+          const r = ride as any;
+          r.stops = r.stops || [];
+          r.stops.push({ address: data.address, lat: data.lat, lng: data.lng, status: 'en_route' });
+          const stopIndex = r.stops.length - 1;
+          if (ride.driverSocketId) {
+            this.io?.to(ride.driverSocketId).emit('chauffeur:stop_added', {
+              rideId: ride.rideId, stopIndex, address: data.address, lat: data.lat, lng: data.lng,
+            });
+          }
+          logger.info('Chauffeur stop added', { rideId: ride.rideId, stopIndex });
+        } catch (err) {
+          logger.error('Error in customer:add_stop', { error: err });
+        }
+      });
+
+      // Driver reached the current stop → tell the customer (car pauses there).
+      socket.on('driver:stop_arrived', (data: { rideId: string; stopIndex: number }) => {
+        try {
+          const ride = rideService.getActiveRideById(data.rideId);
+          if (!ride || ride.driverId !== authSocket.userId) return;
+          const r = ride as any;
+          if (r.stops?.[data.stopIndex]) r.stops[data.stopIndex].status = 'arrived';
+          if (ride.customerSocketId) {
+            this.io?.to(ride.customerSocketId).emit('chauffeur:stop_arrived', {
+              rideId: ride.rideId, stopIndex: data.stopIndex,
+            });
+          }
+        } catch (err) {
+          logger.error('Error in driver:stop_arrived', { error: err });
+        }
+      });
+
+      // Customer leaves a stop (heading to the next) → inform the driver.
+      socket.on('customer:depart_stop', (data: { rideId: string; stopIndex: number }) => {
+        try {
+          const ride = rideService.getActiveRideById(data.rideId);
+          if (!ride || ride.customerId !== authSocket.userId) return;
+          if (ride.driverSocketId) {
+            this.io?.to(ride.driverSocketId).emit('chauffeur:stop_departed', {
+              rideId: ride.rideId, stopIndex: data.stopIndex,
+            });
+          }
+        } catch (err) {
+          logger.error('Error in customer:depart_stop', { error: err });
+        }
+      });
+
+      // Customer ends the chauffeur trip → complete it (mirrors driver:complete_trip).
+      socket.on('customer:finish_chauffeur', async (data: { rideId: string }) => {
+        try {
+          const ride = rideService.getActiveRideById(data.rideId);
+          if (!ride || ride.customerId !== authSocket.userId) return;
+          await query(
+            "UPDATE bookings SET status = 'completed', actual_end_time = NOW(), updated_at = NOW() WHERE id = $1",
+            [ride.rideId]
+          );
+          if (ride.driverSocketId) {
+            this.io?.to(ride.driverSocketId).emit('chauffeur:finish_requested', { rideId: ride.rideId });
+            this.io?.to(ride.driverSocketId).emit('ride:trip_completed', { bookingId: ride.rideId, rideId: ride.rideId });
+          }
+          if (ride.customerSocketId) {
+            this.io?.to(ride.customerSocketId).emit('ride:trip_completed', { bookingId: ride.rideId, rideId: ride.rideId });
+          }
+          rideService.endActiveRide(ride.rideId);
+          logger.info('Chauffeur trip finished by customer', { rideId: ride.rideId });
+        } catch (err) {
+          logger.error('Error in customer:finish_chauffeur', { error: err });
         }
       });
 
@@ -746,7 +968,9 @@ class TrackingGateway {
     // Send ride request to this driver
     this.io?.to(driver.socketId).emit('ride:request', {
       rideRequestId,
+      tripType: extra.tripType || 'ride',
       customerName: extra.customerName || 'Customer',
+      customerRating: extra.customerRating ?? null,
       pickupText: pending.pickup.text,
       destText: pending.dest.text,
       pickupLat: pending.pickup.lat,

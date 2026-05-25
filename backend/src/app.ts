@@ -11,6 +11,7 @@ import vehicleRoutes from './services/vehicle/vehicle.routes';
 import bookingRoutes from './services/booking/booking.routes';
 import paymentRoutes from './services/payment/payment.routes';
 import chauffeurRoutes from './services/chauffeur/chauffeur.routes';
+import rideRoutes from './services/ride/ride.routes';
 import mapsRoutes from './services/maps/maps.routes';
 import uploadRoutes, { UPLOAD_DIR } from './services/upload/upload.service';
 import path from 'path';
@@ -65,6 +66,7 @@ export function createApp(): Application {
   app.use('/v1/bookings', bookingRoutes);
   app.use('/v1/payments', paymentRoutes);
   app.use('/v1/chauffeurs', chauffeurRoutes);
+  app.use('/v1/rides', rideRoutes);
   app.use('/v1/maps', mapsRoutes);
   app.use('/v1/uploads', uploadRoutes);
 

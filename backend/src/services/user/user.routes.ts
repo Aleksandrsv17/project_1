@@ -8,6 +8,7 @@ const router = Router();
 // Public auth routes (rate limited)
 router.post('/register', authRateLimiter, userController.register.bind(userController));
 router.post('/login', authRateLimiter, userController.login.bind(userController));
+router.post('/oauth/taler', authRateLimiter, userController.talerOAuth.bind(userController));
 router.post('/refresh', authRateLimiter, userController.refresh.bind(userController));
 
 router.post('/forgot-password', authRateLimiter, userController.forgotPassword.bind(userController));

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { userService } from './user.service';
+import { talerOAuthLogin } from './taler-oauth';
 import { AuthenticatedRequest } from '../../middleware/auth';
 import {
   registerSchema,
@@ -43,6 +44,20 @@ export class UserController {
     }
   }
 
+  /** POST /v1/auth/oauth/taler — exchange a Taler ID auth code for a Bersenev session. */
+  async talerOAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { code, code_verifier, redirect_uri } = req.body || {};
+      if (!code || !code_verifier || !redirect_uri) {
+        throw new ValidationError('code, code_verifier and redirect_uri are required');
+      }
+      const result = await talerOAuthLogin(String(code), String(code_verifier), String(redirect_uri));
+      res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async refresh(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { value, error } = validate(refreshTokenSchema, req.body);
@@ -50,9 +65,11 @@ export class UserController {
 
       const tokens = await userService.refresh(value.refresh_token);
 
+      // Return tokens both flat (data.access_token) and nested (data.tokens.*)
+      // so every client parses correctly regardless of which shape it expects.
       res.status(200).json({
         success: true,
-        data: tokens,
+        data: { ...tokens, tokens },
       });
     } catch (err) {
       next(err);
