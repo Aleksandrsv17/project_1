@@ -34,8 +34,9 @@ router.post(
 router.patch(
   '/:id/status',
   (req, res, next) => {
+    // Admin-key header path: enabled only if ADMIN_API_KEY is set on the server.
     const adminKey = req.headers['x-admin-key'];
-    if (adminKey === (process.env.ADMIN_API_KEY || 'vip-admin-2026')) {
+    if (process.env.ADMIN_API_KEY && adminKey === process.env.ADMIN_API_KEY) {
       return next();
     }
     return authenticate(req, res, () => requireRole('admin')(req, res, next));

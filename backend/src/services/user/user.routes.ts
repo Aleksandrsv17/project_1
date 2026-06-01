@@ -24,8 +24,10 @@ router.delete('/account', authenticate, userController.deleteAccount.bind(userCo
 router.get(
   '/',
   (req, res, next) => {
+    // Admin-key header path: enabled only if ADMIN_API_KEY is set on the server.
+    // No insecure default — falls back to authenticated admin JWT.
     const adminKey = req.headers['x-admin-key'];
-    if (adminKey === (process.env.ADMIN_API_KEY || 'vip-admin-2026')) {
+    if (process.env.ADMIN_API_KEY && adminKey === process.env.ADMIN_API_KEY) {
       return next();
     }
     return authenticate(req, res, () => requireRole('admin')(req, res, next));

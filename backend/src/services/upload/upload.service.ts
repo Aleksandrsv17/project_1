@@ -4,6 +4,7 @@ import fs from 'fs';
 import crypto from 'crypto';
 import { Router, Request, Response, NextFunction } from 'express';
 import { logger } from '../../utils/logger';
+import { authenticate } from '../../middleware/auth';
 
 // ── Storage config ──────────────────────────────────────────────────────────
 
@@ -46,15 +47,16 @@ const upload = multer({
 
 const router = Router();
 
-// Upload one or more vehicle images (requires auth)
+// Upload one or more vehicle images (requires a valid JWT, OR a valid admin key
+// when ADMIN_API_KEY is configured server-side). The previous version only
+// checked for the PRESENCE of an Authorization header — any bogus 'Bearer x'
+// would pass, allowing unauthenticated uploads. Fixed: actually verify the JWT.
 router.post('/vehicle-images', (req: Request, res: Response, next: NextFunction) => {
-  // Accept auth token OR admin key
   const adminKey = req.headers['x-admin-key'];
-  const authHeader = req.headers.authorization;
-  if (!adminKey && !authHeader) {
-    return res.status(401).json({ error: 'Authentication required' });
+  if (process.env.ADMIN_API_KEY && adminKey === process.env.ADMIN_API_KEY) {
+    return next();
   }
-  return next();
+  return authenticate(req, res, next);
 }, upload.array('images', 8), (req: Request, res: Response) => {
   const files = req.files as Express.Multer.File[];
   if (!files || files.length === 0) {
@@ -105,7 +107,7 @@ router.get('/library', (_req: Request, res: Response) => {
 // Upload images to library (admin)
 router.post('/library/:make', (req: Request, res: Response, next: NextFunction) => {
   const adminKey = req.headers['x-admin-key'];
-  if (adminKey !== (process.env.ADMIN_API_KEY || 'vip-admin-2026')) {
+  if (!process.env.ADMIN_API_KEY || adminKey !== process.env.ADMIN_API_KEY) {
     return res.status(401).json({ error: 'Admin key required' });
   }
 
