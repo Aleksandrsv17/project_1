@@ -51,7 +51,7 @@ class TrackingGateway {
   /** rideId -> grace timer: cancels an active ride if the driver doesn't reconnect */
   private abandonTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  private readonly ABANDON_GRACE_MS = 120_000;
+  private readonly ABANDON_GRACE_MS = 900_000;
 
   /** End an active ride and tell the customer it was cancelled. */
   private cancelActiveRide(rideId: string, message: string): void {
@@ -649,6 +649,31 @@ class TrackingGateway {
           // Update the customer's socket so trip events reach the new connection.
           rideService.setActiveRideSocketId(ride.rideId, 'customer', socket.id);
           this.rideCustomerSockets.set(ride.rideId, socket.id);
+          // Re-attach this customer to the driver's tracker set so live
+          // driver:location:updated events reach the new socket instead of the
+          // dead one. Scrub stale (disconnected) socket ids while we're here.
+          if (ride.driverId) {
+            let trackers = this.driverTrackers.get(ride.driverId);
+            if (!trackers) {
+              trackers = new Set<string>();
+              this.driverTrackers.set(ride.driverId, trackers);
+            }
+            const liveSockets = this.io?.sockets.sockets;
+            trackers.forEach(sid => {
+              if (!liveSockets?.get(sid)) trackers!.delete(sid);
+            });
+            trackers.add(socket.id);
+            // Push last known driver location so the marker isn't frozen until
+            // the next driver:location emit arrives.
+            if (ride.driverLocation) {
+              socket.emit('driver:location:updated', {
+                driverId: ride.driverId,
+                lat: ride.driverLocation.lat,
+                lng: ride.driverLocation.lng,
+                timestamp: Date.now(),
+              });
+            }
+          }
           reemitActiveRideState(ride);
           logger.info('Customer resumed ride', { rideId: ride.rideId, customerId: authSocket.userId });
         } catch (err) {
