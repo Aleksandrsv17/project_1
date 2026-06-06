@@ -6,6 +6,17 @@ import { query } from '../../db';
 import { logger } from '../../utils/logger';
 import { config } from '../../config';
 import { rideService, NearbyDriver, ActiveRideRecord } from '../ride/ride.service';
+import { getDirectionsWithWaypoints } from '../maps/maps.service';
+
+// €3/km base × car-type multiplier. Categories from Bersenev driver vehicles
+// (sclass/maybach/vclass); anything else (luxury/etc.) gets the base 1.0.
+const BASE_RATE_PER_KM = 3;
+function fareForCategory(category: string | undefined, distanceMeters: number): number {
+  const distanceKm = distanceMeters / 1000;
+  const cat = (category ?? '').toLowerCase();
+  const mult = cat === 'maybach' ? 1.8 : cat === 'vclass' ? 1.3 : 1.0;
+  return Math.round(distanceKm * BASE_RATE_PER_KM * mult);
+}
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
@@ -50,6 +61,10 @@ class TrackingGateway {
   private rideCustomerSockets = new Map<string, string>();
   /** rideId -> grace timer: cancels an active ride if the driver doesn't reconnect */
   private abandonTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  /** rideId -> monotonically-increasing seq of customer:update_route attempts.
+   *  When a second update arrives while the first's Directions call is still
+   *  in flight, the older one discards its result on return. Latest wins. */
+  private routeUpdateSeq = new Map<string, number>();
 
   private readonly ABANDON_GRACE_MS = 900_000;
 
@@ -959,6 +974,108 @@ class TrackingGateway {
           logger.info('Chauffeur trip finished by customer', { rideId: ride.rideId });
         } catch (err) {
           logger.error('Error in customer:finish_chauffeur', { error: err });
+        }
+      });
+
+      // ════════════════════════════════════════════════════════════════════
+      // ══  MID-RIDE route updates (customer changes stops / destination)  ══
+      // ════════════════════════════════════════════════════════════════════
+      // Customer atomically replaces intermediate stops + final destination while
+      // the trip is in_progress. NO accept/reject — the change is imposed
+      // Uber-style; the driver UI just follows the new polyline.
+      socket.on('customer:update_route', async (data: {
+        rideId: string;
+        stops?: Array<{ lat: number; lng: number; address: string }>;
+        destination: { lat: number; lng: number; address: string };
+      }) => {
+        const rejectToCustomer = (reason: string) => {
+          socket.emit('ride:route_update_rejected', { rideId: data?.rideId, reason });
+        };
+        try {
+          if (!data?.rideId || !data.destination ||
+              typeof data.destination.lat !== 'number' || typeof data.destination.lng !== 'number') {
+            rejectToCustomer('Invalid payload');
+            return;
+          }
+          const ride = rideService.getActiveRideById(data.rideId);
+          if (!ride || ride.customerId !== authSocket.userId) {
+            rejectToCustomer('Ride not found');
+            return;
+          }
+          if (ride.status !== 'in_progress') {
+            rejectToCustomer('Ride no longer in progress');
+            return;
+          }
+          // Origin MUST be driver's current GPS — using pickup would send the
+          // driver backward. driverLocation is kept fresh via driver:location.
+          const origin = ride.driverLocation;
+          if (!origin || typeof origin.lat !== 'number' || typeof origin.lng !== 'number') {
+            rejectToCustomer('Driver location unavailable');
+            return;
+          }
+          // Customer UI hides "Add stop" at 3 — reject anything beyond as
+          // defense in depth (catches version mismatches / non-Bersenev clients).
+          const stops = data.stops ?? [];
+          if (stops.length > 3) {
+            rejectToCustomer('Too many stops (max 3)');
+            return;
+          }
+          // Tag this attempt with a per-ride monotonic seq. If a second update
+          // arrives while we're awaiting Directions, ours becomes stale and we
+          // discard our result on return — the latest update wins, no queueing.
+          const mySeq = (this.routeUpdateSeq.get(ride.rideId) ?? 0) + 1;
+          this.routeUpdateSeq.set(ride.rideId, mySeq);
+
+          const directions = await getDirectionsWithWaypoints(
+            { latitude: origin.lat, longitude: origin.lng },
+            { latitude: data.destination.lat, longitude: data.destination.lng },
+            stops.map(s => ({ latitude: s.lat, longitude: s.lng })),
+          );
+          if (this.routeUpdateSeq.get(ride.rideId) !== mySeq) {
+            // A newer customer:update_route superseded ours during the await.
+            // Do nothing — the newer one's emit is the broadcast that lands.
+            return;
+          }
+          if (!directions) {
+            rejectToCustomer('Could not recompute route');
+            return;
+          }
+
+          const newFare = fareForCategory(ride.vehicleInfo?.category, directions.distanceMeters);
+
+          // Mutate in-memory ride
+          ride.dest = { lat: data.destination.lat, lng: data.destination.lng, address: data.destination.address };
+          ride.routeStops = stops.map(s => ({ lat: s.lat, lng: s.lng, address: s.address }));
+          ride.fare = newFare;
+          rideService.persistActiveRide(ride.rideId);
+
+          // Persist new fare so trip-complete records the actual amount.
+          await query(
+            'UPDATE bookings SET total_amount = $1, updated_at = NOW() WHERE id = $2',
+            [newFare, ride.rideId]
+          );
+
+          const payload = {
+            rideId: ride.rideId,
+            stops: ride.routeStops,
+            destination: ride.dest,
+            newFare,
+            newDistanceMeters: directions.distanceMeters,
+            newDurationSeconds: directions.durationSeconds,
+            newPolyline: directions.polyline,
+          };
+          if (ride.customerSocketId) this.io?.to(ride.customerSocketId).emit('ride:route_updated', payload);
+          if (ride.driverSocketId) this.io?.to(ride.driverSocketId).emit('ride:route_updated', payload);
+
+          logger.info('Mid-ride route updated', {
+            rideId: ride.rideId,
+            stopCount: ride.routeStops.length,
+            newFare,
+            distanceMeters: directions.distanceMeters,
+          });
+        } catch (err) {
+          logger.error('Error in customer:update_route', { error: err });
+          rejectToCustomer('Server error');
         }
       });
 

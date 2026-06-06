@@ -45,6 +45,16 @@ export class UserService {
       throw new ConflictError('An account with this email already exists');
     }
 
+    if (dto.phone) {
+      const existingPhone = await query<User>(
+        'SELECT id FROM users WHERE phone = $1 AND deleted_at IS NULL',
+        [dto.phone]
+      );
+      if (existingPhone.rowCount && existingPhone.rowCount > 0) {
+        throw new ConflictError('An account with this phone already exists');
+      }
+    }
+
     const passwordHash = await bcrypt.hash(dto.password, config.app.bcryptRounds);
 
     const result = await query<User>(

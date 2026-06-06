@@ -67,6 +67,54 @@ export async function getDirections(
   }
 }
 
+// Directions with intermediate waypoints — used for mid-ride route updates where
+// the customer adds/reorders stops between current driver position and final dest.
+// `optimizeWaypoints` is intentionally false: the customer's order is authoritative.
+export async function getDirectionsWithWaypoints(
+  origin: LatLng,
+  destination: LatLng,
+  waypoints: LatLng[] = [],
+  language?: string
+): Promise<DirectionsResult | null> {
+  let url = `${GOOGLE_MAPS_BASE}/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&key=${config.google.mapsApiKey}${langParam(language)}`;
+  if (waypoints.length > 0) {
+    const wp = waypoints.map(w => `${w.latitude},${w.longitude}`).join('|');
+    url += `&waypoints=${encodeURIComponent(wp)}`;
+  }
+
+  try {
+    const res = await fetch(url);
+    const data: any = await res.json();
+
+    if (data.status !== 'OK' || !data.routes?.length) {
+      logger.warn('Directions API (waypoints) returned no routes', { status: data.status, waypointCount: waypoints.length });
+      return null;
+    }
+
+    const route = data.routes[0];
+    const legs: any[] = route.legs ?? [];
+    const distanceMeters = legs.reduce((sum, l) => sum + (l.distance?.value ?? 0), 0);
+    const durationSeconds = legs.reduce((sum, l) => sum + (l.duration?.value ?? 0), 0);
+
+    return {
+      polyline: route.overview_polyline.points,
+      distanceMeters,
+      distanceText: `${(distanceMeters / 1000).toFixed(1)} km`,
+      durationSeconds,
+      durationText: `${Math.round(durationSeconds / 60)} min`,
+      steps: legs.flatMap(l => (l.steps ?? []).map((step: any) => ({
+        instruction: step.html_instructions ?? '',
+        distanceText: step.distance.text,
+        durationText: step.duration.text,
+        polyline: step.polyline.points,
+      }))),
+    };
+  } catch (err) {
+    logger.error('Directions API (waypoints) error', { error: err });
+    return null;
+  }
+}
+
 // ── Distance Matrix (ETA) ───────────────────────────────────────────────────────
 
 export interface DistanceMatrixResult {

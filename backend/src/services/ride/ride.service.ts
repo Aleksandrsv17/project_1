@@ -50,6 +50,10 @@ export interface ActiveRideRecord {
   dest: { lat: number; lng: number; address: string };
   fare: number;
   stops?: Array<{ address: string; lat: number; lng: number; status: 'en_route' | 'arrived' }>;
+  // Intermediate stops set wholesale by the customer mid-ride via
+  // customer:update_route. Separate from `stops` (chauffeur per-stop progress)
+  // because semantics differ — these are replaced atomically, no per-stop status.
+  routeStops?: Array<{ address: string; lat: number; lng: number }>;
 }
 
 class RideService {
