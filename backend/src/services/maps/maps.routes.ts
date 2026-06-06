@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import https from 'https';
+import { config } from '../../config';
 import {
   getDirections,
   getDistanceMatrix,
@@ -103,6 +105,55 @@ router.get('/places/:placeId', async (req: Request, res: Response) => {
   }
 
   return res.json(details);
+});
+
+// GET /v1/maps/static-thumb?pickupLat=..&pickupLng=..&destLat=..&destLng=..&width=156&height=156
+//
+// Proxies Google Static Maps API using the IP-restricted backend key so the
+// mobile apps don't have to hit Google directly (their iOS-bundle-restricted
+// key cannot authorize Static Maps requests). Returns a PNG.
+router.get('/static-thumb', async (req: Request, res: Response) => {
+  const pickupLat = parseFloat(String(req.query.pickupLat ?? ''));
+  const pickupLng = parseFloat(String(req.query.pickupLng ?? ''));
+  const destLat = parseFloat(String(req.query.destLat ?? ''));
+  const destLng = parseFloat(String(req.query.destLng ?? ''));
+  const width = Math.min(640, Math.max(50, parseInt(String(req.query.width ?? '156'), 10) || 156));
+  const height = Math.min(640, Math.max(50, parseInt(String(req.query.height ?? '156'), 10) || 156));
+  const scale = req.query.scale === '1' ? 1 : 2;
+
+  if (![pickupLat, pickupLng, destLat, destLng].every((v) => Number.isFinite(v))) {
+    return res.status(400).json({ error: 'pickupLat/pickupLng/destLat/destLng required' });
+  }
+
+  const key = config.google.mapsApiKey;
+  if (!key) {
+    return res.status(500).json({ error: 'Maps key not configured' });
+  }
+
+  const size = `${Math.round(width / scale)}x${Math.round(height / scale)}`;
+  const url =
+    `https://maps.googleapis.com/maps/api/staticmap` +
+    `?size=${size}` +
+    `&scale=${scale}` +
+    `&maptype=roadmap` +
+    `&style=${encodeURIComponent('feature:poi|visibility:off')}` +
+    `&markers=${encodeURIComponent(`color:0x10B981|size:small|${pickupLat},${pickupLng}`)}` +
+    `&markers=${encodeURIComponent(`color:0xEF4444|size:small|${destLat},${destLng}`)}` +
+    `&path=${encodeURIComponent(`color:0x141414|weight:3|${pickupLat},${pickupLng}|${destLat},${destLng}`)}` +
+    `&key=${key}`;
+
+  https
+    .get(url, (gres) => {
+      // 24h browser/cache friendly — the route between two fixed coords doesn't
+      // change. Saves Static Maps quota on repeat views.
+      res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+      res.setHeader('Content-Type', gres.headers['content-type'] ?? 'image/png');
+      res.status(gres.statusCode ?? 200);
+      gres.pipe(res);
+    })
+    .on('error', (e) => {
+      res.status(502).json({ error: 'Upstream static-maps fetch failed', detail: String(e?.message ?? e) });
+    });
 });
 
 export default router;
