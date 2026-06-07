@@ -978,6 +978,33 @@ class TrackingGateway {
       });
 
       // ════════════════════════════════════════════════════════════════════
+      // ══  MID-RIDE preference updates (customer changes temp/music/etc.)  ══
+      // ════════════════════════════════════════════════════════════════════
+      // Customer flipped temperature / music / conversation / notes during the
+      // trip. Relay the partial payload to the driver socket so their in-trip
+      // prefs row updates live — no accept/reject, Uber-style. Driver app
+      // listens on the same event name (`customer:update_preferences`) and
+      // merges the partial preferences into its activeRide.preferences.
+      socket.on('customer:update_preferences', (data: {
+        rideId: string;
+        preferences?: { temperature?: number; music?: string; conversation?: string; notes?: string };
+      }) => {
+        try {
+          if (!data?.rideId || !data.preferences) return;
+          const ride = rideService.getActiveRideById(data.rideId);
+          if (!ride || ride.customerId !== authSocket.userId) return;
+          if (ride.driverSocketId) {
+            this.io?.to(ride.driverSocketId).emit('customer:update_preferences', {
+              rideId: ride.rideId,
+              preferences: data.preferences,
+            });
+          }
+        } catch (err) {
+          logger.error('Error in customer:update_preferences', { error: err });
+        }
+      });
+
+      // ════════════════════════════════════════════════════════════════════
       // ══  MID-RIDE route updates (customer changes stops / destination)  ══
       // ════════════════════════════════════════════════════════════════════
       // Customer atomically replaces intermediate stops + final destination while
