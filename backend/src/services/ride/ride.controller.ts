@@ -70,7 +70,7 @@ class RideController {
       `SELECT b.id, b.status, b.created_at, b.total_amount, b.rating,
               b.pickup_address, b.pickup_lat, b.pickup_lng,
               b.dropoff_address, b.dropoff_lat, b.dropoff_lng,
-              b.chauffeur_user_id,
+              b.chauffeur_user_id, b.route_stops,
               u.first_name AS d_first, u.last_name AS d_last,
               u.rating AS d_rating, u.rating_count AS d_count,
               v.make AS v_make, v.model AS v_model, v.license_plate AS v_plate
@@ -97,6 +97,9 @@ class RideController {
       created_at: r.created_at,
       pickup: { lat: r.pickup_lat, lng: r.pickup_lng, address: r.pickup_address },
       dest: { lat: r.dropoff_lat, lng: r.dropoff_lng, address: r.dropoff_address },
+      // Intermediate stops set via customer:update_route during the trip,
+      // ordered, [] when the ride had no mid-route changes.
+      stops: Array.isArray(r.route_stops) ? r.route_stops : [],
       driver: r.chauffeur_user_id
         ? {
             userId: r.chauffeur_user_id,

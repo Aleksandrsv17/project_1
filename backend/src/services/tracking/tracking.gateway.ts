@@ -1076,10 +1076,13 @@ class TrackingGateway {
           ride.fare = newFare;
           rideService.persistActiveRide(ride.rideId);
 
-          // Persist new fare so trip-complete records the actual amount.
+          // Persist new fare AND the ordered stops to bookings so ride history
+          // can replay the full route post-completion. active_rides row gets
+          // deleted on endActiveRide, so bookings is the only durable home for
+          // multi-stop trip data.
           await query(
-            'UPDATE bookings SET total_amount = $1, updated_at = NOW() WHERE id = $2',
-            [newFare, ride.rideId]
+            'UPDATE bookings SET total_amount = $1, route_stops = $2, updated_at = NOW() WHERE id = $3',
+            [newFare, JSON.stringify(ride.routeStops ?? []), ride.rideId]
           );
 
           const payload = {
