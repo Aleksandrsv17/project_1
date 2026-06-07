@@ -125,6 +125,18 @@ router.get('/static-thumb', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'pickupLat/pickupLng/destLat/destLng required' });
   }
 
+  // Brand-colour overrides (e.g. customer-side ride history uses white/black to
+  // match the Bersenev palette). Accepts hex without leading `0x` too — strip
+  // it and re-prefix so Google's API is happy. Only digits A-F/a-f/0-9 allowed;
+  // anything else falls back to the default.
+  const sanitizeHex = (raw: unknown, fallback: string): string => {
+    if (typeof raw !== 'string' || !raw) return fallback;
+    const trimmed = raw.replace(/^0x/i, '').replace(/^#/, '');
+    return /^[0-9A-Fa-f]{6}$/.test(trimmed) ? `0x${trimmed.toUpperCase()}` : fallback;
+  };
+  const pickupColor = sanitizeHex(req.query.pickupColor, '0x10B981');
+  const destColor   = sanitizeHex(req.query.destColor,   '0xEF4444');
+
   const key = config.google.mapsApiKey;
   if (!key) {
     return res.status(500).json({ error: 'Maps key not configured' });
@@ -137,8 +149,8 @@ router.get('/static-thumb', async (req: Request, res: Response) => {
     `&scale=${scale}` +
     `&maptype=roadmap` +
     `&style=${encodeURIComponent('feature:poi|visibility:off')}` +
-    `&markers=${encodeURIComponent(`color:0x10B981|size:small|${pickupLat},${pickupLng}`)}` +
-    `&markers=${encodeURIComponent(`color:0xEF4444|size:small|${destLat},${destLng}`)}` +
+    `&markers=${encodeURIComponent(`color:${pickupColor}|size:small|${pickupLat},${pickupLng}`)}` +
+    `&markers=${encodeURIComponent(`color:${destColor}|size:small|${destLat},${destLng}`)}` +
     `&path=${encodeURIComponent(`color:0x141414|weight:3|${pickupLat},${pickupLng}|${destLat},${destLng}`)}` +
     `&key=${key}`;
 
