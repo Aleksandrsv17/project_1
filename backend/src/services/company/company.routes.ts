@@ -28,4 +28,16 @@ router.get('/:id/drivers/:driverId/rides',     companyController.driverRides.bin
 router.patch('/:id/drivers/:driverId/split',   companyController.setSplit.bind(companyController));
 router.delete('/:id/drivers/:driverId',        companyController.removeDriver.bind(companyController));
 
+// Invites — admin list/revoke + user's pending UID-invite inbox
+router.get('/:id/invites',                     companyController.listInvites.bind(companyController));
+router.delete('/:id/invites/:inviteId',        companyController.revokeInvite.bind(companyController));
+router.get('/invites/mine',                    companyController.myPending.bind(companyController));
+
+// Platform admin: review company KYC
+router.patch('/:id/kyc',                       companyController.reviewKyc.bind(companyController));
+
+// Company KYC documents
+router.post('/:id/documents',                  companyController.addDocument.bind(companyController));
+router.get('/:id/documents',                   companyController.listDocuments.bind(companyController));
+
 export default router;

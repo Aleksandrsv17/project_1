@@ -7,6 +7,8 @@ import {
   listFleetVehicles, addFleetVehicle, assignVehicleToDriver, unassignVehicle,
   getDriverDetail, listDriverRides, setDriverSplitOverride, removeDriverFromFleet,
   assertIsCompanyMember,
+  listInvitesForCompany, revokeInvite as svcRevokeInvite, listMyPendingInvites, reviewCompanyKyc,
+  addCompanyDocument, listCompanyDocuments,
 } from './company.service';
 
 import { query as q } from '../../db';
@@ -154,6 +156,49 @@ class CompanyController {
     try {
       await removeDriverFromFleet(uid(req), req.params.id, req.params.driverId);
       res.json({ success: true });
+    } catch (e) { next(e); }
+  }
+
+  // ── Invites: list + revoke + my pending ──────────────────────────────────
+  async listInvites(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const invites = await listInvitesForCompany(uid(req), req.params.id);
+      res.json({ success: true, data: { invites } });
+    } catch (e) { next(e); }
+  }
+  async revokeInvite(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await svcRevokeInvite(uid(req), req.params.id, req.params.inviteId);
+      res.json({ success: true });
+    } catch (e) { next(e); }
+  }
+  async myPending(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const invites = await listMyPendingInvites(uid(req));
+      res.json({ success: true, data: { invites } });
+    } catch (e) { next(e); }
+  }
+
+  // ── Bersenev platform admin: KYC review ──────────────────────────────────
+  async reviewKyc(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { status, reason } = req.body ?? {};
+      await reviewCompanyKyc(uid(req), req.params.id, status, reason);
+      res.json({ success: true });
+    } catch (e) { next(e); }
+  }
+
+  // ── Company KYC documents ────────────────────────────────────────────────
+  async addDocument(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const out = await addCompanyDocument(uid(req), req.params.id, req.body ?? {});
+      res.status(201).json({ success: true, data: out });
+    } catch (e) { next(e); }
+  }
+  async listDocuments(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const documents = await listCompanyDocuments(uid(req), req.params.id);
+      res.json({ success: true, data: { documents } });
     } catch (e) { next(e); }
   }
 }

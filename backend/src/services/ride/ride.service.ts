@@ -43,6 +43,9 @@ export interface ActiveRideRecord {
   driverName: string;
   driverRating: number | null;
   driverTrips: number;
+  // Optional avatar so customers see the driver's photo on ride:matched +
+  // any resume re-emit. Set from users.avatar_url at accept time.
+  driverAvatar?: string | null;
   vehicleId: string;
   vehicleInfo: DriverVehicleInfo;
   driverLocation: DriverLocation;

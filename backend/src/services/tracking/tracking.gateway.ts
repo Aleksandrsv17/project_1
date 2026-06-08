@@ -432,8 +432,8 @@ class TrackingGateway {
             : 'Customer';
 
           // Get driver's real name + rating aggregate
-          const driverUserResult = await query<{ first_name: string; last_name: string; rating: string | null; rating_count: number | null }>(
-            'SELECT first_name, last_name, rating, rating_count FROM users WHERE id = $1',
+          const driverUserResult = await query<{ first_name: string; last_name: string; rating: string | null; rating_count: number | null; avatar_url: string | null }>(
+            'SELECT first_name, last_name, rating, rating_count, avatar_url FROM users WHERE id = $1',
             [authSocket.userId]
           );
           const driverRow = driverUserResult.rows[0];
@@ -442,6 +442,7 @@ class TrackingGateway {
             : authSocket.email;
           const driverRating = driverRow?.rating != null ? Number(driverRow.rating) : null;
           const driverTrips = driverRow?.rating_count ?? 0;
+          const driverAvatar = driverRow?.avatar_url ?? null;
 
           // Store customer socket for this booking
           this.rideCustomerSockets.set(bookingId, pending.socketId);
@@ -461,6 +462,7 @@ class TrackingGateway {
             driverName,
             driverRating,
             driverTrips,
+            driverAvatar,
             vehicleId: driver.vehicleId,
             vehicleInfo: driver.vehicleInfo,
             driverLocation: driver.location,
@@ -483,6 +485,7 @@ class TrackingGateway {
               name: driverName,
               rating: driverRating,
               trips: driverTrips,
+              avatarUrl: driverAvatar,
               vehicleInfo: driver.vehicleInfo,
               location: driver.location,
             },
@@ -664,6 +667,7 @@ class TrackingGateway {
             name: ride.driverName,
             rating: ride.driverRating,
             trips: ride.driverTrips,
+            avatarUrl: (ride as any).driverAvatar ?? null,
             vehicleInfo: ride.vehicleInfo,
             location: ride.driverLocation,
           },

@@ -433,6 +433,103 @@ export async function setDriverSplitOverride(
   );
 }
 
+/** ── Invite list / revoke / my pending ──────────────────────────────────── */
+
+export async function listInvitesForCompany(adminUserId: string, companyId: string): Promise<InviteRecord[]> {
+  await assertIsCompanyAdmin(adminUserId, companyId);
+  const res = await query<InviteRecord>(
+    `SELECT * FROM company_invites
+       WHERE company_id = $1 AND used_at IS NULL AND expires_at > NOW()
+       ORDER BY created_at DESC`,
+    [companyId]
+  );
+  return res.rows;
+}
+
+export async function revokeInvite(adminUserId: string, companyId: string, inviteId: string): Promise<void> {
+  await assertIsCompanyAdmin(adminUserId, companyId);
+  // We mark the invite as used by the admin so the row stays auditable AND
+  // can never be redeemed afterwards (the atomic UPDATE in redeem checks
+  // used_at IS NULL).
+  const del = await query(
+    `UPDATE company_invites SET used_at = NOW(), used_by = $1
+      WHERE id = $2 AND company_id = $3 AND used_at IS NULL`,
+    [adminUserId, inviteId, companyId]
+  );
+  if (!del.rowCount) throw new NotFoundError('Invite');
+}
+
+/** Pending UID invites addressed to the current user (in-app inbox). */
+export async function listMyPendingInvites(userId: string): Promise<Array<InviteRecord & { company_legal_name: string }>> {
+  const res = await query<InviteRecord & { company_legal_name: string }>(
+    `SELECT i.*, c.legal_name AS company_legal_name
+       FROM company_invites i
+       JOIN companies c ON c.id = i.company_id
+      WHERE i.target_user_id = $1
+        AND i.used_at IS NULL
+        AND i.expires_at > NOW()
+      ORDER BY i.created_at DESC`,
+    [userId]
+  );
+  return res.rows;
+}
+
+/** ── Bersenev platform admin: approve / reject company KYC ──────────────── */
+
+export async function reviewCompanyKyc(
+  adminUserId: string, companyId: string, status: 'approved' | 'rejected', reason?: string
+): Promise<void> {
+  // Platform admin gate: must have role='admin' on the users table.
+  const u = await query<{ role: string }>('SELECT role FROM users WHERE id = $1', [adminUserId]);
+  if (u.rows[0]?.role !== 'admin') {
+    throw new AppError('Only Bersenev platform admins can review company KYC', 403);
+  }
+  if (status !== 'approved' && status !== 'rejected') {
+    throw new ValidationError("status must be 'approved' or 'rejected'");
+  }
+  await query(
+    `UPDATE companies
+        SET kyc_status = $1,
+            kyc_reviewed_at = NOW(),
+            kyc_reviewed_by = $2,
+            kyc_rejection_reason = $3,
+            updated_at = NOW()
+      WHERE id = $4`,
+    [status, adminUserId, status === 'rejected' ? (reason ?? null) : null, companyId]
+  );
+}
+
+/** ── Company KYC documents ──────────────────────────────────────────────── */
+
+export async function addCompanyDocument(
+  adminUserId: string, companyId: string,
+  payload: { doc_type: string; file_url: string }
+): Promise<{ id: string }> {
+  await assertIsCompanyAdmin(adminUserId, companyId);
+  if (!payload.doc_type || !payload.file_url) {
+    throw new ValidationError('doc_type and file_url are required');
+  }
+  const valid = ['business_license','operating_permit','insurance','owner_id','other'];
+  if (!valid.includes(payload.doc_type)) {
+    throw new ValidationError(`doc_type must be one of ${valid.join(',')}`);
+  }
+  const ins = await query<{ id: string }>(
+    `INSERT INTO company_documents (company_id, doc_type, file_url, uploaded_by)
+     VALUES ($1,$2,$3,$4) RETURNING id`,
+    [companyId, payload.doc_type, payload.file_url, adminUserId]
+  );
+  return { id: ins.rows[0].id };
+}
+
+export async function listCompanyDocuments(adminUserId: string, companyId: string): Promise<unknown[]> {
+  await assertIsCompanyMember(adminUserId, companyId);
+  const res = await query<unknown>(
+    `SELECT * FROM company_documents WHERE company_id = $1 ORDER BY uploaded_at DESC`,
+    [companyId]
+  );
+  return res.rows;
+}
+
 export async function removeDriverFromFleet(
   adminUserId: string, companyId: string, driverId: string
 ): Promise<void> {
