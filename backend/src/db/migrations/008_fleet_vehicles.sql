@@ -52,3 +52,12 @@ CREATE INDEX IF NOT EXISTS idx_bookings_company_id ON bookings(company_id);
 -- ledger rows already-written use the old user-company mapping. Going forward,
 -- writeRideLedger reads from bookings.company_id, so each future row is
 -- correctly attributed even when a driver later switches.)
+
+-- ── Grants ─────────────────────────────────────────────────────────────────
+-- Migrations run as postgres but the app connects as vip_user. Without these
+-- the app gets 'permission denied for table companies' (PG 42501). Includes
+-- the 007 tables too since they had the same gap.
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
+  companies, company_invites, company_documents,
+  fleet_vehicles, vehicle_assignments, ride_ledger
+TO vip_user;
