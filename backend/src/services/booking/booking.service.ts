@@ -393,7 +393,7 @@ export class BookingService {
       dataValues
     );
 
-    const bookings: BookingWithDetails[] = result.rows.map(row => ({
+    const bookings: BookingWithDetails[] = result.rows.map((row: any) => ({
       ...row,
       vehicle: { make: row.v_make, model: row.v_model, year: row.v_year, license_plate: row.v_license_plate, color: row.v_color, category: row.v_category },
       customer: { first_name: row.u_first_name, last_name: row.u_last_name, email: row.u_email, phone: row.u_phone },

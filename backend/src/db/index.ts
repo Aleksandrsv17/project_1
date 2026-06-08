@@ -18,7 +18,7 @@ const poolConfig = config.db.url
 
 export const pool = new Pool(poolConfig);
 
-pool.on('error', (err) => {
+pool.on('error', (err: Error) => {
   logger.error('Unexpected error on idle database client', { error: err.message });
 });
 

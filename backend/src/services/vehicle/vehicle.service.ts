@@ -377,7 +377,7 @@ export class VehicleService {
     if (vehicles.length === 0) return [];
 
     const ids = vehicles.map((v) => v.id);
-    const mediaResult = await query(
+    const mediaResult = await query<any>(
       'SELECT * FROM vehicle_media WHERE vehicle_id = ANY($1::uuid[]) ORDER BY is_primary DESC, created_at ASC',
       [ids]
     );

@@ -242,7 +242,7 @@ export async function redeemInviteByCode(userId: string, code: string): Promise<
 /** ── Fleet vehicles + assignments ───────────────────────────────────────── */
 
 export async function listFleetVehicles(companyId: string): Promise<unknown[]> {
-  const res = await query<unknown>(
+  const res = await query<any>(
     `SELECT v.*, a.driver_id AS assigned_driver_id,
             CASE WHEN a.driver_id IS NULL THEN NULL
                  ELSE concat_ws(' ', u.first_name, u.last_name) END AS assigned_driver_name,
@@ -354,7 +354,7 @@ export async function getDriverDetail(companyId: string, driverId: string): Prom
   );
   if (!u.rows[0]) throw new NotFoundError('Driver');
 
-  const assignedV = await query<unknown>(
+  const assignedV = await query<any>(
     `SELECT v.* FROM fleet_vehicles v
      JOIN vehicle_assignments a ON a.vehicle_id = v.id
      WHERE a.driver_id = $1 AND v.company_id = $2`,
@@ -388,7 +388,7 @@ export async function getDriverDetail(companyId: string, driverId: string): Prom
 export async function listDriverRides(
   companyId: string, driverId: string, limit = 50
 ): Promise<unknown[]> {
-  const res = await query<unknown>(
+  const res = await query<any>(
     `SELECT b.id AS booking_id, b.created_at, b.actual_end_time, b.status,
             b.pickup_address, b.pickup_lat, b.pickup_lng,
             b.dropoff_address, b.dropoff_lat, b.dropoff_lng,
@@ -523,7 +523,7 @@ export async function addCompanyDocument(
 
 export async function listCompanyDocuments(adminUserId: string, companyId: string): Promise<unknown[]> {
   await assertIsCompanyMember(adminUserId, companyId);
-  const res = await query<unknown>(
+  const res = await query<any>(
     `SELECT * FROM company_documents WHERE company_id = $1 ORDER BY uploaded_at DESC`,
     [companyId]
   );
@@ -585,7 +585,7 @@ export async function assertIsCompanyMember(userId: string, companyId: string): 
 /** ── Dashboard reads ─────────────────────────────────────────────────────── */
 
 export async function listDrivers(companyId: string): Promise<unknown[]> {
-  const res = await query<unknown>(
+  const res = await query<any>(
     `SELECT u.id, u.driver_uid, u.first_name, u.last_name, u.email,
             u.kyc_status, u.company_membership_status, u.driver_split_override,
             (SELECT COALESCE(SUM(driver_cut),0) FROM ride_ledger
