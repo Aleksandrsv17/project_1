@@ -7,7 +7,7 @@ import { logger } from '../../utils/logger';
 import { config } from '../../config';
 import { rideService, NearbyDriver, ActiveRideRecord } from '../ride/ride.service';
 import { getDirectionsWithWaypoints } from '../maps/maps.service';
-import { writeRideLedger } from '../company/company.service';
+import { writeRideLedger, resolveCompanyForBooking } from '../company/company.service';
 
 // €3/km base × car-type multiplier. Categories from Bersenev driver vehicles
 // (sclass/maybach/vclass); anything else (luxury/etc.) gets the base 1.0.
@@ -381,6 +381,15 @@ class TrackingGateway {
           const vehicleIdForDb = isUuidVid ? driver.vehicleId : null;
           const fareAmount = (pending as any).estimatedPrice ?? 0;
 
+          // Capture company at ride-creation time. Only fleet_vehicles UUIDs
+          // resolve to a company; Bersenev-local vehicles (non-UUID) and
+          // personal cars return NULL (solo). This snapshot survives even
+          // if the driver later leaves/joins a different fleet — ledger
+          // attribution stays correct.
+          const bookingCompanyId = isUuidVid
+            ? await resolveCompanyForBooking(driver.userId, vehicleIdForDb)
+            : null;
+
           // chauffeur_user_id links the booking to the driver (users.id) so it
           // shows in the driver's history/earnings even when vehicle_id is null
           // (Bersenev local vehicles). total_amount holds the fare for earnings.
@@ -390,9 +399,9 @@ class TrackingGateway {
                start_time, end_time, pickup_address, pickup_lat, pickup_lng,
                dropoff_address, dropoff_lat, dropoff_lng,
                base_amount, chauffeur_fee, insurance_fee, mileage_overage,
-               platform_commission, total_amount, deposit_amount)
+               platform_commission, total_amount, deposit_amount, company_id)
              VALUES ($1,$2,$3,'instant_ride','chauffeur','confirmed',$4,$5,$6,$7,$8,$9,$10,$11,
-                     $12,0,0,0,0,$12,0)
+                     $12,0,0,0,0,$12,0,$13)
              RETURNING id`,
             [
               pending.customerId,
@@ -407,6 +416,7 @@ class TrackingGateway {
               pending.dest.lat,
               pending.dest.lng,
               fareAmount,
+              bookingCompanyId,
             ]
           );
 

@@ -222,6 +222,207 @@ export async function redeemInviteByCode(userId: string, code: string): Promise<
   return { companyId: invite.company_id };
 }
 
+/** ── Fleet vehicles + assignments ───────────────────────────────────────── */
+
+export async function listFleetVehicles(companyId: string): Promise<unknown[]> {
+  const res = await query<unknown>(
+    `SELECT v.*, a.driver_id AS assigned_driver_id,
+            CASE WHEN a.driver_id IS NULL THEN NULL
+                 ELSE concat_ws(' ', u.first_name, u.last_name) END AS assigned_driver_name,
+            u.driver_uid AS assigned_driver_uid
+     FROM fleet_vehicles v
+     LEFT JOIN vehicle_assignments a ON a.vehicle_id = v.id
+     LEFT JOIN users u ON u.id = a.driver_id
+     WHERE v.company_id = $1 AND v.is_active = true
+     ORDER BY v.created_at DESC`,
+    [companyId]
+  );
+  return res.rows;
+}
+
+export async function addFleetVehicle(
+  adminUserId: string, companyId: string,
+  payload: { category: string; make: string; model: string; year?: number;
+             license_plate: string; color?: string; assign_to_driver_id?: string }
+): Promise<{ id: string }> {
+  await assertIsCompanyAdmin(adminUserId, companyId);
+  if (!payload.category || !payload.make || !payload.model || !payload.license_plate) {
+    throw new ValidationError('category, make, model, license_plate are required');
+  }
+  const inserted = await query<{ id: string }>(
+    `INSERT INTO fleet_vehicles
+       (company_id, category, make, model, year, license_plate, color, created_by)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+     RETURNING id`,
+    [
+      companyId, payload.category, payload.make, payload.model, payload.year ?? null,
+      payload.license_plate.trim().toUpperCase(), payload.color ?? null, adminUserId,
+    ]
+  );
+  const vehicleId = inserted.rows[0].id;
+  if (payload.assign_to_driver_id) {
+    await assignVehicleToDriver(adminUserId, companyId, vehicleId, payload.assign_to_driver_id);
+  }
+  return { id: vehicleId };
+}
+
+export async function assignVehicleToDriver(
+  adminUserId: string, companyId: string, vehicleId: string, driverId: string
+): Promise<void> {
+  await assertIsCompanyAdmin(adminUserId, companyId);
+  // Both vehicle and driver must belong to this company.
+  const v = await query<{ company_id: string }>(
+    'SELECT company_id FROM fleet_vehicles WHERE id = $1', [vehicleId]
+  );
+  if (!v.rows[0] || v.rows[0].company_id !== companyId) throw new NotFoundError('Vehicle');
+  const d = await query<{ company_id: string | null }>(
+    'SELECT company_id FROM users WHERE id = $1', [driverId]
+  );
+  if (!d.rows[0] || d.rows[0].company_id !== companyId) throw new AppError('Driver not in this fleet', 422);
+  // Sticky: overwrite any prior assignment for this vehicle.
+  await query(
+    `INSERT INTO vehicle_assignments (vehicle_id, driver_id, assigned_by)
+     VALUES ($1,$2,$3)
+     ON CONFLICT (vehicle_id) DO UPDATE
+       SET driver_id = EXCLUDED.driver_id,
+           assigned_by = EXCLUDED.assigned_by,
+           assigned_at = NOW()`,
+    [vehicleId, driverId, adminUserId]
+  );
+}
+
+export async function unassignVehicle(
+  adminUserId: string, companyId: string, vehicleId: string
+): Promise<void> {
+  await assertIsCompanyAdmin(adminUserId, companyId);
+  const v = await query<{ company_id: string }>(
+    'SELECT company_id FROM fleet_vehicles WHERE id = $1', [vehicleId]
+  );
+  if (!v.rows[0] || v.rows[0].company_id !== companyId) throw new NotFoundError('Vehicle');
+  await query('DELETE FROM vehicle_assignments WHERE vehicle_id = $1', [vehicleId]);
+}
+
+/** Find the company that "owns" a driver right now via vehicle assignment OR
+ *  membership. Used to capture bookings.company_id at ride creation: if the
+ *  driver is online with a fleet-assigned vehicle, that vehicle's company is
+ *  attributed; otherwise NULL (solo). Vehicle takes priority — a fleet driver
+ *  using their personal car is solo for that ride. */
+export async function resolveCompanyForBooking(
+  driverId: string, vehicleId: string | null
+): Promise<string | null> {
+  if (!vehicleId) return null;
+  // Is this vehicleId a fleet_vehicle? If so, return its company_id.
+  const fv = await query<{ company_id: string }>(
+    'SELECT company_id FROM fleet_vehicles WHERE id = $1 AND is_active = true',
+    [vehicleId]
+  );
+  if (fv.rows[0]) return fv.rows[0].company_id;
+  // Not a fleet vehicle → driver is in solo mode regardless of their fleet
+  // membership. NULL company on the ledger.
+  void driverId;
+  return null;
+}
+
+/** ── Driver detail (admin viewing) ──────────────────────────────────────── */
+
+export async function getDriverDetail(companyId: string, driverId: string): Promise<unknown> {
+  const u = await query<any>(
+    `SELECT u.id, u.driver_uid, u.first_name, u.last_name, u.email, u.phone,
+            u.kyc_status, u.company_membership_status, u.driver_split_override,
+            u.rating, u.rating_count, u.created_at
+     FROM users u
+     WHERE u.id = $1 AND u.company_id = $2`,
+    [driverId, companyId]
+  );
+  if (!u.rows[0]) throw new NotFoundError('Driver');
+
+  const assignedV = await query<unknown>(
+    `SELECT v.* FROM fleet_vehicles v
+     JOIN vehicle_assignments a ON a.vehicle_id = v.id
+     WHERE a.driver_id = $1 AND v.company_id = $2`,
+    [driverId, companyId]
+  );
+
+  const totals = await query<{ count: string; gross: string; driver: string; company: string; platform: string }>(
+    `SELECT COUNT(*) AS count,
+            COALESCE(SUM(gross_fare),0)  AS gross,
+            COALESCE(SUM(driver_cut),0)  AS driver,
+            COALESCE(SUM(company_cut),0) AS company,
+            COALESCE(SUM(platform_cut),0) AS platform
+     FROM ride_ledger WHERE driver_id = $1 AND company_id = $2`,
+    [driverId, companyId]
+  );
+  const t = totals.rows[0];
+
+  return {
+    profile: u.rows[0],
+    assigned_vehicles: assignedV.rows,
+    totals: {
+      rides: parseInt(t.count, 10) || 0,
+      gross: Number(t.gross),
+      driver_paid: Number(t.driver),
+      company_cut: Number(t.company),
+      platform_cut: Number(t.platform),
+    },
+  };
+}
+
+export async function listDriverRides(
+  companyId: string, driverId: string, limit = 50
+): Promise<unknown[]> {
+  const res = await query<unknown>(
+    `SELECT b.id AS booking_id, b.created_at, b.actual_end_time, b.status,
+            b.pickup_address, b.pickup_lat, b.pickup_lng,
+            b.dropoff_address, b.dropoff_lat, b.dropoff_lng,
+            b.rating, b.customer_rating,
+            l.gross_fare, l.platform_cut, l.company_cut, l.driver_cut,
+            l.driver_share, l.company_share
+     FROM bookings b
+     LEFT JOIN ride_ledger l ON l.booking_id = b.id
+     WHERE b.chauffeur_user_id = $1 AND b.company_id = $2
+     ORDER BY b.created_at DESC
+     LIMIT $3`,
+    [driverId, companyId, limit]
+  );
+  return res.rows;
+}
+
+export async function setDriverSplitOverride(
+  adminUserId: string, companyId: string, driverId: string,
+  override: { driver_share: number; company_share: number } | null
+): Promise<void> {
+  await assertIsCompanyAdmin(adminUserId, companyId);
+  if (override) {
+    const sum = override.driver_share + override.company_share;
+    if (Math.abs(sum - 1) > 0.0001) {
+      throw new ValidationError('driver_share + company_share must sum to 1.0');
+    }
+  }
+  await query(
+    `UPDATE users SET driver_split_override = $1, updated_at = NOW()
+     WHERE id = $2 AND company_id = $3`,
+    [override ? JSON.stringify(override) : null, driverId, companyId]
+  );
+}
+
+export async function removeDriverFromFleet(
+  adminUserId: string, companyId: string, driverId: string
+): Promise<void> {
+  await assertIsCompanyAdmin(adminUserId, companyId);
+  // Detach driver from any assignments + flip their membership status.
+  // Historical rides keep their original company attribution (booking.company_id
+  // already set; ledger rows immutable).
+  await query('DELETE FROM vehicle_assignments WHERE driver_id = $1', [driverId]);
+  await query(
+    `UPDATE users SET company_id = NULL,
+                      company_membership_status = 'removed',
+                      driver_split_override = NULL,
+                      updated_at = NOW()
+     WHERE id = $1 AND company_id = $2`,
+    [driverId, companyId]
+  );
+}
+
 async function attachUserToCompany(userId: string, companyId: string): Promise<void> {
   // membership_status defaults to 'pending' until WE approve the driver's KYC.
   await query(
@@ -303,19 +504,27 @@ export async function writeRideLedger(input: LedgerInput): Promise<void> {
     const existing = await query<{ id: string }>('SELECT id FROM ride_ledger WHERE booking_id = $1', [input.bookingId]);
     if (existing.rowCount && existing.rowCount > 0) return;
 
-    // Load driver + (optional) company split shares.
+    // Resolve company FROM THE BOOKING (not the driver) — the booking captured
+    // company_id at ride-creation time based on the chosen vehicle. So a fleet
+    // driver who chose their personal car for this ride gets bookings.company_id
+    // = NULL (solo mode), and the ledger correctly omits the company cut.
+    const bRes = await query<{ company_id: string | null }>(
+      'SELECT company_id FROM bookings WHERE id = $1', [input.bookingId]
+    );
+    const bookingCompanyId = bRes.rows[0]?.company_id ?? null;
+
+    // Load driver override + (optional) company default shares.
     const dRes = await query<{
-      company_id: string | null;
       driver_split_override: { driver_share?: number; company_share?: number } | null;
       default_driver_share: string | null;
       default_company_share: string | null;
     }>(
-      `SELECT u.company_id, u.driver_split_override,
+      `SELECT u.driver_split_override,
               c.default_driver_share, c.default_company_share
        FROM users u
-       LEFT JOIN companies c ON c.id = u.company_id
+       LEFT JOIN companies c ON c.id = $2
        WHERE u.id = $1`,
-      [input.driverId]
+      [input.driverId, bookingCompanyId]
     );
     const d = dRes.rows[0];
     if (!d) { logger.warn('Ledger skip — driver not found', { driverId: input.driverId }); return; }
@@ -327,7 +536,7 @@ export async function writeRideLedger(input: LedgerInput): Promise<void> {
 
     let driverShare: number;
     let companyShare: number;
-    if (d.company_id) {
+    if (bookingCompanyId) {
       const override = d.driver_split_override;
       if (override?.driver_share != null && override?.company_share != null) {
         driverShare = Number(override.driver_share);
@@ -350,8 +559,8 @@ export async function writeRideLedger(input: LedgerInput): Promise<void> {
         ? paymentProvider.collectFare({ bookingId: input.bookingId, customerId: input.customerId, amount: grossFare, currency })
         : Promise.resolve({ ok: true, providerRef: null }),
       paymentProvider.payoutDriver({ driverId: input.driverId, bookingId: input.bookingId, amount: driverCut, currency }),
-      d.company_id
-        ? paymentProvider.payoutCompany({ companyId: d.company_id, bookingId: input.bookingId, amount: companyCut, currency })
+      bookingCompanyId
+        ? paymentProvider.payoutCompany({ companyId: bookingCompanyId, bookingId: input.bookingId, amount: companyCut, currency })
         : Promise.resolve({ ok: true, providerRef: null }),
     ]);
 
@@ -363,7 +572,7 @@ export async function writeRideLedger(input: LedgerInput): Promise<void> {
           collect_ref, driver_payout_ref, company_payout_ref)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
-        input.bookingId, input.driverId, d.company_id, currency,
+        input.bookingId, input.driverId, bookingCompanyId, currency,
         grossFare, platformRate, platformCut, netPool,
         driverShare, companyShare, driverCut, companyCut,
         collect.providerRef, payDriver.providerRef, payCompany.providerRef,

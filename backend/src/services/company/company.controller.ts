@@ -1,8 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthenticatedRequest } from '../../middleware/auth';
+import { query } from '../../db';
 import {
   registerCompany, getCompanyForUser, createInvite,
   acceptUidInvite, redeemInviteByCode, listDrivers, companyEarnings,
+  listFleetVehicles, addFleetVehicle, assignVehicleToDriver, unassignVehicle,
+  getDriverDetail, listDriverRides, setDriverSplitOverride, removeDriverFromFleet,
 } from './company.service';
 
 function uid(req: Request): string { return (req as AuthenticatedRequest).user.sub; }
@@ -17,8 +20,15 @@ class CompanyController {
 
   async me(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const company = await getCompanyForUser(uid(req));
-      res.json({ success: true, data: { company } });
+      const userId = uid(req);
+      const company = await getCompanyForUser(userId);
+      // Surface whether this user is the company admin so the client can show
+      // / hide the Fleet tab + invite-creation UI without an extra round trip.
+      const flagRes = await query<{ is_company_admin: boolean }>(
+        'SELECT is_company_admin FROM users WHERE id = $1', [userId]
+      );
+      const is_admin = !!flagRes.rows[0]?.is_company_admin;
+      res.json({ success: true, data: { company, is_admin } });
     } catch (e) { next(e); }
   }
 
@@ -62,6 +72,64 @@ class CompanyController {
       const to = req.query.to ? String(req.query.to) : undefined;
       const summary = await companyEarnings(req.params.id, from, to);
       res.json({ success: true, data: summary });
+    } catch (e) { next(e); }
+  }
+
+  // ── Vehicles ──────────────────────────────────────────────────────────────
+  async listVehicles(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const vehicles = await listFleetVehicles(req.params.id);
+      res.json({ success: true, data: { vehicles } });
+    } catch (e) { next(e); }
+  }
+  async createVehicle(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const out = await addFleetVehicle(uid(req), req.params.id, req.body ?? {});
+      res.status(201).json({ success: true, data: out });
+    } catch (e) { next(e); }
+  }
+  async assignVehicle(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { driver_id } = req.body ?? {};
+      if (!driver_id) { res.status(422).json({ success: false, error: { message: 'driver_id required' } }); return; }
+      await assignVehicleToDriver(uid(req), req.params.id, req.params.vid, driver_id);
+      res.json({ success: true });
+    } catch (e) { next(e); }
+  }
+  async unassignVehicle(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await unassignVehicle(uid(req), req.params.id, req.params.vid);
+      res.json({ success: true });
+    } catch (e) { next(e); }
+  }
+
+  // ── Driver detail / history / split / remove ─────────────────────────────
+  async driverDetail(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const detail = await getDriverDetail(req.params.id, req.params.driverId);
+      res.json({ success: true, data: detail });
+    } catch (e) { next(e); }
+  }
+  async driverRides(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const rides = await listDriverRides(req.params.id, req.params.driverId);
+      res.json({ success: true, data: { rides } });
+    } catch (e) { next(e); }
+  }
+  async setSplit(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { driver_share, company_share } = req.body ?? {};
+      const override = (driver_share != null && company_share != null)
+        ? { driver_share: Number(driver_share), company_share: Number(company_share) }
+        : null;
+      await setDriverSplitOverride(uid(req), req.params.id, req.params.driverId, override);
+      res.json({ success: true });
+    } catch (e) { next(e); }
+  }
+  async removeDriver(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      await removeDriverFromFleet(uid(req), req.params.id, req.params.driverId);
+      res.json({ success: true });
     } catch (e) { next(e); }
   }
 }
