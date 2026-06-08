@@ -249,26 +249,35 @@ export class BookingService {
       v_make: string; v_model: string; v_year: number; v_license_plate: string;
       v_color: string | null; v_category: string;
       u_first_name: string; u_last_name: string; u_email: string; u_phone: string | null;
+      d_avatar_url: string | null;
     }>(
+      // du = "driver user" — LEFT join so unmatched bookings still return.
+      // d_avatar_url is null when the driver never uploaded a photo.
       `SELECT b.*,
         v.make AS v_make, v.model AS v_model, v.year AS v_year,
         v.license_plate AS v_license_plate, v.color AS v_color, v.category AS v_category,
         u.first_name AS u_first_name, u.last_name AS u_last_name,
-        u.email AS u_email, u.phone AS u_phone
+        u.email AS u_email, u.phone AS u_phone,
+        du.avatar_url AS d_avatar_url
        FROM bookings b
        LEFT JOIN vehicles v ON v.id = b.vehicle_id
        LEFT JOIN users u ON u.id = b.customer_id
+       LEFT JOIN users du ON du.id = b.chauffeur_user_id
        ${whereClause}
        ORDER BY b.created_at DESC
        LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
       dataValues
     );
 
-    const bookings: BookingWithDetails[] = result.rows.map(row => ({
+    const bookings: BookingWithDetails[] = result.rows.map((row: any) => ({
       ...row,
       vehicle: { make: row.v_make, model: row.v_model, year: row.v_year, license_plate: row.v_license_plate, color: row.v_color, category: row.v_category },
       customer: { first_name: row.u_first_name, last_name: row.u_last_name, email: row.u_email, phone: row.u_phone },
-    }));
+      // Customer accepts either casing — forward both so existing parsers
+      // (avatarUrl OR avatar_url) hit on the booking row.
+      avatarUrl: row.d_avatar_url ?? null,
+      avatar_url: row.d_avatar_url ?? null,
+    } as unknown as BookingWithDetails));
 
     return { bookings, total };
   }

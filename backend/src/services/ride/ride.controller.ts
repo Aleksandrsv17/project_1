@@ -76,7 +76,7 @@ class RideController {
               b.dropoff_address, b.dropoff_lat, b.dropoff_lng,
               b.chauffeur_user_id, b.route_stops,
               u.first_name AS d_first, u.last_name AS d_last,
-              u.rating AS d_rating, u.rating_count AS d_count,
+              u.rating AS d_rating, u.rating_count AS d_count, u.avatar_url AS d_avatar,
               v.make AS v_make, v.model AS v_model, v.license_plate AS v_plate
        FROM bookings b
        LEFT JOIN users u ON u.id = b.chauffeur_user_id
@@ -108,6 +108,8 @@ class RideController {
         ? {
             userId: r.chauffeur_user_id,
             name: `${r.d_first ?? ''} ${r.d_last ?? ''}`.trim() || 'Driver',
+            // null when the driver never uploaded a photo.
+            avatarUrl: r.d_avatar ?? null,
             vehicleMake: r.v_make ?? '',
             vehicleModel: r.v_model ?? '',
             vehiclePlate: r.v_plate ?? '',
