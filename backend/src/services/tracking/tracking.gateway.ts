@@ -7,6 +7,7 @@ import { logger } from '../../utils/logger';
 import { config } from '../../config';
 import { rideService, NearbyDriver, ActiveRideRecord } from '../ride/ride.service';
 import { getDirectionsWithWaypoints } from '../maps/maps.service';
+import { writeRideLedger } from '../company/company.service';
 
 // €3/km base × car-type multiplier. Categories from Bersenev driver vehicles
 // (sclass/maybach/vclass); anything else (luxury/etc.) gets the base 1.0.
@@ -588,6 +589,24 @@ class TrackingGateway {
             "UPDATE bookings SET status = 'completed', actual_end_time = NOW(), updated_at = NOW() WHERE id = $1",
             [data.bookingId]
           );
+
+          // Immutable ledger row + run the (currently mock) payment-provider
+          // hooks. Failure inside writeRideLedger is logged + swallowed so it
+          // can never block trip completion.
+          const fareRow = await query<{ total_amount: string | null; chauffeur_user_id: string | null; customer_id: string | null }>(
+            'SELECT total_amount, chauffeur_user_id, customer_id FROM bookings WHERE id = $1',
+            [data.bookingId]
+          );
+          const f = fareRow.rows[0];
+          if (f?.chauffeur_user_id) {
+            await writeRideLedger({
+              bookingId: data.bookingId,
+              driverId: f.chauffeur_user_id,
+              grossFare: Number(f.total_amount ?? 0),
+              customerId: f.customer_id ?? undefined,
+            });
+          }
+
           // Ride is terminal — clear the persisted active ride.
           rideService.endActiveRide(data.bookingId);
 
@@ -963,6 +982,16 @@ class TrackingGateway {
             "UPDATE bookings SET status = 'completed', actual_end_time = NOW(), updated_at = NOW() WHERE id = $1",
             [ride.rideId]
           );
+
+          // Same ledger write as driver:complete_trip — keep both completion
+          // paths writing one immutable row per booking.
+          await writeRideLedger({
+            bookingId: ride.rideId,
+            driverId: ride.driverId,
+            grossFare: Number(ride.fare ?? 0),
+            customerId: ride.customerId,
+          });
+
           if (ride.driverSocketId) {
             this.io?.to(ride.driverSocketId).emit('chauffeur:finish_requested', { rideId: ride.rideId });
             this.io?.to(ride.driverSocketId).emit('ride:trip_completed', { bookingId: ride.rideId, rideId: ride.rideId });

@@ -29,6 +29,9 @@ export interface CreateUserDto {
   role?: UserRole;
   first_name: string;
   last_name: string;
+  // Optional company invite code (single-use). When valid, the registered
+  // driver is auto-linked to the company. When blank, register as solo.
+  company_code?: string;
 }
 
 export interface UpdateUserDto {

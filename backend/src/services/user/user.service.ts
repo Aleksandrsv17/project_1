@@ -89,6 +89,22 @@ export class UserService {
       }
     }
 
+    // Optional company invite code — when present and valid, attach the new
+    // user to the company. Reuses the same redeemInviteByCode service path
+    // used after registration, so all "join a fleet" auth checks live in one
+    // place (single-use, expiring, single-fleet).
+    if (dto.company_code?.trim() && (dto.role ?? 'customer') === 'chauffeur') {
+      try {
+        const { redeemInviteByCode } = await import('../company/company.service');
+        await redeemInviteByCode(user.id, dto.company_code.trim());
+      } catch (err: any) {
+        // Don't block the registration on a bad code — the driver is created
+        // as solo and can redeem a valid code later. Log so the client can
+        // surface the message if desired.
+        logger.warn('Register company_code redeem failed', { userId: user.id, message: err?.message });
+      }
+    }
+
     const tokens = await this.generateAndStoreTokens(user.id, user.email, user.role);
 
     logger.info('User registered', { userId: user.id, email: user.email, driverUid });

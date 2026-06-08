@@ -14,6 +14,7 @@ import chauffeurRoutes from './services/chauffeur/chauffeur.routes';
 import rideRoutes from './services/ride/ride.routes';
 import mapsRoutes from './services/maps/maps.routes';
 import uploadRoutes, { UPLOAD_DIR } from './services/upload/upload.service';
+import companyRoutes from './services/company/company.routes';
 import path from 'path';
 
 export function createApp(): Application {
@@ -69,6 +70,7 @@ export function createApp(): Application {
   app.use('/v1/rides', rideRoutes);
   app.use('/v1/maps', mapsRoutes);
   app.use('/v1/uploads', uploadRoutes);
+  app.use('/v1/companies', companyRoutes);
 
   // Serve uploaded images as static files
   app.use('/uploads', express.static(UPLOAD_DIR));
