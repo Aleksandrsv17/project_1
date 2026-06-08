@@ -168,34 +168,43 @@ export async function createInvite(
   return inserted.rows[0];
 }
 
-/** Driver taps Accept on a UID invite. */
+/** Driver taps Accept on a UID invite. Atomic claim — same race-safety as
+ *  redeemInviteByCode. */
 export async function acceptUidInvite(userId: string, inviteId: string): Promise<{ companyId: string }> {
-  // Reject if the user is already in a fleet (matches the code-redeem path).
   const u = await query<{ company_id: string | null }>(
     'SELECT company_id FROM users WHERE id = $1', [userId]
   );
   if (u.rows[0]?.company_id) {
     throw new ConflictError("You're already part of a fleet.");
   }
-
-  const inv = await query<InviteRecord>(
-    `SELECT * FROM company_invites WHERE id = $1`, [inviteId]
+  const claim = await query<{ company_id: string }>(
+    `UPDATE company_invites
+        SET used_at = NOW(), used_by = $1
+      WHERE id = $2
+        AND used_at IS NULL
+        AND expires_at > NOW()
+        AND target_user_id = $1
+      RETURNING company_id`,
+    [userId, inviteId]
   );
-  const invite = inv.rows[0];
-  if (!invite) throw new NotFoundError('Invite');
-  if (invite.used_at) throw new ConflictError('Invite already used');
-  if (new Date(invite.expires_at) < new Date()) throw new ConflictError('Invite expired');
-  if (invite.target_user_id !== userId) throw new AppError('This invite is not addressed to you', 403);
-
-  await attachUserToCompany(userId, invite.company_id);
-  await query(
-    'UPDATE company_invites SET used_at = NOW(), used_by = $1 WHERE id = $2',
-    [userId, invite.id]
-  );
-  return { companyId: invite.company_id };
+  const claimed = claim.rows[0];
+  if (!claimed) {
+    const probe = await query<InviteRecord>('SELECT * FROM company_invites WHERE id = $1', [inviteId]);
+    const inv = probe.rows[0];
+    if (!inv) throw new NotFoundError('Invite');
+    if (inv.used_at) throw new ConflictError('Invite already used');
+    if (new Date(inv.expires_at) < new Date()) throw new ConflictError('Invite expired');
+    throw new AppError('This invite is not addressed to you', 403);
+  }
+  await attachUserToCompany(userId, claimed.company_id);
+  return { companyId: claimed.company_id };
 }
 
-/** Redeem an invite code (during register, or after for existing solo drivers). */
+/** Redeem an invite code (during register, or after for existing solo drivers).
+ *  Race-safe: the WHERE clause is the entire validation (un-used, un-expired,
+ *  targets-us-or-anyone), so two concurrent redemptions of the same code
+ *  produce at most one success — the second one's UPDATE finds 0 rows and
+ *  fails cleanly. */
 export async function redeemInviteByCode(userId: string, code: string): Promise<{ companyId: string }> {
   const u = await query<{ company_id: string | null }>(
     'SELECT company_id FROM users WHERE id = $1', [userId]
@@ -203,23 +212,31 @@ export async function redeemInviteByCode(userId: string, code: string): Promise<
   if (u.rows[0]?.company_id) {
     throw new ConflictError("You're already part of a fleet.");
   }
-  const inv = await query<InviteRecord>(
-    `SELECT * FROM company_invites WHERE code = $1`, [code.trim().toUpperCase()]
+  // Atomic claim: validates expiration, single-use, and target binding in
+  // the same SQL statement that marks the invite as used.
+  const claim = await query<{ id: string; company_id: string }>(
+    `UPDATE company_invites
+        SET used_at = NOW(), used_by = $1
+      WHERE code = $2
+        AND used_at IS NULL
+        AND expires_at > NOW()
+        AND (target_user_id IS NULL OR target_user_id = $1)
+      RETURNING id, company_id`,
+    [userId, code.trim().toUpperCase()]
   );
-  const invite = inv.rows[0];
-  if (!invite) throw new NotFoundError('Invite code');
-  if (invite.used_at) throw new ConflictError('Invite code already used');
-  if (new Date(invite.expires_at) < new Date()) throw new ConflictError('Invite code expired');
-  if (invite.target_user_id && invite.target_user_id !== userId) {
+  const claimed = claim.rows[0];
+  if (!claimed) {
+    // Differentiate the failure: if a row exists but didn't claim, the
+    // problem is used/expired/wrong-target; otherwise the code is unknown.
+    const probe = await query<InviteRecord>('SELECT * FROM company_invites WHERE code = $1', [code.trim().toUpperCase()]);
+    const inv = probe.rows[0];
+    if (!inv) throw new NotFoundError('Invite code');
+    if (inv.used_at) throw new ConflictError('Invite code already used');
+    if (new Date(inv.expires_at) < new Date()) throw new ConflictError('Invite code expired');
     throw new AppError('This invite is not addressed to you', 403);
   }
-
-  await attachUserToCompany(userId, invite.company_id);
-  await query(
-    'UPDATE company_invites SET used_at = NOW(), used_by = $1 WHERE id = $2',
-    [userId, invite.id]
-  );
-  return { companyId: invite.company_id };
+  await attachUserToCompany(userId, claimed.company_id);
+  return { companyId: claimed.company_id };
 }
 
 /** ── Fleet vehicles + assignments ───────────────────────────────────────── */
@@ -302,24 +319,25 @@ export async function unassignVehicle(
   await query('DELETE FROM vehicle_assignments WHERE vehicle_id = $1', [vehicleId]);
 }
 
-/** Find the company that "owns" a driver right now via vehicle assignment OR
- *  membership. Used to capture bookings.company_id at ride creation: if the
- *  driver is online with a fleet-assigned vehicle, that vehicle's company is
- *  attributed; otherwise NULL (solo). Vehicle takes priority — a fleet driver
- *  using their personal car is solo for that ride. */
+/** Find the company that "owns" a ride. JOINs vehicle_assignments to confirm
+ *  the driver is actually assigned to the vehicle — otherwise a fleet vehicle
+ *  driven by someone outside the fleet (admin misconfig, stale state, even
+ *  attacker spoofing vehicleId in driver:online) would have its company
+ *  charged for a ride it never authorized. Returns NULL = solo. */
 export async function resolveCompanyForBooking(
   driverId: string, vehicleId: string | null
 ): Promise<string | null> {
   if (!vehicleId) return null;
-  // Is this vehicleId a fleet_vehicle? If so, return its company_id.
   const fv = await query<{ company_id: string }>(
-    'SELECT company_id FROM fleet_vehicles WHERE id = $1 AND is_active = true',
-    [vehicleId]
+    `SELECT v.company_id
+       FROM fleet_vehicles v
+       JOIN vehicle_assignments a ON a.vehicle_id = v.id
+      WHERE v.id = $1 AND v.is_active = true AND a.driver_id = $2`,
+    [vehicleId, driverId]
   );
   if (fv.rows[0]) return fv.rows[0].company_id;
-  // Not a fleet vehicle → driver is in solo mode regardless of their fleet
-  // membership. NULL company on the ledger.
-  void driverId;
+  // Either not a fleet vehicle at all (solo) OR the driver isn't assigned
+  // to it (we treat as solo for safety — the company isn't charged).
   return null;
 }
 
@@ -393,7 +411,17 @@ export async function setDriverSplitOverride(
 ): Promise<void> {
   await assertIsCompanyAdmin(adminUserId, companyId);
   if (override) {
-    const sum = override.driver_share + override.company_share;
+    // Defence: NaN, Infinity, negatives, or > 1 individually all fail. A
+    // negative cut would let a driver be paid MORE than gross fare, or
+    // produce a negative company cut. We also re-validate the sum within
+    // the same epsilon the schema CHECK uses on companies.default_*_share.
+    const { driver_share, company_share } = override;
+    if (!Number.isFinite(driver_share) || !Number.isFinite(company_share)
+        || driver_share < 0 || driver_share > 1
+        || company_share < 0 || company_share > 1) {
+      throw new ValidationError('driver_share and company_share must be finite numbers in [0, 1]');
+    }
+    const sum = driver_share + company_share;
     if (Math.abs(sum - 1) > 0.0001) {
       throw new ValidationError('driver_share + company_share must sum to 1.0');
     }
@@ -441,6 +469,19 @@ async function assertIsCompanyAdmin(userId: string, companyId: string): Promise<
   const u = res.rows[0];
   if (!u || !u.is_company_admin || u.company_id !== companyId) {
     throw new AppError('Forbidden — not the admin of this company', 403);
+  }
+}
+
+/** Gate on simple fleet membership (admin OR driver). Used by read endpoints
+ *  that expose roster-level data — drivers can see fellow drivers in their
+ *  fleet but not financials. Mutations + financials still use the stricter
+ *  admin gate above. */
+export async function assertIsCompanyMember(userId: string, companyId: string): Promise<void> {
+  const res = await query<{ company_id: string | null }>(
+    'SELECT company_id FROM users WHERE id = $1', [userId]
+  );
+  if (!res.rows[0] || res.rows[0].company_id !== companyId) {
+    throw new AppError('Forbidden — not a member of this company', 403);
   }
 }
 

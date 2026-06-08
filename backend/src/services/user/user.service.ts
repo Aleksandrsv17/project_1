@@ -89,18 +89,18 @@ export class UserService {
       }
     }
 
-    // Optional company invite code — when present and valid, attach the new
-    // user to the company. Reuses the same redeemInviteByCode service path
-    // used after registration, so all "join a fleet" auth checks live in one
-    // place (single-use, expiring, single-fleet).
+    // Optional company invite code. Outcome is captured on `companyLinkResult`
+    // and surfaced to the caller so the client can show a non-blocking Alert
+    // ("Couldn't link you to that fleet: <reason>. You're registered as a
+    // solo driver."). Registration itself never fails for a bad code.
+    let companyLinkResult: { ok: boolean; reason?: string } | null = null;
     if (dto.company_code?.trim() && (dto.role ?? 'customer') === 'chauffeur') {
       try {
         const { redeemInviteByCode } = await import('../company/company.service');
         await redeemInviteByCode(user.id, dto.company_code.trim());
+        companyLinkResult = { ok: true };
       } catch (err: any) {
-        // Don't block the registration on a bad code — the driver is created
-        // as solo and can redeem a valid code later. Log so the client can
-        // surface the message if desired.
+        companyLinkResult = { ok: false, reason: err?.message ?? 'Invite code could not be redeemed' };
         logger.warn('Register company_code redeem failed', { userId: user.id, message: err?.message });
       }
     }
@@ -108,6 +108,11 @@ export class UserService {
     const tokens = await this.generateAndStoreTokens(user.id, user.email, user.role);
 
     logger.info('User registered', { userId: user.id, email: user.email, driverUid });
+    // Attach the link result to the returned user so the caller can pick it
+    // up (the user.controller spreads `user` into the JSON response).
+    if (companyLinkResult) {
+      (user as any).company_link = companyLinkResult;
+    }
 
     return { user: toPublicUser(user), tokens };
   }

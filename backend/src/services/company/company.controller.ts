@@ -6,7 +6,25 @@ import {
   acceptUidInvite, redeemInviteByCode, listDrivers, companyEarnings,
   listFleetVehicles, addFleetVehicle, assignVehicleToDriver, unassignVehicle,
   getDriverDetail, listDriverRides, setDriverSplitOverride, removeDriverFromFleet,
+  assertIsCompanyMember,
 } from './company.service';
+
+import { query as q } from '../../db';
+
+/** Tiny admin gate at the controller layer — used by handlers that don't
+ *  otherwise call a service method whose mutation path already asserts admin
+ *  (e.g. earnings / per-driver rides which are admin-only reads). */
+async function assertAdmin(userId: string, companyId: string): Promise<void> {
+  const res = await q<{ is_company_admin: boolean; company_id: string | null }>(
+    'SELECT is_company_admin, company_id FROM users WHERE id = $1', [userId]
+  );
+  const u = res.rows[0];
+  if (!u || !u.is_company_admin || u.company_id !== companyId) {
+    const e = new Error('Forbidden — not the admin of this company') as Error & { statusCode: number };
+    e.statusCode = 403;
+    throw e;
+  }
+}
 
 function uid(req: Request): string { return (req as AuthenticatedRequest).user.sub; }
 
@@ -59,8 +77,8 @@ class CompanyController {
 
   async drivers(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      // Light auth: must be a member of the company. Stricter admin gate is
-      // baked into mutation endpoints (assertIsCompanyAdmin).
+      // Member gate: drivers can see fellow drivers in their fleet.
+      await assertIsCompanyMember(uid(req), req.params.id);
       const drivers = await listDrivers(req.params.id);
       res.json({ success: true, data: { drivers } });
     } catch (e) { next(e); }
@@ -68,6 +86,8 @@ class CompanyController {
 
   async earnings(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      // Admin-only: only the company admin sees company-wide financials.
+      await assertAdmin(uid(req), req.params.id);
       const from = req.query.from ? String(req.query.from) : undefined;
       const to = req.query.to ? String(req.query.to) : undefined;
       const summary = await companyEarnings(req.params.id, from, to);
@@ -78,6 +98,7 @@ class CompanyController {
   // ── Vehicles ──────────────────────────────────────────────────────────────
   async listVehicles(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      await assertIsCompanyMember(uid(req), req.params.id);
       const vehicles = await listFleetVehicles(req.params.id);
       res.json({ success: true, data: { vehicles } });
     } catch (e) { next(e); }
@@ -106,12 +127,15 @@ class CompanyController {
   // ── Driver detail / history / split / remove ─────────────────────────────
   async driverDetail(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      await assertIsCompanyMember(uid(req), req.params.id);
       const detail = await getDriverDetail(req.params.id, req.params.driverId);
       res.json({ success: true, data: detail });
     } catch (e) { next(e); }
   }
   async driverRides(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      // Per-ride financials are admin-only.
+      await assertAdmin(uid(req), req.params.id);
       const rides = await listDriverRides(req.params.id, req.params.driverId);
       res.json({ success: true, data: { rides } });
     } catch (e) { next(e); }
