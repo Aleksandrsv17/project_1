@@ -31,6 +31,10 @@ class RideController {
             name: ride.driverName,
             rating: ride.driverRating,
             trips: ride.driverTrips,
+            // Surface the avatar on cold-start as well, so a customer who
+            // opens the app fresh during an active ride still sees the photo
+            // immediately (no waiting for the next socket emit).
+            avatarUrl: ride.driverAvatar ?? null,
             vehicleMake: ride.vehicleInfo.make,
             vehicleModel: ride.vehicleInfo.model,
             vehiclePlate: ride.vehicleInfo.plate,
