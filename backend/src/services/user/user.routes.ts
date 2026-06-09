@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { userController } from './user.controller';
 import { authenticate, requireRole } from '../../middleware/auth';
-import { authRateLimiter } from '../../middleware/rateLimiter';
+import { authRateLimiter, refreshRateLimiter } from '../../middleware/rateLimiter';
 
 const router = Router();
 
@@ -9,7 +9,7 @@ const router = Router();
 router.post('/register', authRateLimiter, userController.register.bind(userController));
 router.post('/login', authRateLimiter, userController.login.bind(userController));
 router.post('/oauth/taler', authRateLimiter, userController.talerOAuth.bind(userController));
-router.post('/refresh', authRateLimiter, userController.refresh.bind(userController));
+router.post('/refresh', refreshRateLimiter, userController.refresh.bind(userController));
 
 router.post('/forgot-password', authRateLimiter, userController.forgotPassword.bind(userController));
 
