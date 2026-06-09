@@ -5,7 +5,7 @@ import { verifyAccessToken } from '../../utils/jwt';
 import { query } from '../../db';
 import { logger } from '../../utils/logger';
 import { config } from '../../config';
-import { rideService, NearbyDriver, ActiveRideRecord } from '../ride/ride.service';
+import { rideService, NearbyDriver, ActiveRideRecord, OnlineDriver } from '../ride/ride.service';
 import { getDirectionsWithWaypoints } from '../maps/maps.service';
 import { writeRideLedger, resolveCompanyForBooking } from '../company/company.service';
 
@@ -47,6 +47,19 @@ interface PendingRide {
   pickup: { lat: number; lng: number; text: string };
   dest: { lat: number; lng: number; text: string };
   category?: string;
+  // The set of drivers (userId) we've broadcast this request to. Used to
+  // emit driver:request_removed when the ride is claimed / cancelled.
+  notifiedDrivers: Set<string>;
+  // First driver who tapped Accept wins. All subsequent claims see
+  // { ok:false, reason:'taken' }. Single-threaded Node makes this safe.
+  claimedBy: string | null;
+  // Total seconds the customer has waited on Option C; included in the
+  // next ride:class_unavailable so the app can phrase "Still no <class>".
+  waitedSec: number;
+  // Timer that re-evaluates Option C after the keep-waiting window.
+  classOfferTimer: ReturnType<typeof setTimeout> | null;
+  // Legacy push-model — no longer used for matching but kept on the type
+  // so older code paths compile. Always [] / 0 in the new flow.
   driverQueue: NearbyDriver[];
   currentDriverIndex: number;
   timeoutHandle: ReturnType<typeof setTimeout> | null;
@@ -309,12 +322,131 @@ class TrackingGateway {
           );
           if (driver) {
             socket.emit('driver:online:ack', { success: true, driver });
+            // Push the initial marketplace snapshot — every pending ride
+            // currently matching this driver's class. The driver app uses
+            // this to seed the Requests list on the home screen.
+            this.sendRequestsSnapshotToDriver(authSocket.userId, driver.vehicleInfo?.category);
           } else {
             socket.emit('driver:online:ack', { success: false, message: 'Invalid vehicle' });
           }
         } catch (err) {
           logger.error('Error in driver:online', { error: err });
           socket.emit('error', { message: 'Failed to go online' });
+        }
+      });
+
+      // Marketplace claim — first-come-first-served lock on a pending ride.
+      // Single-threaded Node makes the check-and-set safe without a real lock.
+      socket.on('driver:claim_ride', async (data: { rideRequestId: string }, ack?: (r: unknown) => void) => {
+        try {
+          const pending = this.pendingRides.get(data.rideRequestId);
+          if (!pending) {
+            const r = { ok: false, reason: 'expired' as const, rideRequestId: data.rideRequestId };
+            socket.emit('driver:claim_response', r);
+            ack?.(r);
+            return;
+          }
+          if (pending.claimedBy) {
+            const r = { ok: false, reason: 'taken' as const, rideRequestId: data.rideRequestId };
+            socket.emit('driver:claim_response', r);
+            ack?.(r);
+            return;
+          }
+          const driver = rideService.getDriver(authSocket.userId);
+          if (!driver) {
+            const r = { ok: false, reason: 'not_online' as const, rideRequestId: data.rideRequestId };
+            socket.emit('driver:claim_response', r);
+            ack?.(r);
+            return;
+          }
+          // Class enforcement at claim time — protects against a driver who
+          // somehow got a stale request for the wrong class (e.g. accepted
+          // alternative path moved the ride to another class).
+          if (pending.category && driver.vehicleInfo.category !== pending.category) {
+            const r = { ok: false, reason: 'wrong_class' as const, rideRequestId: data.rideRequestId };
+            socket.emit('driver:claim_response', r);
+            ack?.(r);
+            return;
+          }
+          pending.claimedBy = authSocket.userId;
+          if (pending.classOfferTimer) { clearTimeout(pending.classOfferTimer); pending.classOfferTimer = null; }
+          // Notify every other notified driver that this order is gone
+          // BEFORE we run the (longer) DB insert — they should see the card
+          // disappear immediately so they don't try to tap it too.
+          this.notifyDriversOfRemoval(pending, authSocket.userId);
+          await this.acceptPendingRideForDriver(pending, driver, authSocket, socket, data.rideRequestId);
+          const r = { ok: true as const, rideRequestId: data.rideRequestId };
+          ack?.(r);
+        } catch (err) {
+          logger.error('Error in driver:claim_ride', { error: err });
+          const r = { ok: false, reason: 'error' as const, rideRequestId: data.rideRequestId };
+          socket.emit('driver:claim_response', r);
+          ack?.(r);
+        }
+      });
+
+      // Option C — rider accepts the suggested alternative class. Switch the
+      // pending ride to that category, reprice, and re-broadcast to drivers
+      // of the new class (and remove from the old class's notifications).
+      socket.on('customer:accept_alternative', async (data: { category: string }) => {
+        try {
+          const newCategory = (data?.category ?? '').trim();
+          if (!newCategory) { socket.emit('error', { message: 'Missing alternative category' }); return; }
+          // Resolve the user's pending ride by userId — the client doesn't
+          // send the rideRequestId.
+          let pending: PendingRide | null = null;
+          for (const p of this.pendingRides.values()) {
+            if (p.customerId === authSocket.userId && !p.claimedBy) { pending = p; break; }
+          }
+          if (!pending) { socket.emit('error', { message: 'No pending ride for this user' }); return; }
+          if (pending.classOfferTimer) { clearTimeout(pending.classOfferTimer); pending.classOfferTimer = null; }
+          // Stale-class drivers (those notified under the OLD category): tell
+          // them to remove the card.
+          this.notifyDriversOfRemoval(pending);
+          pending.notifiedDrivers.clear();
+          // Persist the new category + reprice for the matched ride. fare /
+          // historical-record consistency with what the rider was shown.
+          pending.category = newCategory;
+          const distanceMeters = Math.sqrt(
+            (pending.pickup.lat - pending.dest.lat) ** 2 + (pending.pickup.lng - pending.dest.lng) ** 2,
+          ) * 111 * 1000;
+          const newFare = fareForCategory(newCategory, distanceMeters);
+          (pending as any).estimatedPrice = newFare;
+          // Re-broadcast to the new class's pool. If still empty, kick Option
+          // C again (rare — but possible if pool drained mid-decision).
+          const newClassPool = rideService.findNearbyDrivers(
+            pending.pickup.lat, pending.pickup.lng, 10000, newCategory,
+          );
+          if (newClassPool.length > 0) {
+            this.broadcastRequestToDrivers(pending, newClassPool);
+            this.startClassOfferTimer(pending.rideRequestId);
+          } else {
+            this.offerAlternativeOrNoDrivers(pending.rideRequestId);
+          }
+          logger.info('Customer accepted alternative class', {
+            rideRequestId: pending.rideRequestId,
+            newCategory,
+            poolSize: newClassPool.length,
+          });
+        } catch (err) {
+          logger.error('Error in customer:accept_alternative', { error: err });
+        }
+      });
+
+      // Option C — rider keeps waiting for the originally requested class.
+      // The class-offer timer already drives the re-evaluation; this handler
+      // just ensures the timer is armed (a no-op if it already is).
+      socket.on('customer:keep_waiting', async () => {
+        try {
+          let pending: PendingRide | null = null;
+          for (const p of this.pendingRides.values()) {
+            if (p.customerId === authSocket.userId && !p.claimedBy) { pending = p; break; }
+          }
+          if (!pending) return;
+          if (!pending.classOfferTimer) this.startClassOfferTimer(pending.rideRequestId);
+          logger.info('Customer keep-waiting', { rideRequestId: pending.rideRequestId, waitedSec: pending.waitedSec });
+        } catch (err) {
+          logger.error('Error in customer:keep_waiting', { error: err });
         }
       });
 
@@ -365,161 +497,24 @@ class TrackingGateway {
             socket.emit('error', { message: 'Ride request not found or expired' });
             return;
           }
-
-          // Clear the timeout
-          if (pending.timeoutHandle) {
-            clearTimeout(pending.timeoutHandle);
-            pending.timeoutHandle = null;
+          if (pending.claimedBy && pending.claimedBy !== authSocket.userId) {
+            socket.emit('error', { message: 'Ride already claimed' });
+            return;
           }
+          pending.claimedBy = authSocket.userId;
+          if (pending.classOfferTimer) { clearTimeout(pending.classOfferTimer); pending.classOfferTimer = null; }
+          if (pending.timeoutHandle) { clearTimeout(pending.timeoutHandle); pending.timeoutHandle = null; }
 
           const driver = rideService.getDriver(authSocket.userId);
           if (!driver) {
             socket.emit('error', { message: 'Driver not found in online pool' });
             return;
           }
-
-          // Create booking in DB
-          const now = new Date();
-          const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // estimate 2h
-
-          // Check if vehicleId is a valid UUID, otherwise use null (Bersenev driver local vehicle)
-          const isUuidVid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(driver.vehicleId);
-          const vehicleIdForDb = isUuidVid ? driver.vehicleId : null;
-          const fareAmount = (pending as any).estimatedPrice ?? 0;
-
-          // Capture company at ride-creation time. Only fleet_vehicles UUIDs
-          // resolve to a company; Bersenev-local vehicles (non-UUID) and
-          // personal cars return NULL (solo). This snapshot survives even
-          // if the driver later leaves/joins a different fleet — ledger
-          // attribution stays correct.
-          const bookingCompanyId = isUuidVid
-            ? await resolveCompanyForBooking(driver.userId, vehicleIdForDb)
-            : null;
-
-          // chauffeur_user_id links the booking to the driver (users.id) so it
-          // shows in the driver's history/earnings even when vehicle_id is null
-          // (Bersenev local vehicles). total_amount holds the fare for earnings.
-          const bookingResult = await query<{ id: string }>(
-            `INSERT INTO bookings
-              (customer_id, vehicle_id, chauffeur_user_id, type, mode, status,
-               start_time, end_time, pickup_address, pickup_lat, pickup_lng,
-               dropoff_address, dropoff_lat, dropoff_lng,
-               base_amount, chauffeur_fee, insurance_fee, mileage_overage,
-               platform_commission, total_amount, deposit_amount, company_id)
-             VALUES ($1,$2,$3,'instant_ride','chauffeur','confirmed',$4,$5,$6,$7,$8,$9,$10,$11,
-                     $12,0,0,0,0,$12,0,$13)
-             RETURNING id`,
-            [
-              pending.customerId,
-              vehicleIdForDb,
-              driver.userId,
-              now,
-              endTime,
-              pending.pickup.text,
-              pending.pickup.lat,
-              pending.pickup.lng,
-              pending.dest.text,
-              pending.dest.lat,
-              pending.dest.lng,
-              fareAmount,
-              bookingCompanyId,
-            ]
-          );
-
-          const bookingId = bookingResult.rows[0].id;
-
-          // Get customer name
-          const customerResult = await query<{ first_name: string; last_name: string }>(
-            'SELECT first_name, last_name FROM users WHERE id = $1',
-            [pending.customerId]
-          );
-          const customerName = customerResult.rows[0]
-            ? `${customerResult.rows[0].first_name} ${customerResult.rows[0].last_name}`
-            : 'Customer';
-
-          // Get driver's real name + rating aggregate
-          const driverUserResult = await query<{ first_name: string; last_name: string; rating: string | null; rating_count: number | null; avatar_url: string | null }>(
-            'SELECT first_name, last_name, rating, rating_count, avatar_url FROM users WHERE id = $1',
-            [authSocket.userId]
-          );
-          const driverRow = driverUserResult.rows[0];
-          const driverName = driverRow
-            ? `${driverRow.first_name} ${driverRow.last_name}`
-            : authSocket.email;
-          const driverRating = driverRow?.rating != null ? Number(driverRow.rating) : null;
-          const driverTrips = driverRow?.rating_count ?? 0;
-          const driverAvatar = driverRow?.avatar_url ?? null;
-
-          // Store customer socket for this booking
-          this.rideCustomerSockets.set(bookingId, pending.socketId);
-          this.rideCustomerSockets.set(data.rideRequestId, pending.socketId);
-
-          const fare = fareAmount;
-
-          // Persist the active ride so it survives reconnects / app restarts.
-          // rideId === bookingId. Cleared only on explicit complete or cancel.
-          rideService.startActiveRide({
-            rideId: bookingId,
-            status: 'matched',
-            customerId: pending.customerId,
-            driverId: driver.userId,
-            customerSocketId: pending.socketId,
-            driverSocketId: socket.id,
-            driverName,
-            driverRating,
-            driverTrips,
-            driverAvatar,
-            vehicleId: driver.vehicleId,
-            vehicleInfo: driver.vehicleInfo,
-            driverLocation: driver.location,
-            pickup: { lat: pending.pickup.lat, lng: pending.pickup.lng, address: pending.pickup.text },
-            dest: { lat: pending.dest.lat, lng: pending.dest.lng, address: pending.dest.text },
-            fare,
-          });
-
-          // Notify customer: ride matched. Emit to the user room (not the
-          // captured socket.id), so a reconnected customer still receives
-          // it even though their socket.id changed during the search window.
-          this.io?.to(`user:${pending.customerId}`).emit('ride:matched', {
-            rideRequestId: data.rideRequestId,
-            bookingId,
-            rideId: bookingId,
-            driverId: driver.userId,
-            status: 'matched',
-            tripType: (pending as any).tripType || 'ride',
-            fare,
-            driver: {
-              userId: driver.userId,
-              name: driverName,
-              rating: driverRating,
-              trips: driverTrips,
-              avatarUrl: driverAvatar,
-              vehicleInfo: driver.vehicleInfo,
-              location: driver.location,
-            },
-            pickup: { lat: pending.pickup.lat, lng: pending.pickup.lng, address: pending.pickup.text },
-            dest: { lat: pending.dest.lat, lng: pending.dest.lng, address: pending.dest.text },
-          });
-
-          // Notify driver: confirmed
-          socket.emit('ride:confirmed', {
-            rideRequestId: data.rideRequestId,
-            bookingId,
-            rideId: bookingId,
-            customerName,
-            pickup: pending.pickup,
-            dest: pending.dest,
-          });
-
-          // Clean up pending ride
-          this.pendingRides.delete(data.rideRequestId);
-
-          logger.info('Ride matched', {
-            rideRequestId: data.rideRequestId,
-            bookingId,
-            driverId: authSocket.userId,
-            customerId: pending.customerId,
-          });
+          // Tell every other notified driver that this order is gone, then
+          // run the shared accept flow (DB insert + ride:matched +
+          // ride:confirmed) — same body used by driver:claim_ride.
+          this.notifyDriversOfRemoval(pending, authSocket.userId);
+          await this.acceptPendingRideForDriver(pending, driver, authSocket, socket, data.rideRequestId);
         } catch (err) {
           logger.error('Error in driver:accept_ride', { error: err });
           socket.emit('error', { message: 'Failed to accept ride' });
@@ -777,52 +772,18 @@ class TrackingGateway {
           const { pickupLat, pickupLng, destLat, destLng, pickupText, destText, vehicleCategory, preferences } = data;
           const tripType = data.tripType || 'ride';
 
-          // Find nearby drivers (no radius limit for testing)
-          const nearbyDrivers = rideService.findNearbyDrivers(pickupLat, pickupLng, 10000);
-
-          if (nearbyDrivers.length === 0) {
-            socket.emit('ride:no_drivers', {
-              message: 'No drivers available nearby. Please try again later.',
-            });
-            return;
-          }
-
           const rideRequestId = uuidv4();
 
-          // Estimate distance and price
+          // Estimate distance and price (real-distance fare uses fareForCategory)
           const distanceKm = Math.sqrt(
             (pickupLat - destLat) ** 2 + (pickupLng - destLng) ** 2
           ) * 111;
+          const distanceMeters = distanceKm * 1000;
           const estimatedDuration = Math.round(distanceKm * 2); // rough ~2min per km
-          const estimatedPrice = Math.round(distanceKm * 3.5 * 100) / 100; // $3.50/km rough
+          const estimatedPrice = fareForCategory(vehicleCategory, distanceMeters);
 
-          // Store pending ride
-          const pending: PendingRide = {
-            rideRequestId,
-            customerId: authSocket.userId,
-            socketId: socket.id,
-            pickup: { lat: pickupLat, lng: pickupLng, text: pickupText },
-            dest: { lat: destLat, lng: destLng, text: destText },
-            category: vehicleCategory,
-            driverQueue: nearbyDrivers,
-            currentDriverIndex: 0,
-            timeoutHandle: null,
-          };
-          (pending as any).preferences = preferences;
-          (pending as any).tripType = tripType;
-
-          this.pendingRides.set(rideRequestId, pending);
-
-          // Acknowledge to customer
-          socket.emit('ride:searching', {
-            rideRequestId,
-            driversFound: nearbyDrivers.length,
-            estimatedPrice,
-            estimatedDistance: Math.round(distanceKm * 10) / 10,
-            estimatedDuration,
-          });
-
-          // Get customer name + rating
+          // Get customer name + rating once for both the searching ack and the
+          // broadcast payload.
           const customerResult = await query<{ first_name: string; last_name: string; rating: string | null }>(
             'SELECT first_name, last_name, rating FROM users WHERE id = $1',
             [authSocket.userId]
@@ -832,21 +793,65 @@ class TrackingGateway {
             : 'Customer';
           const customerRating = customerResult.rows[0]?.rating != null ? Number(customerResult.rows[0].rating) : null;
 
-          // Store customer name on the pending ride for later use
+          // Store pending ride (marketplace pool model — no driverQueue push).
+          const pending: PendingRide = {
+            rideRequestId,
+            customerId: authSocket.userId,
+            socketId: socket.id,
+            pickup: { lat: pickupLat, lng: pickupLng, text: pickupText },
+            dest: { lat: destLat, lng: destLng, text: destText },
+            category: vehicleCategory,
+            notifiedDrivers: new Set<string>(),
+            claimedBy: null,
+            waitedSec: 0,
+            classOfferTimer: null,
+            driverQueue: [],
+            currentDriverIndex: 0,
+            timeoutHandle: null,
+          };
+          (pending as any).preferences = preferences;
+          (pending as any).tripType = tripType;
           (pending as any).customerName = customerName;
           (pending as any).customerRating = customerRating;
           (pending as any).estimatedPrice = estimatedPrice;
           (pending as any).estimatedDistance = Math.round(distanceKm * 10) / 10;
           (pending as any).estimatedDuration = estimatedDuration;
 
-          // Send to the first (closest) driver
-          this.sendToNextDriver(rideRequestId);
+          this.pendingRides.set(rideRequestId, pending);
 
-          logger.info('Ride requested', {
+          // ── Class-filtered dispatch ──────────────────────────────────────
+          // The pool of drivers who can see this request, scoped to the
+          // requested class. A V-Class driver never sees a Maybach order.
+          const matchingDrivers = rideService.findNearbyDrivers(
+            pickupLat, pickupLng, 10000, vehicleCategory,
+          );
+
+          // Acknowledge "we're searching" regardless of pool size — Option C
+          // takes over below when matchingDrivers is empty.
+          socket.emit('ride:searching', {
+            rideRequestId,
+            driversFound: matchingDrivers.length,
+            estimatedPrice,
+            estimatedDistance: Math.round(distanceKm * 10) / 10,
+            estimatedDuration,
+          });
+
+          if (matchingDrivers.length > 0) {
+            this.broadcastRequestToDrivers(pending, matchingDrivers);
+            // Start the keep-waiting / class-unavailable evaluation timer.
+            this.startClassOfferTimer(rideRequestId);
+          } else {
+            // No matching-class drivers. Option C: offer the nearest
+            // available OTHER class, or fall through to ride:no_drivers if
+            // no class at all is online.
+            this.offerAlternativeOrNoDrivers(rideRequestId);
+          }
+
+          logger.info('Ride requested (broadcast)', {
             rideRequestId,
             customerId: authSocket.userId,
-            pickup: { lat: pickupLat, lng: pickupLng },
-            driversAvailable: nearbyDrivers.length,
+            category: vehicleCategory,
+            poolSize: matchingDrivers.length,
           });
         } catch (err) {
           logger.error('Error in customer:request_ride', { error: err });
@@ -885,7 +890,11 @@ class TrackingGateway {
               return;
             }
             if (pending.timeoutHandle) clearTimeout(pending.timeoutHandle);
-            // Notify whichever driver is currently being offered.
+            if (pending.classOfferTimer) clearTimeout(pending.classOfferTimer);
+            // Marketplace pool: tell every notified driver to remove the
+            // card. Also emit the legacy ride:cancelled to the queue head
+            // for any old-flow listeners.
+            this.notifyDriversOfRemoval(pending);
             if (pending.currentDriverIndex < pending.driverQueue.length) {
               const currentDriver = pending.driverQueue[pending.currentDriverIndex];
               const payload = { rideRequestId: id, rideId: id, message: 'Customer cancelled the ride request' };
@@ -1250,7 +1259,165 @@ class TrackingGateway {
     return this.io;
   }
 
-  /** Send ride request to the next driver in the queue */
+  /** Build the "order summary" emitted to drivers in the request_added /
+   *  requests snapshot events. Same shape used by the marketplace list and
+   *  detail screens on the driver app. */
+  private buildRequestSummary(pending: PendingRide): Record<string, unknown> {
+    const extra = pending as any;
+    return {
+      rideRequestId: pending.rideRequestId,
+      category: pending.category,
+      tripType: extra.tripType || 'ride',
+      customerName: extra.customerName || 'Customer',
+      customerRating: extra.customerRating ?? null,
+      pickupText: pending.pickup.text,
+      destText: pending.dest.text,
+      pickupLat: pending.pickup.lat,
+      pickupLng: pending.pickup.lng,
+      destLat: pending.dest.lat,
+      destLng: pending.dest.lng,
+      estimatedPrice: extra.estimatedPrice ?? 0,
+      estimatedDistance: extra.estimatedDistance ?? 0,
+      estimatedDuration: extra.estimatedDuration ?? 0,
+      // Scheduled rides aren't supported yet end-to-end; surfaced as
+      // scheduledFor === null so the card renders the "Now" pill.
+      scheduledFor: extra.scheduledFor ?? null,
+      preferences: extra.preferences || null,
+      createdAt: extra.createdAt ?? Date.now(),
+    };
+  }
+
+  /** Broadcast a pending ride to every matching-class driver. Each driver
+   *  gets a `driver:request_added` event in their user room (survives a
+   *  socket reconnect). Records who was notified so cancel/claim cleanup
+   *  can tell them to remove the card. */
+  private broadcastRequestToDrivers(pending: PendingRide, drivers: NearbyDriver[]): void {
+    const summary = this.buildRequestSummary(pending);
+    for (const d of drivers) {
+      pending.notifiedDrivers.add(d.userId);
+      this.io?.to(`user:${d.userId}`).emit('driver:request_added', summary);
+    }
+  }
+
+  /** A driver just went online — push them the full snapshot of pending
+   *  rides currently matching their class. Their user room receives a
+   *  `driver:requests` event with an array of the same summary shape. */
+  private sendRequestsSnapshotToDriver(userId: string, category: string | undefined): void {
+    const requests: Record<string, unknown>[] = [];
+    for (const pending of this.pendingRides.values()) {
+      if (pending.claimedBy) continue;
+      if (pending.category && category && pending.category !== category) continue;
+      pending.notifiedDrivers.add(userId);
+      requests.push(this.buildRequestSummary(pending));
+    }
+    this.io?.to(`user:${userId}`).emit('driver:requests', { requests });
+  }
+
+  /** Tell every notified driver (EXCEPT the optional winner) that a ride
+   *  is no longer claimable — it was claimed/cancelled/expired. */
+  private notifyDriversOfRemoval(pending: PendingRide, winnerUserId?: string): void {
+    for (const driverId of pending.notifiedDrivers) {
+      if (driverId === winnerUserId) continue;
+      this.io?.to(`user:${driverId}`).emit('driver:request_removed', {
+        rideRequestId: pending.rideRequestId,
+      });
+    }
+  }
+
+  /** Find the nearest available class OTHER than the one the customer asked
+   *  for. Used by Option C to suggest an alternative. Returns the chosen
+   *  category (e.g. 'sclass') and the closest driver's distance so etaMin
+   *  can be derived. */
+  private findAlternativeClass(
+    pickupLat: number, pickupLng: number, requested: string | undefined,
+  ): { category: string; etaMin: number } | null {
+    // Scan all candidate categories EXCEPT the requested one. Pick the one
+    // whose nearest driver is closest.
+    const candidates = ['sclass', 'maybach', 'vclass'].filter(c => c !== requested);
+    let best: { category: string; distanceKm: number } | null = null;
+    for (const c of candidates) {
+      const list = rideService.findNearbyDrivers(pickupLat, pickupLng, 10000, c);
+      if (list.length === 0) continue;
+      const nearest = list[0].distanceKm;
+      if (!best || nearest < best.distanceKm) {
+        best = { category: c, distanceKm: nearest };
+      }
+    }
+    if (!best) return null;
+    // Rough ETA: 2 minutes per km (matches the customer-side estimate).
+    const etaMin = Math.max(1, Math.round(best.distanceKm * 2));
+    return { category: best.category, etaMin };
+  }
+
+  /** No matching-class driver is online. Try to suggest an alternative; if
+   *  none exists either, fall back to the existing ride:no_drivers behavior. */
+  private offerAlternativeOrNoDrivers(rideRequestId: string): void {
+    const pending = this.pendingRides.get(rideRequestId);
+    if (!pending) return;
+    const requested = pending.category;
+    const alt = this.findAlternativeClass(pending.pickup.lat, pending.pickup.lng, requested);
+    if (!alt) {
+      this.io?.to(`user:${pending.customerId}`).emit('ride:no_drivers', {
+        rideRequestId,
+        message: 'No drivers available nearby. Please try again later.',
+      });
+      this.pendingRides.delete(rideRequestId);
+      logger.info('No drivers in any class — ride:no_drivers', { rideRequestId });
+      return;
+    }
+    const distanceMeters = Math.sqrt(
+      (pending.pickup.lat - pending.dest.lat) ** 2 + (pending.pickup.lng - pending.dest.lng) ** 2,
+    ) * 111 * 1000;
+    const fare = fareForCategory(alt.category, distanceMeters);
+    this.io?.to(`user:${pending.customerId}`).emit('ride:class_unavailable', {
+      requested,
+      alternative: { category: alt.category, fare, etaMin: alt.etaMin },
+      waitedSec: pending.waitedSec,
+    });
+    // Start the keep-waiting timer so if the rider DOESN'T reply we re-poll
+    // the matching-class pool again and either dispatch (if a driver came
+    // online) or re-emit class_unavailable with a larger waitedSec.
+    this.startClassOfferTimer(rideRequestId);
+    logger.info('Class unavailable — alternative offered', {
+      rideRequestId, requested, alternative: alt.category, waitedSec: pending.waitedSec,
+    });
+  }
+
+  // Keep-waiting / re-evaluation window. 2.5 min matches the spec range.
+  private readonly CLASS_OFFER_WINDOW_MS = 150_000;
+
+  /** Schedule a class_unavailable re-evaluation. Cancels the prior timer
+   *  (e.g. if a driver claims, we cancel before firing). */
+  private startClassOfferTimer(rideRequestId: string): void {
+    const pending = this.pendingRides.get(rideRequestId);
+    if (!pending) return;
+    if (pending.classOfferTimer) clearTimeout(pending.classOfferTimer);
+    pending.classOfferTimer = setTimeout(() => {
+      const p = this.pendingRides.get(rideRequestId);
+      if (!p || p.claimedBy) return;
+      p.waitedSec += Math.round(this.CLASS_OFFER_WINDOW_MS / 1000);
+      // Did any matching-class driver come online during the wait?
+      const matching = rideService.findNearbyDrivers(
+        p.pickup.lat, p.pickup.lng, 10000, p.category,
+      );
+      // Drivers we haven't notified yet (newcomers): tell them.
+      const fresh = matching.filter(d => !p.notifiedDrivers.has(d.userId));
+      if (fresh.length > 0) {
+        this.broadcastRequestToDrivers(p, fresh);
+      }
+      // If at least one matching driver is in the pool, just keep waiting
+      // — the keep-waiting timer reschedules itself.
+      if (matching.length > 0) {
+        this.startClassOfferTimer(rideRequestId);
+        return;
+      }
+      // Still no matching class — re-emit Option C with the larger waitedSec.
+      this.offerAlternativeOrNoDrivers(rideRequestId);
+    }, this.CLASS_OFFER_WINDOW_MS);
+  }
+
+  /** Legacy push-model dispatch (one driver at a time). Kept for now but
+   *  unused by customer:request_ride. */
   private sendToNextDriver(rideRequestId: string): void {
     const pending = this.pendingRides.get(rideRequestId);
     if (!pending) return;
@@ -1321,6 +1488,115 @@ class TrackingGateway {
 
   getIO(): SocketServer | null {
     return this.io;
+  }
+
+  /** Shared accept body — runs the booking INSERT, persists the active
+   *  ride, emits ride:matched to the customer's user room, ride:confirmed
+   *  to the driver socket, and removes the pending entry. Both
+   *  driver:accept_ride (legacy push-model) and driver:claim_ride
+   *  (marketplace pool) end up here after their own validation. */
+  private async acceptPendingRideForDriver(
+    pending: PendingRide,
+    driver: OnlineDriver,
+    authSocket: AuthenticatedSocket,
+    socket: Socket,
+    rideRequestId: string,
+  ): Promise<void> {
+    const now = new Date();
+    const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // estimate 2h
+
+    const isUuidVid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(driver.vehicleId);
+    const vehicleIdForDb = isUuidVid ? driver.vehicleId : null;
+    const fareAmount = (pending as any).estimatedPrice ?? 0;
+
+    // Capture company at ride-creation time. Only fleet_vehicles UUIDs
+    // resolve to a company; Bersenev-local vehicles (non-UUID) and personal
+    // cars return NULL (solo). Snapshot survives even if the driver later
+    // changes fleets — ledger attribution stays correct.
+    const bookingCompanyId = isUuidVid
+      ? await resolveCompanyForBooking(driver.userId, vehicleIdForDb)
+      : null;
+
+    const bookingResult = await query<{ id: string }>(
+      `INSERT INTO bookings
+        (customer_id, vehicle_id, chauffeur_user_id, type, mode, status,
+         start_time, end_time, pickup_address, pickup_lat, pickup_lng,
+         dropoff_address, dropoff_lat, dropoff_lng,
+         base_amount, chauffeur_fee, insurance_fee, mileage_overage,
+         platform_commission, total_amount, deposit_amount, company_id)
+       VALUES ($1,$2,$3,'instant_ride','chauffeur','confirmed',$4,$5,$6,$7,$8,$9,$10,$11,
+               $12,0,0,0,0,$12,0,$13)
+       RETURNING id`,
+      [
+        pending.customerId, vehicleIdForDb, driver.userId, now, endTime,
+        pending.pickup.text, pending.pickup.lat, pending.pickup.lng,
+        pending.dest.text, pending.dest.lat, pending.dest.lng,
+        fareAmount, bookingCompanyId,
+      ],
+    );
+    const bookingId = bookingResult.rows[0].id;
+
+    const customerResult = await query<{ first_name: string; last_name: string }>(
+      'SELECT first_name, last_name FROM users WHERE id = $1', [pending.customerId],
+    );
+    const customerName = customerResult.rows[0]
+      ? `${customerResult.rows[0].first_name} ${customerResult.rows[0].last_name}`
+      : 'Customer';
+
+    const driverUserResult = await query<{ first_name: string; last_name: string; rating: string | null; rating_count: number | null; avatar_url: string | null }>(
+      'SELECT first_name, last_name, rating, rating_count, avatar_url FROM users WHERE id = $1',
+      [authSocket.userId],
+    );
+    const driverRow = driverUserResult.rows[0];
+    const driverName = driverRow ? `${driverRow.first_name} ${driverRow.last_name}` : authSocket.email;
+    const driverRating = driverRow?.rating != null ? Number(driverRow.rating) : null;
+    const driverTrips = driverRow?.rating_count ?? 0;
+    const driverAvatar = driverRow?.avatar_url ?? null;
+
+    this.rideCustomerSockets.set(bookingId, pending.socketId);
+    this.rideCustomerSockets.set(rideRequestId, pending.socketId);
+
+    const fare = fareAmount;
+
+    rideService.startActiveRide({
+      rideId: bookingId, status: 'matched',
+      customerId: pending.customerId, driverId: driver.userId,
+      customerSocketId: pending.socketId, driverSocketId: socket.id,
+      driverName, driverRating, driverTrips, driverAvatar,
+      vehicleId: driver.vehicleId, vehicleInfo: driver.vehicleInfo,
+      driverLocation: driver.location,
+      pickup: { lat: pending.pickup.lat, lng: pending.pickup.lng, address: pending.pickup.text },
+      dest: { lat: pending.dest.lat, lng: pending.dest.lng, address: pending.dest.text },
+      fare,
+    });
+
+    // ride:matched to the customer's user room (survives reconnect).
+    this.io?.to(`user:${pending.customerId}`).emit('ride:matched', {
+      rideRequestId, bookingId, rideId: bookingId,
+      driverId: driver.userId, status: 'matched',
+      tripType: (pending as any).tripType || 'ride',
+      fare,
+      driver: {
+        userId: driver.userId, name: driverName,
+        rating: driverRating, trips: driverTrips,
+        avatarUrl: driverAvatar,
+        vehicleInfo: driver.vehicleInfo, location: driver.location,
+      },
+      pickup: { lat: pending.pickup.lat, lng: pending.pickup.lng, address: pending.pickup.text },
+      dest: { lat: pending.dest.lat, lng: pending.dest.lng, address: pending.dest.text },
+    });
+
+    socket.emit('ride:confirmed', {
+      rideRequestId, bookingId, rideId: bookingId,
+      customerName, pickup: pending.pickup, dest: pending.dest,
+    });
+
+    this.pendingRides.delete(rideRequestId);
+
+    logger.info('Ride matched', {
+      rideRequestId, bookingId,
+      driverId: authSocket.userId, customerId: pending.customerId,
+    });
   }
 }
 
