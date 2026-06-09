@@ -1629,9 +1629,23 @@ class TrackingGateway {
       dest: { lat: pending.dest.lat, lng: pending.dest.lng, address: pending.dest.text },
     });
 
+    // Carry the full ride summary so the driver app can rebuild activeRide
+    // from this event alone — belt-and-braces safety net. The marketplace
+    // flow has its own client-side bridge (lastClaimed slot in the store),
+    // but if that ever fails (app killed mid-claim, store wiped, race), the
+    // ride:confirmed listener seeds activeRide from this payload so the
+    // driver never ends up "stuck server-side, no UI".
     socket.emit('ride:confirmed', {
       rideRequestId, bookingId, rideId: bookingId,
-      customerName, pickup: pending.pickup, dest: pending.dest,
+      customerName,
+      customerRating: (pending as any).customerRating ?? null,
+      tripType: (pending as any).tripType || 'ride',
+      pickup: pending.pickup, dest: pending.dest,
+      estimatedPrice: (pending as any).estimatedPrice ?? 0,
+      estimatedDistance: (pending as any).estimatedDistance ?? 0,
+      estimatedDuration: (pending as any).estimatedDuration ?? 0,
+      preferences: (pending as any).preferences ?? null,
+      category: pending.category ?? null,
     });
 
     this.pendingRides.delete(rideRequestId);
