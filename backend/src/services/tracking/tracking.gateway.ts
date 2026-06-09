@@ -1260,6 +1260,12 @@ class TrackingGateway {
       });
     });
 
+    // Periodic cleanup of pending rides whose customer is no longer in
+    // their user room (app closed, logged out, lost the network for good).
+    // Otherwise they linger in the in-memory pendingRides map and show up
+    // as "ghost orders" the next time a driver goes online.
+    this.startStaleSweep();
+
     logger.info('Tracking gateway initialized');
 
     return this.io;
@@ -1307,16 +1313,59 @@ class TrackingGateway {
 
   /** A driver just went online — push them the full snapshot of pending
    *  rides currently matching their class. Their user room receives a
-   *  `driver:requests` event with an array of the same summary shape. */
+   *  `driver:requests` event with an array of the same summary shape.
+   *  Stale rides whose customer is no longer online are swept out here so
+   *  the driver never sees zombie orders from an abandoned test session. */
   private sendRequestsSnapshotToDriver(userId: string, category: string | undefined): void {
     const requests: Record<string, unknown>[] = [];
-    for (const pending of this.pendingRides.values()) {
+    for (const pending of [...this.pendingRides.values()]) {
       if (pending.claimedBy) continue;
+      // Customer's app is closed / logged out / network-dropped for good —
+      // drop the pending instead of showing it to the driver.
+      if (!this.isCustomerOnline(pending.customerId)) {
+        this.cleanupStalePending(pending.rideRequestId, 'customer offline');
+        continue;
+      }
       if (pending.category && category && pending.category !== category) continue;
       pending.notifiedDrivers.add(userId);
       requests.push(this.buildRequestSummary(pending));
     }
     this.io?.to(`user:${userId}`).emit('driver:requests', { requests });
+  }
+
+  /** Synchronous "is the customer's socket still in the user room" check via
+   *  socket.io's room adapter. Used to skip zombie pending rides. */
+  private isCustomerOnline(customerId: string): boolean {
+    const room = this.io?.sockets.adapter.rooms.get(`user:${customerId}`);
+    return !!room && room.size > 0;
+  }
+
+  /** Tear down a stale pending ride that no rider can possibly resolve.
+   *  Clears timers, notifies any drivers that were shown the card, deletes
+   *  from the in-memory map. Called by the snapshot filter + periodic sweep. */
+  private cleanupStalePending(rideRequestId: string, reason: string): void {
+    const pending = this.pendingRides.get(rideRequestId);
+    if (!pending) return;
+    if (pending.classOfferTimer) clearTimeout(pending.classOfferTimer);
+    if (pending.timeoutHandle) clearTimeout(pending.timeoutHandle);
+    this.notifyDriversOfRemoval(pending);
+    this.pendingRides.delete(rideRequestId);
+    logger.info('Stale pending ride cleaned up', { rideRequestId, reason });
+  }
+
+  /** Periodic sweep — every 60s, any pending ride whose customer's user
+   *  room is empty is torn down. Belt-and-braces for the snapshot-time
+   *  filter; ensures the in-memory map can't grow unbounded across many
+   *  test sessions. Started in initialize(). */
+  private startStaleSweep(): void {
+    setInterval(() => {
+      for (const pending of [...this.pendingRides.values()]) {
+        if (pending.claimedBy) continue;
+        if (!this.isCustomerOnline(pending.customerId)) {
+          this.cleanupStalePending(pending.rideRequestId, 'periodic sweep (customer offline)');
+        }
+      }
+    }, 60_000);
   }
 
   /** Tell every notified driver (EXCEPT the optional winner) that a ride
