@@ -693,6 +693,17 @@ class TrackingGateway {
         } else if (ride.status === 'in_progress') {
           socket.emit('ride:trip_started', { bookingId: ride.rideId });
         }
+        // Chauffeur stops re-sync — both sides need the full stop list +
+        // statuses on resume. Without this, a missed driver:stop_arrived
+        // (network drop, app kill mid-leg) leaves either UI showing a
+        // stale "en_route" pin forever.
+        const rideStops = (ride as any).stops as Array<{ address: string; lat: number; lng: number; status: 'en_route' | 'arrived' }> | undefined;
+        if (rideStops && rideStops.length > 0) {
+          socket.emit('chauffeur:stops_resync', {
+            rideId: ride.rideId,
+            stops: rideStops,
+          });
+        }
       };
 
       socket.on('customer:resume_ride', (data: { rideId: string }) => {
