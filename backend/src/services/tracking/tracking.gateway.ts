@@ -1506,15 +1506,26 @@ class TrackingGateway {
     const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // estimate 2h
 
     const isUuidVid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(driver.vehicleId);
-    const vehicleIdForDb = isUuidVid ? driver.vehicleId : null;
+    // bookings.vehicle_id has a FK constraint to the `vehicles` table
+    // (rental fleet). Personal vehicles live in driver_personal_vehicles,
+    // fleet cars in fleet_vehicles — neither satisfies the FK. So we only
+    // populate vehicle_id when the UUID is actually a rental row; otherwise
+    // NULL. chauffeur_user_id + company_id (resolved below) already cover
+    // the driver-identity + fleet-attribution slots the ledger reads from.
+    let vehicleIdForDb: string | null = null;
+    if (isUuidVid) {
+      const exists = await query<{ id: string }>('SELECT id FROM vehicles WHERE id = $1', [driver.vehicleId]);
+      if (exists.rows[0]) vehicleIdForDb = driver.vehicleId;
+    }
     const fareAmount = (pending as any).estimatedPrice ?? 0;
 
     // Capture company at ride-creation time. Only fleet_vehicles UUIDs
-    // resolve to a company; Bersenev-local vehicles (non-UUID) and personal
-    // cars return NULL (solo). Snapshot survives even if the driver later
-    // changes fleets — ledger attribution stays correct.
+    // resolve to a company; Bersenev-local vehicles (non-UUID), personal
+    // and rental cars return NULL (solo). resolveCompanyForBooking does
+    // its own lookup in fleet_vehicles so we pass the raw vehicleId, not
+    // the FK-validated one (which would already be null for fleet cars).
     const bookingCompanyId = isUuidVid
-      ? await resolveCompanyForBooking(driver.userId, vehicleIdForDb)
+      ? await resolveCompanyForBooking(driver.userId, driver.vehicleId)
       : null;
 
     const bookingResult = await query<{ id: string }>(
