@@ -121,6 +121,12 @@ class TrackingGateway {
 
     this.io.on('connection', (socket: Socket) => {
       const authSocket = socket as AuthenticatedSocket;
+      // Every socket joins a per-user room so we can address the user
+      // regardless of which socket.id is currently live. This is what makes
+      // a brief reconnect during the ride-search window survivable: the
+      // ride:matched (and every ride:* event) goes to `user:<userId>`, so
+      // the reconnected socket receives it even though its socket.id changed.
+      socket.join(`user:${authSocket.userId}`);
       logger.info('Socket connected', {
         socketId: socket.id,
         userId: authSocket.userId,
@@ -471,8 +477,10 @@ class TrackingGateway {
             fare,
           });
 
-          // Notify customer: ride matched
-          this.io?.to(pending.socketId).emit('ride:matched', {
+          // Notify customer: ride matched. Emit to the user room (not the
+          // captured socket.id), so a reconnected customer still receives
+          // it even though their socket.id changed during the search window.
+          this.io?.to(`user:${pending.customerId}`).emit('ride:matched', {
             rideRequestId: data.rideRequestId,
             bookingId,
             rideId: bookingId,
@@ -846,12 +854,30 @@ class TrackingGateway {
         }
       });
 
-      socket.on('customer:cancel_ride', async (data: { rideId?: string; rideRequestId?: string }) => {
+      socket.on('customer:cancel_ride', async (data: { rideId?: string | null; rideRequestId?: string | null }) => {
         try {
-          const id = data.rideId ?? data.rideRequestId;
-          if (!id) { socket.emit('error', { message: 'Missing rideId' }); return; }
+          // The customer may not know the id — pre-match they only know
+          // they're "searching". Allow rideId === null / absent and resolve
+          // from the authenticated user. Look in pendingRides first (search
+          // hasn't matched yet), then activeRides (already accepted).
+          let id = data?.rideId ?? data?.rideRequestId ?? null;
+          if (!id) {
+            for (const [rrId, p] of this.pendingRides.entries()) {
+              if (p.customerId === authSocket.userId) { id = rrId; break; }
+            }
+          }
+          if (!id) {
+            const ride = rideService.getActiveRideForUser(authSocket.userId);
+            if (ride) id = ride.rideId;
+          }
+          if (!id) {
+            // Nothing to cancel — still ack so the client can clear local
+            // state instead of getting stuck on "Searching".
+            socket.emit('ride:cancelled:ack', { rideId: null });
+            return;
+          }
 
-          // Case 1: still a pending (pre-accept) request.
+          // Case 1: pending (pre-accept) request.
           const pending = this.pendingRides.get(id);
           if (pending) {
             if (pending.customerId !== authSocket.userId) {
@@ -859,14 +885,12 @@ class TrackingGateway {
               return;
             }
             if (pending.timeoutHandle) clearTimeout(pending.timeoutHandle);
-            // Notify current driver if one was being asked
+            // Notify whichever driver is currently being offered.
             if (pending.currentDriverIndex < pending.driverQueue.length) {
               const currentDriver = pending.driverQueue[pending.currentDriverIndex];
-              this.io?.to(currentDriver.socketId).emit('ride:cancelled', {
-                rideRequestId: id,
-                rideId: id,
-                message: 'Customer cancelled the ride request',
-              });
+              const payload = { rideRequestId: id, rideId: id, message: 'Customer cancelled the ride request' };
+              this.io?.to(`user:${currentDriver.userId}`).emit('ride:cancelled', payload);
+              this.io?.to(currentDriver.socketId).emit('ride:cancelled', payload);
             }
             this.pendingRides.delete(id);
             socket.emit('ride:cancelled:ack', { rideRequestId: id, rideId: id });
@@ -874,9 +898,9 @@ class TrackingGateway {
             return;
           }
 
-          // Case 2: an active (accepted) ride — cancel and notify BOTH parties.
+          // Case 2: active (accepted) ride.
           const ride = rideService.getActiveRideById(id);
-          if (!ride) { socket.emit('error', { message: 'Ride not found' }); return; }
+          if (!ride) { socket.emit('ride:cancelled:ack', { rideId: id }); return; }
           if (ride.customerId !== authSocket.userId) {
             socket.emit('error', { message: 'Not authorized to cancel this ride' });
             return;
@@ -889,10 +913,10 @@ class TrackingGateway {
           }
 
           const payload = { rideId: ride.rideId, bookingId: ride.rideId, message: 'Customer cancelled the ride' };
-          // Notify the driver (current socket) and the customer (this socket).
-          if (ride.driverSocketId) this.io?.to(ride.driverSocketId).emit('ride:cancelled', payload);
-          if (ride.customerSocketId) this.io?.to(ride.customerSocketId).emit('ride:cancelled', payload);
-          socket.emit('ride:cancelled', payload);
+          // Hit the driver via user room so a driver who reconnected (new
+          // socket.id) still gets it. Same for the customer side.
+          this.io?.to(`user:${ride.driverId}`).emit('ride:cancelled', payload);
+          this.io?.to(`user:${ride.customerId}`).emit('ride:cancelled', payload);
 
           rideService.endActiveRide(ride.rideId);
           this.rideCustomerSockets.delete(ride.rideId);
@@ -1197,14 +1221,21 @@ class TrackingGateway {
           }
         }
 
-        // Clean up any pending rides from this customer
-        for (const [rideRequestId, pending] of this.pendingRides.entries()) {
-          if (pending.socketId === socket.id) {
-            if (pending.timeoutHandle) clearTimeout(pending.timeoutHandle);
-            this.pendingRides.delete(rideRequestId);
-            logger.info('Pending ride cleaned up on disconnect', { rideRequestId });
-          }
-        }
+        // INTENTIONAL: do NOT delete pending rides on disconnect.
+        // The customer socket may briefly drop during the search window
+        // (cell-tower handoff, app backgrounded, screen lock) and re-
+        // connect with a new socket.id within seconds. Tearing the pending
+        // ride down here used to:
+        //   - cause "Ride not found" when the driver later tried to mark
+        //     Arrived (the ride had been silently cancelled mid-accept), and
+        //   - leave the customer's "Searching" UI hung because the new
+        //     socket never received the ride:matched (it had been emitted
+        //     to the dead socket.id).
+        // The pending ride's own timeout (driver queue exhausted) and the
+        // explicit customer:cancel_ride event are now the only paths that
+        // remove a pending ride. Same for active rides — those are kept
+        // alive across customer reconnects so the driver's accept/arrived/
+        // complete flow can continue uninterrupted.
 
         logger.info('Socket disconnected', {
           socketId: socket.id,
