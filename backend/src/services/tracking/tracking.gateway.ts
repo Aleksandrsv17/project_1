@@ -419,9 +419,13 @@ class TrackingGateway {
           );
           if (newClassPool.length > 0) {
             this.broadcastRequestToDrivers(pending, newClassPool);
-            this.startClassOfferTimer(pending.rideRequestId);
+            // No timer — drivers in the pool will claim or the rider can
+            // cancel. Class C alternative was already offered and accepted;
+            // we don't loop back into the popup flow.
           } else {
-            this.offerAlternativeOrNoDrivers(pending.rideRequestId);
+            // The alternative class also has zero drivers right now. Kick
+            // a fresh 60-second initial search before re-offering.
+            this.scheduleInitialSearch(pending.rideRequestId);
           }
           logger.info('Customer accepted alternative class', {
             rideRequestId: pending.rideRequestId,
@@ -434,8 +438,9 @@ class TrackingGateway {
       });
 
       // Option C — rider keeps waiting for the originally requested class.
-      // The class-offer timer already drives the re-evaluation; this handler
-      // just ensures the timer is armed (a no-op if it already is).
+      // Arm the 120-second keep-waiting window; at expiry we silent-dispatch
+      // if a matching driver appeared, otherwise re-emit class_unavailable
+      // with a larger waitedSec.
       socket.on('customer:keep_waiting', async () => {
         try {
           let pending: PendingRide | null = null;
@@ -443,7 +448,7 @@ class TrackingGateway {
             if (p.customerId === authSocket.userId && !p.claimedBy) { pending = p; break; }
           }
           if (!pending) return;
-          if (!pending.classOfferTimer) this.startClassOfferTimer(pending.rideRequestId);
+          this.scheduleKeepWaiting(pending.rideRequestId);
           logger.info('Customer keep-waiting', { rideRequestId: pending.rideRequestId, waitedSec: pending.waitedSec });
         } catch (err) {
           logger.error('Error in customer:keep_waiting', { error: err });
@@ -838,13 +843,14 @@ class TrackingGateway {
 
           if (matchingDrivers.length > 0) {
             this.broadcastRequestToDrivers(pending, matchingDrivers);
-            // Start the keep-waiting / class-unavailable evaluation timer.
-            this.startClassOfferTimer(rideRequestId);
+            // No timer here — drivers in the pool will claim or the rider
+            // can cancel. The Option-C popup is reserved for the
+            // no-matching-driver case below.
           } else {
-            // No matching-class drivers. Option C: offer the nearest
-            // available OTHER class, or fall through to ride:no_drivers if
-            // no class at all is online.
-            this.offerAlternativeOrNoDrivers(rideRequestId);
+            // No matching-class drivers right now. Silent 60-second search
+            // first — if a matching driver appears in that minute, dispatch
+            // normally. Only after 60s of nothing do we emit class_unavailable.
+            this.scheduleInitialSearch(rideRequestId);
           }
 
           logger.info('Ride requested (broadcast)', {
@@ -1349,12 +1355,75 @@ class TrackingGateway {
     return { category: best.category, etaMin };
   }
 
-  /** No matching-class driver is online. Try to suggest an alternative; if
-   *  none exists either, fall back to the existing ride:no_drivers behavior. */
-  private offerAlternativeOrNoDrivers(rideRequestId: string): void {
+  // Option C waiting cadence
+  // ─────────────────────────
+  // Initial silent search after no-matching-class. If a matching driver
+  // appears in this window, dispatch normally — never popup the rider.
+  private readonly INITIAL_SEARCH_MS = 60_000;
+  // Subsequent keep_waiting windows. After 120s: dispatch if a driver
+  // appeared, else re-emit ride:class_unavailable with a larger waitedSec.
+  private readonly KEEP_WAITING_MS = 120_000;
+
+  /** Schedule the FIRST 60-second silent search before any class_unavailable
+   *  is fired. Called when customer:request_ride finds zero matching-class
+   *  drivers. If a driver comes online during the window, we just dispatch
+   *  and the rider sees `ride:matched` without ever seeing the popup. */
+  private scheduleInitialSearch(rideRequestId: string): void {
+    const pending = this.pendingRides.get(rideRequestId);
+    if (!pending) return;
+    if (pending.classOfferTimer) clearTimeout(pending.classOfferTimer);
+    pending.classOfferTimer = setTimeout(() => {
+      const p = this.pendingRides.get(rideRequestId);
+      if (!p || p.claimedBy) return;
+      p.waitedSec = Math.round(this.INITIAL_SEARCH_MS / 1000);
+      this.dispatchOrOfferAlternative(rideRequestId);
+    }, this.INITIAL_SEARCH_MS);
+  }
+
+  /** Schedule a 120-second keep_waiting window. Called from the
+   *  customer:keep_waiting handler. Same outcome at expiry as the initial
+   *  search — silent dispatch if pool now has matches, else re-emit
+   *  class_unavailable with a larger waitedSec. */
+  private scheduleKeepWaiting(rideRequestId: string): void {
+    const pending = this.pendingRides.get(rideRequestId);
+    if (!pending) return;
+    if (pending.classOfferTimer) clearTimeout(pending.classOfferTimer);
+    pending.classOfferTimer = setTimeout(() => {
+      const p = this.pendingRides.get(rideRequestId);
+      if (!p || p.claimedBy) return;
+      p.waitedSec += Math.round(this.KEEP_WAITING_MS / 1000);
+      this.dispatchOrOfferAlternative(rideRequestId);
+    }, this.KEEP_WAITING_MS);
+  }
+
+  /** Window expired. Re-check the matching-class pool: if at least one
+   *  driver is now available, broadcast (silent dispatch — no popup). If
+   *  still none, emit class_unavailable with the current waitedSec and
+   *  STOP — the next move is the rider's (accept_alternative or
+   *  keep_waiting). If no class at all is online → ride:no_drivers. */
+  private dispatchOrOfferAlternative(rideRequestId: string): void {
     const pending = this.pendingRides.get(rideRequestId);
     if (!pending) return;
     const requested = pending.category;
+    const matching = rideService.findNearbyDrivers(
+      pending.pickup.lat, pending.pickup.lng, 10000, requested,
+    );
+    // Drivers we haven't notified yet (newcomers since last broadcast).
+    const fresh = matching.filter(d => !pending.notifiedDrivers.has(d.userId));
+    if (fresh.length > 0) {
+      this.broadcastRequestToDrivers(pending, fresh);
+    }
+    if (matching.length > 0) {
+      // Silent dispatch — pool has matches now. Don't fire popup. The rider
+      // keeps the "Searching" UI; ride:matched will resolve it when a
+      // driver claims.
+      logger.info('Class match found during wait — silent dispatch', {
+        rideRequestId, requested, poolSize: matching.length, waitedSec: pending.waitedSec,
+      });
+      return;
+    }
+    // Still no matching-class drivers. Offer alternative if any, else
+    // no_drivers. Timer is STOPPED — we wait for the rider's reply.
     const alt = this.findAlternativeClass(pending.pickup.lat, pending.pickup.lng, requested);
     if (!alt) {
       this.io?.to(`user:${pending.customerId}`).emit('ride:no_drivers', {
@@ -1374,46 +1443,9 @@ class TrackingGateway {
       alternative: { category: alt.category, fare, etaMin: alt.etaMin },
       waitedSec: pending.waitedSec,
     });
-    // Start the keep-waiting timer so if the rider DOESN'T reply we re-poll
-    // the matching-class pool again and either dispatch (if a driver came
-    // online) or re-emit class_unavailable with a larger waitedSec.
-    this.startClassOfferTimer(rideRequestId);
     logger.info('Class unavailable — alternative offered', {
       rideRequestId, requested, alternative: alt.category, waitedSec: pending.waitedSec,
     });
-  }
-
-  // Keep-waiting / re-evaluation window. 2.5 min matches the spec range.
-  private readonly CLASS_OFFER_WINDOW_MS = 150_000;
-
-  /** Schedule a class_unavailable re-evaluation. Cancels the prior timer
-   *  (e.g. if a driver claims, we cancel before firing). */
-  private startClassOfferTimer(rideRequestId: string): void {
-    const pending = this.pendingRides.get(rideRequestId);
-    if (!pending) return;
-    if (pending.classOfferTimer) clearTimeout(pending.classOfferTimer);
-    pending.classOfferTimer = setTimeout(() => {
-      const p = this.pendingRides.get(rideRequestId);
-      if (!p || p.claimedBy) return;
-      p.waitedSec += Math.round(this.CLASS_OFFER_WINDOW_MS / 1000);
-      // Did any matching-class driver come online during the wait?
-      const matching = rideService.findNearbyDrivers(
-        p.pickup.lat, p.pickup.lng, 10000, p.category,
-      );
-      // Drivers we haven't notified yet (newcomers): tell them.
-      const fresh = matching.filter(d => !p.notifiedDrivers.has(d.userId));
-      if (fresh.length > 0) {
-        this.broadcastRequestToDrivers(p, fresh);
-      }
-      // If at least one matching driver is in the pool, just keep waiting
-      // — the keep-waiting timer reschedules itself.
-      if (matching.length > 0) {
-        this.startClassOfferTimer(rideRequestId);
-        return;
-      }
-      // Still no matching class — re-emit Option C with the larger waitedSec.
-      this.offerAlternativeOrNoDrivers(rideRequestId);
-    }, this.CLASS_OFFER_WINDOW_MS);
   }
 
   /** Legacy push-model dispatch (one driver at a time). Kept for now but
