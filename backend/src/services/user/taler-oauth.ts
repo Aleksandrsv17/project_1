@@ -62,16 +62,20 @@ export async function talerOAuthLogin(
   const [firstName, ...rest] = fullName.split(/\s+/);
   const lastName = rest.join(' ') || firstName;
 
-  // 3. Upsert by taler_sub first, then by email, else create.
+  // 3. Upsert by taler_sub first, then by email — INCLUDING soft-deleted rows.
+  // The unique index on taler_sub (and email) still covers a soft-deleted row,
+  // so inserting a fresh one after the user deleted their account would 409.
+  // Instead we find the existing (possibly deleted) row and REACTIVATE it.
   let row: User | undefined =
-    (await query<User>(`SELECT * FROM users WHERE taler_sub = $1 AND deleted_at IS NULL LIMIT 1`, [claims.sub])).rows[0] ??
+    (await query<User>(`SELECT * FROM users WHERE taler_sub = $1 LIMIT 1`, [claims.sub])).rows[0] ??
     (claims.email
-      ? (await query<User>(`SELECT * FROM users WHERE email = $1 AND deleted_at IS NULL LIMIT 1`, [claims.email])).rows[0]
+      ? (await query<User>(`SELECT * FROM users WHERE email = $1 LIMIT 1`, [claims.email])).rows[0]
       : undefined);
 
   if (row) {
+    // Re-login with Taler restores a soft-deleted account (clears deleted_at).
     row = (await query<User>(
-      `UPDATE users SET taler_sub = $1, phone = COALESCE(phone, $2),
+      `UPDATE users SET taler_sub = $1, deleted_at = NULL, phone = COALESCE(phone, $2),
          kyc_status = COALESCE($3, kyc_status), updated_at = NOW()
        WHERE id = $4 RETURNING *`,
       [claims.sub, claims.phone_number ?? null, claims.kyc_status?.toLowerCase() ?? null, row.id]

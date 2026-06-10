@@ -19,7 +19,17 @@ router.get('/oauth/taler/callback', (req, res) => {
     const v = req.query[k];
     if (typeof v === 'string' && v) qs.set(k, v);
   }
-  res.redirect(302, `talerid://oauth?${qs.toString()}`);
+  const target = `talerid://oauth?${qs.toString()}`;
+  // Return a tiny HTML page that auto-launches the app deep link, instead of a
+  // bare 302. A 302 to a custom scheme inside ASWebAuthenticationSession /
+  // Custom Tabs often shows a blank/dark page and doesn't hand back reliably;
+  // a visible "Signing you in…" page + JS redirect + tappable fallback is the
+  // robust pattern.
+  const t = JSON.stringify(target); // safe-escaped for the <script>
+  const href = target.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  res
+    .set('Content-Type', 'text/html; charset=utf-8')
+    .send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bersenev</title><style>html,body{height:100%;margin:0}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#fff;color:#141414;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}p{font-size:16px;color:#6B7280;margin:0}a{background:#141414;color:#fff;padding:14px 24px;border-radius:12px;text-decoration:none;font-weight:700;font-size:15px}</style></head><body><p>Signing you in…</p><a href="${href}">Open Bersenev</a><script>location.replace(${t});setTimeout(function(){location.href=${t};},400);</script></body></html>`);
 });
 router.post('/refresh', refreshRateLimiter, userController.refresh.bind(userController));
 
