@@ -9,6 +9,18 @@ const router = Router();
 router.post('/register', authRateLimiter, userController.register.bind(userController));
 router.post('/login', authRateLimiter, userController.login.bind(userController));
 router.post('/oauth/taler', authRateLimiter, userController.talerOAuth.bind(userController));
+// Taler only accepts WEB redirect_uris (no custom schemes), so the app registers
+// this https/http bridge. Taler redirects the browser here with ?code&state; we
+// 302 it on to the app's deep link, which the in-app browser hands back to the
+// native app (which then POSTs the code to /oauth/taler above).
+router.get('/oauth/taler/callback', (req, res) => {
+  const qs = new URLSearchParams();
+  for (const k of ['code', 'state', 'error', 'error_description'] as const) {
+    const v = req.query[k];
+    if (typeof v === 'string' && v) qs.set(k, v);
+  }
+  res.redirect(302, `talerid://oauth?${qs.toString()}`);
+});
 router.post('/refresh', refreshRateLimiter, userController.refresh.bind(userController));
 
 router.post('/forgot-password', authRateLimiter, userController.forgotPassword.bind(userController));
